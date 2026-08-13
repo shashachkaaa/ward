@@ -2,23 +2,14 @@ package com.v2ray.ang.ui.main
 
 import android.content.Intent
 import androidx.compose.animation.*
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -33,9 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -44,10 +32,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -77,6 +62,7 @@ import com.v2ray.ang.ui.logcat.LogFileActivity
 import com.v2ray.ang.ui.compose.AppSnackbarManager
 import com.v2ray.ang.ui.compose.GlassSurface
 import com.v2ray.ang.ui.compose.LiquidGlassButton
+import com.v2ray.ang.ui.compose.LiquidPowerButton
 import com.v2ray.ang.ui.compose.QRCodeDialog
 import com.v2ray.ang.ui.compose.LocalGlassBackdrop
 import com.v2ray.ang.ui.compose.glassBackdropSource
@@ -258,9 +244,15 @@ fun MainScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Центральная кнопка
-                PowerButton(
+                LiquidPowerButton(
                     isConnected = uiState.isRunning,
                     isConnecting = isConnecting,
+                    statusText = when {
+                        isConnecting && !uiState.isRunning -> stringResource(R.string.main_state_connecting)
+                        isConnecting && uiState.isRunning -> stringResource(R.string.main_state_disconnecting)
+                        uiState.isRunning -> stringResource(R.string.main_state_connected)
+                        else -> stringResource(R.string.main_state_disconnected)
+                    },
                     timeString = timeString,
                     onClick = {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -872,247 +864,6 @@ private fun SearchField(
  * Крупная круглая кнопка подключения: выпуклая шайба со стеклянным бликом,
  * вокруг неё кольца и свечение, при подключении по кольцу бежит дуга.
  */
-@Composable
-private fun PowerButton(
-    isConnected: Boolean,
-    isConnecting: Boolean,
-    timeString: String,
-    onClick: () -> Unit
-) {
-    val scheme = MaterialTheme.colorScheme
-
-    // Насколько ярко подкрашивать кнопку: на светлой теме мягкое свечение
-    // расплывается в серое пятно, поэтому там оно почти не нужно
-    val isLightTheme = scheme.background.luminance() > 0.5f
-
-    // Одна величина на все слои: 0 - покой, 1 - соединение установлено.
-    // Через неё кольца, свечение и обводка переезжают между состояниями разом
-    val active by animateFloatAsState(
-        targetValue = when {
-            isConnected -> 1f
-            isConnecting -> 0.55f
-            else -> 0f
-        },
-        animationSpec = tween(500),
-        label = "active"
-    )
-    val accent by animateColorAsState(
-        targetValue = if (isConnected || isConnecting) scheme.primary else scheme.outlineVariant,
-        animationSpec = tween(500),
-        label = "accent"
-    )
-
-    val transition = rememberInfiniteTransition(label = "power")
-    val sweepAngle by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing)),
-        label = "sweep"
-    )
-    // Медленный блик по кольцу, когда соединение уже есть: без движения
-    // кнопка выглядит наклейкой
-    val orbitAngle by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(7000, easing = LinearEasing)),
-        label = "orbit"
-    )
-    val breath by transition.animateFloat(
-        initialValue = 0.94f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing), RepeatMode.Reverse),
-        label = "breath"
-    )
-
-    // Нажатие вдавливает шайбу и убирает тень - как настоящую клавишу
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val pressScale by animateFloatAsState(
-        targetValue = if (pressed) 0.94f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "press"
-    )
-    val elevation by animateDpAsState(
-        targetValue = if (pressed) 2.dp else 12.dp,
-        animationSpec = tween(160),
-        label = "elevation"
-    )
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 10.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        // Ореол под кнопкой
-        val glow = (if (isLightTheme) 0.14f else 0.30f) * active
-        Box(
-            modifier = Modifier
-                .size(250.dp)
-                .scale(if (isConnecting) breath else 1f)
-                .drawBehind {
-                    if (glow <= 0.01f) return@drawBehind
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            0f to accent.copy(alpha = glow),
-                            0.55f to accent.copy(alpha = glow * 0.35f),
-                            1f to Color.Transparent,
-                            center = center,
-                            radius = size.minDimension / 2f
-                        )
-                    )
-                }
-        )
-
-        // Внешнее тонкое кольцо
-        Box(
-            modifier = Modifier
-                .size(208.dp)
-                .scale(if (isConnecting) breath else 1f)
-                .border(
-                    width = 1.dp,
-                    color = accent.copy(alpha = 0.10f + 0.16f * active),
-                    shape = CircleShape
-                )
-        )
-
-        // Среднее кольцо, по нему бежит дуга подключения
-        Canvas(
-            modifier = Modifier
-                .size(182.dp)
-                .scale(if (isConnecting) breath else 1f)
-        ) {
-            drawCircle(
-                color = accent.copy(alpha = 0.16f + 0.30f * active),
-                style = Stroke(width = 2.dp.toPx())
-            )
-            if (isConnecting) {
-                rotate(sweepAngle) {
-                    drawArc(
-                        brush = Brush.sweepGradient(
-                            0f to Color.Transparent,
-                            0.06f to accent,
-                            0.28f to Color.Transparent,
-                            1f to Color.Transparent,
-                            center = center
-                        ),
-                        startAngle = 0f,
-                        sweepAngle = 360f,
-                        useCenter = false,
-                        style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
-                    )
-                }
-            } else if (active > 0.01f) {
-                rotate(orbitAngle) {
-                    drawArc(
-                        color = accent.copy(alpha = 0.55f * active),
-                        startAngle = 0f,
-                        sweepAngle = 34f,
-                        useCenter = false,
-                        style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
-                    )
-                }
-            }
-        }
-
-        // Шайба: заливка непрозрачная, сквозь полупрозрачную просвечивала бы
-        // тень кнопки, а система рисует её многоугольником
-        val tint = if (isLightTheme) 0.12f else 0.32f
-        val fillCenter = lerp(scheme.surfaceContainerHigh, scheme.primary, tint * active)
-        val fillEdge = if (isLightTheme) scheme.surface else lerp(scheme.surface, Color.Black, 0.3f)
-        val glossAlpha = if (isLightTheme) 0.7f else 0.12f
-        val shadeAlpha = if (isLightTheme) 0.05f else 0.22f
-
-        Box(
-            modifier = Modifier
-                .size(152.dp)
-                .scale(pressScale)
-                .shadow(elevation = elevation, shape = CircleShape)
-                .clip(CircleShape)
-                .drawBehind {
-                    val radius = size.minDimension / 2f
-                    // Свет падает слева сверху: там центр заливки, там же блик,
-                    // а снизу лёгкое затемнение - от этого шайба выглядит выпуклой
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(fillCenter, fillEdge),
-                            center = Offset(size.width * 0.34f, size.height * 0.24f),
-                            radius = radius * 1.7f
-                        )
-                    )
-                    drawCircle(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(Color.White.copy(alpha = glossAlpha), Color.Transparent),
-                            startY = 0f,
-                            endY = size.height * 0.62f
-                        )
-                    )
-                    drawCircle(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = shadeAlpha)),
-                            startY = size.height * 0.45f,
-                            endY = size.height
-                        )
-                    )
-                    val edge = 1.5.dp.toPx()
-                    drawCircle(
-                        brush = Brush.verticalGradient(
-                            listOf(
-                                accent.copy(alpha = 0.30f + 0.50f * active),
-                                accent.copy(alpha = 0.10f + 0.25f * active)
-                            )
-                        ),
-                        radius = radius - edge / 2f,
-                        style = Stroke(width = edge)
-                    )
-                }
-                .clickable(interactionSource = interaction, indication = ripple()) { onClick() },
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                PowerIcon(
-                    color = lerp(scheme.onSurfaceVariant, scheme.primary, active),
-                    modifier = Modifier.size(36.dp)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = when {
-                        isConnecting && !isConnected -> stringResource(R.string.main_state_connecting)
-                        isConnecting && isConnected -> stringResource(R.string.main_state_disconnecting)
-                        isConnected -> stringResource(R.string.main_state_connected)
-                        else -> stringResource(R.string.main_state_disconnected)
-                    },
-                    color = scheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 0.8.sp
-                )
-                AnimatedVisibility(
-                    visible = isConnected,
-                    enter = fadeIn(tween(400)) + expandVertically(tween(400)),
-                    exit = fadeOut(tween(200)) + shrinkVertically(tween(200))
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = timeString,
-                            color = scheme.onSurface,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.sp
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
 /**
  * Скорость под кнопкой: приходит из того же замера, что и уведомление.

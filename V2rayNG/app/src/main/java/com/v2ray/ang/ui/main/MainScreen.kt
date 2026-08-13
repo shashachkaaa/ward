@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -76,7 +77,6 @@ import com.v2ray.ang.ui.logcat.LogFileActivity
 import com.v2ray.ang.ui.compose.AppSnackbarManager
 import com.v2ray.ang.ui.compose.GlassSurface
 import com.v2ray.ang.ui.compose.QRCodeDialog
-import com.v2ray.ang.ui.compose.ResumePauseEffect
 import com.v2ray.ang.ui.compose.LocalGlassBackdrop
 import com.v2ray.ang.ui.compose.glassBackdropSource
 import com.v2ray.ang.ui.compose.rememberGlassBackdrop
@@ -177,10 +177,13 @@ fun MainScreen(
     var barItem by remember { mutableStateOf(GlassBarItem.HOME) }
     val barScope = rememberCoroutineScope()
 
-    ResumePauseEffect(
-        onResume = { barItem = GlassBarItem.HOME },
-        onPause = {}
-    )
+    // Возвращаем каплю домой, когда экран уже скрылся. На возобновлении было
+    // поздно: наша капля всё это время стояла на шестерёнке и ехала домой второй
+    // раз, поверх того переезда, что уже отыграл экран настроек. Именно ON_STOP,
+    // а не ON_PAUSE: на паузе мы ещё видны, кроссфейд как раз идёт
+    LifecycleStartEffect(Unit) {
+        onStopOrDispose { barItem = GlassBarItem.HOME }
+    }
 
     // Сервера, добавленные ключом: свой раздел над подписками, пустым не показывается
     val standaloneServers by remember { mainViewModel.serversForGroup(STANDALONE_GROUP_ID) }

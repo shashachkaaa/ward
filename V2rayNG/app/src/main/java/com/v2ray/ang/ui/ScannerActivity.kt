@@ -110,11 +110,18 @@ class ScannerActivity : HelperBaseComponentActivity() {
         uiState.value = ScannerUiState.IDLE
     }
 
+    /**
+     * Распознанный код приходит с потока разбора кадров, а закрывать экран и отдавать
+     * результат можно только с главного. Раньше это делалось прямо оттуда: код читался,
+     * а экран не закрывался и результат никуда не уходил.
+     */
     private fun finished(text: String) {
-        val intent = Intent()
-        intent.putExtra("SCAN_RESULT", text)
-        setResult(RESULT_OK, intent)
-        finish()
+        runOnUiThread {
+            val intent = Intent()
+            intent.putExtra("SCAN_RESULT", text)
+            setResult(RESULT_OK, intent)
+            finish()
+        }
     }
 
     private fun showFileChooser() {
@@ -432,24 +439,36 @@ private fun processImageProxy(
         buffer.get(bytes)
         val width = imageProxy.width
         val height = imageProxy.height
-
         // Ширина строки в буфере больше ширины кадра, когда камера добивает строки до
-        // кратности. Раньше ширина бралась из кадра, и картинка расползалась по диагонали -
-        // декодер не находил в ней ничего никогда
-        val source = PlanarYUVLuminanceSource(
-            bytes, plane.rowStride, height,
-            0, 0, width, height,
-            false
-        )
+        // кратности. Брать вместо неё ширину кадра нельзя: картинка расползается по
+        // диагонали, и декодер не находит в ней ничего никогда
+        val rowStride = plane.rowStride
+
         val hints = mapOf(
             DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
             DecodeHintType.TRY_HARDER to true,
             DecodeHintType.CHARACTER_SET to "UTF-8"
         )
 
-        // Кадр приходит в ориентации сенсора: если в ней не нашлось, пробуем повёрнутый
-        val text = decodeOrNull(source, hints)
-            ?: decodeOrNull(source.rotateCounterClockwise(), hints)
+        // Сначала середина кадра - в неё и наводят по рамке. На весь кадр бинаризатор
+        // считает порог по всей картинке разом, и код, занимающий её малую часть,
+        // тонет в фоне. Полный кадр остаётся второй попыткой: код может быть и крупным
+        val side = minOf(width, height) * 2 / 3
+        val text = decodeOrNull(
+            PlanarYUVLuminanceSource(
+                bytes, rowStride, height,
+                (width - side) / 2, (height - side) / 2, side, side,
+                false
+            ),
+            hints
+        ) ?: decodeOrNull(
+            PlanarYUVLuminanceSource(
+                bytes, rowStride, height,
+                0, 0, width, height,
+                false
+            ),
+            hints
+        )
 
         if (!text.isNullOrEmpty() && foundResult.compareAndSet(false, true)) {
             onResult(text)

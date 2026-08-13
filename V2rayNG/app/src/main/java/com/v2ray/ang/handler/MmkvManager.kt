@@ -85,6 +85,14 @@ object MmkvManager {
     }
 
     /**
+     * Снимает выбор сервера. Нужно, когда выбранный профиль не читается: иначе мёртвый
+     * идентификатор остаётся записанным и валит каждую следующую попытку подключиться.
+     */
+    fun clearSelectServer() {
+        mainStorage.remove(KEY_SELECTED_SERVER)
+    }
+
+    /**
      * Encodes the server list for a given subscription.
      * Saves to the subscription's serverList (including default subscription for ungrouped servers).
      *

@@ -14,6 +14,7 @@ import com.v2ray.ang.enums.NotificationChannelType
 import com.v2ray.ang.extension.serializable
 import com.v2ray.ang.handler.AngConfigManager
 import com.v2ray.ang.handler.MmkvManager
+import com.v2ray.ang.helper.MessageHelper
 import com.v2ray.ang.helper.NotificationHelper
 import com.v2ray.ang.util.LogUtil
 import kotlinx.coroutines.CompletableDeferred
@@ -149,6 +150,12 @@ class SubscriptionUpdateService : Service() {
         }
 
         LogUtil.i(AppConfig.TAG, "SubscriptionUpdateService: Finished ${subItem.remarks}")
+
+        // Обновление заводит профилям новые идентификаторы, а список на экране остаётся
+        // со старыми. Нажатие по такой строке выбирало сервер, которого больше нет, -
+        // подключение падало с «Неправильный профиль», и выбор запоминался таким же
+        // мёртвым. Служба живёт в своём процессе, поэтому сообщаем экрану сами
+        MessageHelper.sendMsg2UI(this, AppConfig.MSG_SUB_UPDATE_FINISH, subId)
     }
 
     private suspend fun testSubscriptionServers(sub: SubscriptionCache) {

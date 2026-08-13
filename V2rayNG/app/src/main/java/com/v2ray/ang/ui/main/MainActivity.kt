@@ -297,7 +297,9 @@ class MainActivity : HelperBaseComponentActivity() {
     private fun setSelectServer(guid: String) {
         val selected = mainViewModel.uiState.value.selectedGuid
         if (guid != selected) {
-            mainViewModel.updateSelectedGuid(guid)
+            // Профиль мог исчезнуть из-под списка: тогда выбор не состоялся и
+            // перезапускать службу не с чем - она осталась на прежнем сервере
+            if (!mainViewModel.updateSelectedGuid(guid)) return
             if (mainViewModel.uiState.value.isRunning) restartV2Ray()
         }
     }

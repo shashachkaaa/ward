@@ -238,6 +238,7 @@
     <string name="accent_pink">Розовый</string>
     <string name="accent_purple">Фиолетовый</string>
     <string name="main_test_needs_connection">Сначала подключитесь к серверу</string>
+    <string name="main_stale_profile">Этого профиля больше нет, список обновлён</string>
     <!-- Preferences -->
     <string name="title_info_commit">Коммит сборки</string>
     <string name="title_info_url_schemes">URL-схемы</string>

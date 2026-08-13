@@ -239,6 +239,7 @@
     <string name="accent_pink">Pink</string>
     <string name="accent_purple">Purple</string>
     <string name="main_test_needs_connection">Connect to a server first</string>
+    <string name="main_stale_profile">This profile no longer exists, the list has been refreshed</string>
     <!-- Preferences -->
     <string name="title_info_commit">Build commit</string>
     <string name="title_info_url_schemes">URL schemes</string>

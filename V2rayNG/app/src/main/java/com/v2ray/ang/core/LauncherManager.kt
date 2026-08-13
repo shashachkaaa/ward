@@ -70,6 +70,10 @@ object LauncherManager {
         val config = MmkvManager.decodeServerConfig(guid)
             ?: run {
                 LogUtil.e(AppConfig.TAG, "LauncherManager: Failed to decode server config")
+                // Выбор указывает на профиль, которого больше нет - так бывает после
+                // обновления подписки, оно пересоздаёт профили заново. Снимаем выбор:
+                // иначе здесь же валится и каждая следующая попытка подключиться
+                MmkvManager.clearSelectServer()
                 error(context.getString(R.string.toast_config_file_invalid))
             }
 

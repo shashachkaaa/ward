@@ -70,6 +70,10 @@ class MainRepository(
                     safeIntent.getStringExtra("content").orEmpty()
                 )
 
+                AppConfig.MSG_SUB_UPDATE_FINISH -> MainServiceEvent.SubscriptionUpdated(
+                    safeIntent.getStringExtra("content").orEmpty()
+                )
+
                 else -> null
             }
             event?.let { _mainServiceEvent.tryEmit(it) }

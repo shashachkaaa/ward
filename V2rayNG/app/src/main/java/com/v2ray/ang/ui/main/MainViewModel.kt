@@ -214,6 +214,13 @@ class MainViewModel(
                     TrafficSpeedState.publish(speed, interval)
                 }
             }
+
+            // Обновление подписки пересоздаёт профили с новыми идентификаторами.
+            // Пока список не перечитан, каждая его строка ведёт на сервер, которого
+            // больше нет, - перечитываем сразу, не дожидаясь следующего открытия экрана
+            is MainServiceEvent.SubscriptionUpdated -> {
+                setupGroupTab(forceRefresh = true)
+            }
         }
     }
 
@@ -715,9 +722,25 @@ class MainViewModel(
         }
     }
 
-    fun updateSelectedGuid(guid: String) {
+    /**
+     * Запоминает выбранный сервер.
+     *
+     * Профиль сперва проверяется: список на экране мог устареть - подписка обновляется
+     * в своей службе и заводит профилям новые идентификаторы. Запоминать мёртвый
+     * идентификатор нельзя, иначе подключение падает с «Неправильный профиль» и падает
+     * так же при каждой следующей попытке, пока сервер не выберут заново.
+     *
+     * @return Удалось ли выбрать.
+     */
+    fun updateSelectedGuid(guid: String): Boolean {
+        if (dataSource.decodeServerConfig(guid) == null) {
+            toastError(R.string.main_stale_profile)
+            setupGroupTab(forceRefresh = true)
+            return false
+        }
         _uiState.update { it.copy(selectedGuid = guid) }
         dataSource.setSelectServer(guid)
+        return true
     }
 
     fun triggerLocateSelectedServer() {}

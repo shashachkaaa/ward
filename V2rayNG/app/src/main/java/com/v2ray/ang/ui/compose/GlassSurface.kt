@@ -9,15 +9,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionOnScreen
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.backdrops.LayerBackdrop
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
@@ -55,31 +67,55 @@ val LocalGlassBackdrop = compositionLocalOf<GlassBackdrop?> { null }
 /**
  * Снимок экрана, который стекло размывает у себя под низом.
  *
- * Обёртка над слоем библиотеки: наши экраны обращаются с ним по-своему (кто-то
- * записывает, кто-то только читает через [LocalGlassBackdrop]), и держать эту разницу
- * удобнее в своём типе.
+ * Свой, а не библиотечный `LayerBackdrop`: тот считает смещение в оконных
+ * координатах (`positionInWindow`), а диалоги, меню и снекбар живут каждый в своём
+ * окне со своим началом отсчёта. Смещение выходило неверным, и стекло брало кусок
+ * экрана не из-под себя - размывалось то, чего под окном нет. Экранные координаты
+ * общие для всех окон, и с ними такого не бывает.
  */
 @Stable
-class GlassBackdrop internal constructor(internal val layer: LayerBackdrop) {
-    /** Слой в виде, понятном компонентам библиотеки. */
-    val backdrop: Backdrop get() = layer
+class GlassBackdrop internal constructor(internal val layer: GraphicsLayer) : Backdrop {
+
+    override val isCoordinatesDependent: Boolean = true
+
+    /** Левый верхний угол записанного содержимого в координатах экрана. */
+    internal var origin by mutableStateOf(Offset.Zero)
+
+    /** Он же в виде, понятном компонентам библиотеки. */
+    val backdrop: Backdrop get() = this
+
+    override fun DrawScope.drawBackdrop(
+        density: Density,
+        coordinates: LayoutCoordinates?,
+        layerBlock: (GraphicsLayerScope.() -> Unit)?
+    ) {
+        val here = coordinates?.positionOnScreen() ?: return
+        translate(left = origin.x - here.x, top = origin.y - here.y) {
+            drawLayer(layer)
+        }
+    }
 }
 
 @Composable
 fun rememberGlassBackdrop(): GlassBackdrop {
-    val layer = rememberLayerBackdrop()
+    val layer = rememberGraphicsLayer()
     return remember(layer) { GlassBackdrop(layer) }
 }
 
 /**
- * Пишет содержимое в [backdrop]. Вешается на корень экрана, чтобы стеклянные
- * поверхности могли размыть именно то, что под ними.
+ * Пишет содержимое в [backdrop] и тут же рисует его на экране. Вешается на корень
+ * экрана, чтобы стеклянные поверхности могли размыть именно то, что под ними.
  */
 @Composable
 fun Modifier.glassBackdropSource(
     backdrop: GlassBackdrop,
     @Suppress("UNUSED_PARAMETER") blurRadius: Dp = GlassBlurRadius
-): Modifier = layerBackdrop(backdrop.layer)
+): Modifier = this
+    .onGloballyPositioned { backdrop.origin = it.positionOnScreen() }
+    .drawWithContent {
+        backdrop.layer.record { this@drawWithContent.drawContent() }
+        drawLayer(backdrop.layer)
+    }
 
 /**
  * Фон «жидкого стекла»: размытая копия того, что под элементом, преломление у края,

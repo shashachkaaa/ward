@@ -76,6 +76,7 @@ import com.v2ray.ang.handler.UpdateInstallState
 import com.v2ray.ang.ui.logcat.LogFileActivity
 import com.v2ray.ang.ui.compose.AppSnackbarManager
 import com.v2ray.ang.ui.compose.GlassSurface
+import com.v2ray.ang.ui.compose.LiquidGlassButton
 import com.v2ray.ang.ui.compose.QRCodeDialog
 import com.v2ray.ang.ui.compose.LocalGlassBackdrop
 import com.v2ray.ang.ui.compose.glassBackdropSource
@@ -1244,43 +1245,30 @@ private fun ActionChip(
     modifier: Modifier = Modifier,
     selected: Boolean = false
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.96f else 1f,
-        animationSpec = tween(120),
-        label = "chipScale"
-    )
+    val scheme = MaterialTheme.colorScheme
 
-    // Подложка держится на акценте: на чёрной теме серый контейнер сливался с фоном
-    // до полной невидимости, и чип читался как просто текст, а не как кнопка
-    // Включённый чип заливается плотнее: иначе непонятно, что поиск открыт
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.primary.copy(alpha = if (selected) 0.28f else 0.12f),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.primary.copy(alpha = if (selected) 0.60f else 0.30f)
-        ),
-        modifier = modifier
-            .scale(scale)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = ripple(),
-                onClick = onClick
-            )
+    // Заливка держится на акценте: на чёрной теме серый контейнер сливался с фоном
+    // до полной невидимости, и чип читался как просто текст, а не как кнопка.
+    // Включённый чип плотнее - иначе непонятно, что поиск открыт
+    LiquidGlassButton(
+        onClick = onClick,
+        modifier = modifier,
+        tint = scheme.primary,
+        surfaceColor = scheme.primary.copy(alpha = if (selected) 0.28f else 0.12f),
+        applyDefaultHeight = false,
+        contentPaddingHorizontal = 14.dp
     ) {
         // Без fillMaxWidth: чип без веса забирал бы всю строку целиком,
         // и соседу с weight(1f) не оставалось ни пикселя - он просто исчезал
         Text(
             text = text,
-            color = MaterialTheme.colorScheme.primary,
+            color = scheme.primary,
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+            modifier = Modifier.padding(vertical = 10.dp)
         )
     }
 }

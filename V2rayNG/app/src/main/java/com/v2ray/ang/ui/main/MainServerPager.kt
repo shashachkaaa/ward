@@ -56,6 +56,7 @@ import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.colorPingSlow
 import com.v2ray.ang.ui.compose.GlassMenuShape
 import com.v2ray.ang.ui.compose.GlassSurface
+import com.v2ray.ang.ui.compose.LiquidGlassButton
 import com.v2ray.ang.ui.compose.glassPanel
 import com.v2ray.ang.ui.subscription.SubEditActivity
 import com.v2ray.ang.util.CustomConfigUtil
@@ -293,25 +294,35 @@ fun ProfileCard(
                         }
                     }
 
-                    // Обновление и пинг живут в общей стеклянной таблетке.
-                    // Слой сюда передавать нельзя: карточка сама пишется в него
-                    GlassSurface(
-                        shape = GlassCapsuleShape,
-                        opaqueness = 0.85f,
-                        fallbackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                    // Обновление и пинг - две стеклянные таблетки. Фон им передавать
+                    // нельзя: карточка сама пишется в него, а рисовать слой внутри
+                    // его же записи запрещено
+                    LiquidGlassButton(
+                        onClick = { onUpdateSubscription(subscription.guid) },
+                        surfaceColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                        applyDefaultHeight = false,
+                        contentPaddingHorizontal = 10.dp
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                        ) {
-                            IconButton(onClick = { onUpdateSubscription(subscription.guid) }, modifier = Modifier.size(28.dp)) {
-                                Icon(painterResource(id = R.drawable.ic_restore_24dp), contentDescription = stringResource(R.string.title_sub_update), tint = MaterialTheme.colorScheme.primary)
-                            }
-                            Spacer(Modifier.width(10.dp))
-                            IconButton(onClick = { onPingProfile(subscription.guid) }, modifier = Modifier.size(28.dp)) {
-                                ClockIcon(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                            }
-                        }
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_restore_24dp),
+                            contentDescription = stringResource(R.string.title_sub_update),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp).padding(vertical = 1.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.width(6.dp))
+
+                    LiquidGlassButton(
+                        onClick = { onPingProfile(subscription.guid) },
+                        surfaceColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                        applyDefaultHeight = false,
+                        contentPaddingHorizontal = 10.dp
+                    ) {
+                        ClockIcon(
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp).padding(vertical = 3.dp)
+                        )
                     }
 
                     Spacer(Modifier.width(6.dp))

@@ -38,6 +38,13 @@ val GlassCapsuleShape = RoundedCornerShape(50)
 
 private val items = listOf(GlassBarItem.HOME, GlassBarItem.SETTINGS, GlassBarItem.ADD)
 
+/**
+ * Сколько капля едет между пунктами. Экран сменять раньше нельзя: у каждого экрана
+ * капля своя, и кроссфейд просто подменяет одну другой - переезд надо показать на
+ * том экране, с которого уходим.
+ */
+const val BarTravelMs = 320L
+
 /** Жёсткость хода капли по панели. Мягче зашитой в библиотеке: ход тут длинный. */
 private const val TabTravelStiffness = 320f
 

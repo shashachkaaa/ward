@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.LogFileInfo
 import com.v2ray.ang.extension.toSpeedString
@@ -170,31 +171,16 @@ fun MainScreen(
     val speedHistory by TrafficSpeedState.history.collectAsStateWithLifecycle()
     val session by TrafficSpeedState.session.collectAsStateWithLifecycle()
 
-    // Пузырёк капсулы. Из настроек он должен приехать с шестерёнки, а не оказаться
-    // на «Главной» мгновенно, поэтому при возврате панель пересобирается уже с
-    // подсветкой на настройках, а следом уезжает на место
+    // Пузырёк капсулы. Капля у каждого экрана своя, и кроссфейд просто подменяет
+    // одну другой - поэтому переезд показываем на том экране, с которого уходим, и
+    // только потом уходим. Возврат отыгрывается здесь же, при возобновлении
     var barItem by remember { mutableStateOf(GlassBarItem.HOME) }
-    var barResetToken by remember { mutableIntStateOf(0) }
-    var leftForSettings by rememberSaveable { mutableStateOf(false) }
+    val barScope = rememberCoroutineScope()
 
     ResumePauseEffect(
-        onResume = {
-            if (leftForSettings) {
-                leftForSettings = false
-                barItem = GlassBarItem.SETTINGS
-                barResetToken++
-            }
-        },
+        onResume = { barItem = GlassBarItem.HOME },
         onPause = {}
     )
-
-    LaunchedEffect(barItem) {
-        if (barItem == GlassBarItem.SETTINGS) {
-            // Даём кроссфейду улечься, чтобы переезд было видно целиком
-            delay(140)
-            barItem = GlassBarItem.HOME
-        }
-    }
 
     // Сервера, добавленные ключом: свой раздел над подписками, пустым не показывается
     val standaloneServers by remember { mainViewModel.serversForGroup(STANDALONE_GROUP_ID) }
@@ -502,7 +488,7 @@ fun MainScreen(
             }
         }
         
-        key(barResetToken) {
+        run {
             LiquidGlassBar(
                 backdrop = backdrop,
                 selected = barItem,
@@ -510,8 +496,14 @@ fun MainScreen(
                     when (item) {
                         GlassBarItem.HOME -> Unit
                         GlassBarItem.SETTINGS -> {
-                            leftForSettings = true
-                            onNavigate("settings")
+                            barItem = GlassBarItem.SETTINGS
+                            barScope.launch {
+                                // Даём капле доехать до шестерёнки: на новом экране
+                                // она уже стоит на месте, и показать переезд можно
+                                // только здесь
+                                delay(BarTravelMs)
+                                onNavigate("settings")
+                            }
                         }
                         GlassBarItem.ADD -> mainViewModel.showImportSheet.value = true
                     }

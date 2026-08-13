@@ -39,6 +39,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -90,6 +91,7 @@ import com.v2ray.ang.ui.compose.SettingsMenuItem
 import com.v2ray.ang.ui.compose.SettingsSwitchItem
 import com.v2ray.ang.ui.compose.ThemeManager
 import com.v2ray.ang.ui.main.GlassBarItem
+import com.v2ray.ang.ui.main.BarTravelMs
 import com.v2ray.ang.ui.main.LiquidGlassBar
 import com.v2ray.ang.ui.logcat.LogFileActivity
 import com.v2ray.ang.ui.logcat.LogcatActivity
@@ -97,6 +99,8 @@ import com.v2ray.ang.util.DeviceInfo
 import com.v2ray.ang.util.HttpUtil
 import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -207,6 +211,7 @@ fun SettingsScreen(
     // возвращалась к домику и ехала обратно
     val backdrop = rememberGlassBackdrop()
     var barItem by remember { mutableStateOf(GlassBarItem.SETTINGS) }
+    val barScope = rememberCoroutineScope()
 
     // Hoisted so the category list keeps its scroll position while a category is open
     val categoryListScrollState = rememberScrollState()
@@ -277,7 +282,15 @@ fun SettingsScreen(
             selected = barItem,
             onSelect = { item ->
                 when (item) {
-                    GlassBarItem.HOME -> onBackClick()
+                    GlassBarItem.HOME -> {
+                        barItem = GlassBarItem.HOME
+                        barScope.launch {
+                            // Сначала капля доезжает до домика, и только потом
+                            // экран закрывается: на главной она уже будет на месте
+                            delay(BarTravelMs)
+                            onBackClick()
+                        }
+                    }
                     GlassBarItem.SETTINGS -> Unit
                     GlassBarItem.ADD -> onImportClick()
                 }

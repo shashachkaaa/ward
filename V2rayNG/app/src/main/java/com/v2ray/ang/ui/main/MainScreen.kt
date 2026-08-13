@@ -176,14 +176,19 @@ fun MainScreen(
     // одну другой - поэтому переезд показываем на том экране, с которого уходим, и
     // только потом уходим. Возврат отыгрывается здесь же, при возобновлении
     var barItem by remember { mutableStateOf(GlassBarItem.HOME) }
+    var barResetToken by remember { mutableIntStateOf(0) }
     val barScope = rememberCoroutineScope()
 
-    // Возвращаем каплю домой, когда экран уже скрылся. На возобновлении было
-    // поздно: наша капля всё это время стояла на шестерёнке и ехала домой второй
-    // раз, поверх того переезда, что уже отыграл экран настроек. Именно ON_STOP,
-    // а не ON_PAUSE: на паузе мы ещё видны, кроссфейд как раз идёт
+    // Экран скрылся - возвращаем каплю домой и пересобираем панель, чтобы она
+    // оказалась там сразу. Одной смены пункта мало: анимация у скрытого окна не
+    // проигрывается, Compose её откладывает, и она отыгрывается уже на возврате -
+    // вторым переездом, на глазах. Пересборка ставит каплю на место без анимации,
+    // и происходит это пока нас не видно
     LifecycleStartEffect(Unit) {
-        onStopOrDispose { barItem = GlassBarItem.HOME }
+        onStopOrDispose {
+            barItem = GlassBarItem.HOME
+            barResetToken++
+        }
     }
 
     // Сервера, добавленные ключом: свой раздел над подписками, пустым не показывается
@@ -492,7 +497,7 @@ fun MainScreen(
             }
         }
         
-        run {
+        key(barResetToken) {
             LiquidGlassBar(
                 backdrop = backdrop,
                 selected = barItem,
@@ -1253,7 +1258,8 @@ private fun ActionChip(
     LiquidGlassButton(
         onClick = onClick,
         modifier = modifier,
-        tint = scheme.primary,
+        // Только полупрозрачная заливка: сплошной акцент задавил бы текст, он тут
+        // того же цвета
         surfaceColor = scheme.primary.copy(alpha = if (selected) 0.28f else 0.12f),
         applyDefaultHeight = false,
         contentPaddingHorizontal = 14.dp

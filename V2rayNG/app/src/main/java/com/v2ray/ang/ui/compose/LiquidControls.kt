@@ -1,7 +1,6 @@
 package com.v2ray.ang.ui.compose
 
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -20,7 +19,9 @@ import com.kyant.backdrop.catalog.components.LiquidButton
  * передаёт пустой фон, а стеклом их делают блик, тень и отклик на палец - у
  * `LiquidButton` кнопка тянется за пальцем и слегка вспухает под нажатием.
  *
- * @param tint Оттенок стекла.
+ * @param tint Сплошная заливка акцентом. У `LiquidButton` она кроет на 75% и гасит
+ *   собственный цвет содержимого - годится кнопке с белой иконкой, но не чипу с
+ *   акцентным текстом. По умолчанию её нет.
  * @param surfaceColor Заливка поверх стекла.
  * @param applyDefaultHeight Держать высоту 48dp. Чипам она велика.
  * @param contentPaddingHorizontal Поля содержимого.
@@ -29,7 +30,7 @@ import com.kyant.backdrop.catalog.components.LiquidButton
 fun LiquidGlassButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    tint: Color = MaterialTheme.colorScheme.primary,
+    tint: Color = Color.Unspecified,
     surfaceColor: Color = Color.Unspecified,
     applyDefaultHeight: Boolean = true,
     contentPaddingHorizontal: Dp = 16.dp,

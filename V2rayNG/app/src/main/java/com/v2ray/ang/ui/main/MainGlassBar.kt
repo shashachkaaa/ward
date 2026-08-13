@@ -38,8 +38,15 @@ val GlassCapsuleShape = RoundedCornerShape(50)
 
 private val items = listOf(GlassBarItem.HOME, GlassBarItem.SETTINGS, GlassBarItem.ADD)
 
-/** Сколько капля ждёт, прежде чем вернуться на непринятом экраном пункте. */
+/** Сколько капля ждёт, прежде чем вернуться с пункта-действия. */
 private const val SettleBackDelayMs = 550L
+
+/**
+ * Пункты, которые не уводят на свой экран, а делают действие на месте. Капля на них
+ * не остаётся: постояла и вернулась. Для остальных она обязана остаться там, куда её
+ * послали, - иначе получается тот самый рывок назад с последующим повторным переездом.
+ */
+private val transientItems = setOf(GlassBarItem.ADD)
 
 /**
  * Нижняя капсула жидкого стекла.
@@ -70,11 +77,11 @@ fun LiquidGlassBar(
     var shown by remember { mutableIntStateOf(external) }
     LaunchedEffect(external) { shown = external }
 
-    // Экран мог и не принять выбор: «+» открывает шторку, а активным остаётся
-    // прежний пункт. Тогда капля возвращается сама - иначе она навсегда осталась бы
-    // на плюсе, и снять её оттуда можно было бы только пальцем
+    // «+» открывает шторку, а активным остаётся прежний пункт - капля постоит на
+    // плюсе и вернётся. Пунктам, которые уводят на свой экран, возвращаться нельзя:
+    // экран как раз открывается, и капля дёргалась бы назад у него на глазах
     LaunchedEffect(shown, external) {
-        if (shown != external) {
+        if (shown != external && items[shown] in transientItems) {
             delay(SettleBackDelayMs)
             if (shown != external) shown = external
         }

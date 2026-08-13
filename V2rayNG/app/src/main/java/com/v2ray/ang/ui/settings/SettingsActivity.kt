@@ -34,7 +34,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -98,7 +97,6 @@ import com.v2ray.ang.util.DeviceInfo
 import com.v2ray.ang.util.HttpUtil
 import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -204,14 +202,11 @@ fun SettingsScreen(
 ) {
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
 
-    // Та же капсула, что на главной: пузырёк въезжает на шестерёнку при открытии экрана
+    // Та же капсула, что на главной. Пузырёк сразу на шестерёнке: переезд на неё уже
+    // отыгран на главной, и повторять его здесь значит показать его дважды - капля
+    // возвращалась к домику и ехала обратно
     val backdrop = rememberGlassBackdrop()
-    var barItem by remember { mutableStateOf(GlassBarItem.HOME) }
-    LaunchedEffect(Unit) {
-        // Даём кроссфейду улечься, чтобы переезд пузырька было видно целиком
-        delay(140)
-        barItem = GlassBarItem.SETTINGS
-    }
+    var barItem by remember { mutableStateOf(GlassBarItem.SETTINGS) }
 
     // Hoisted so the category list keeps its scroll position while a category is open
     val categoryListScrollState = rememberScrollState()

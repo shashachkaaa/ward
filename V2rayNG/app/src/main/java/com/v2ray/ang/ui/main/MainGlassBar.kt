@@ -38,6 +38,9 @@ val GlassCapsuleShape = RoundedCornerShape(50)
 
 private val items = listOf(GlassBarItem.HOME, GlassBarItem.SETTINGS, GlassBarItem.ADD)
 
+/** Жёсткость хода капли по панели. Мягче зашитой в библиотеке: ход тут длинный. */
+private const val TabTravelStiffness = 320f
+
 /** Сколько капля ждёт, прежде чем вернуться с пункта-действия. */
 private const val SettleBackDelayMs = 550L
 
@@ -105,7 +108,13 @@ fun LiquidGlassBar(
         },
         backdrop = backdrop.backdrop,
         tabsCount = items.size,
-        modifier = modifier
+        modifier = modifier,
+        // Иконку под каплей компонент подкрашивает сам, и по умолчанию - своим
+        // синим. Нам нужен акцент приложения
+        accentColor = MaterialTheme.colorScheme.primary,
+        // Ход у панели во всю ширину, и с зашитой жёсткостью капля перелетала за
+        // миг: анимации попросту не было видно
+        stiffness = TabTravelStiffness
     ) {
         items.forEachIndexed { index, item ->
             // Нажатие только двигает каплю: о выборе сообщит onTabSelected, когда

@@ -17,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -27,6 +28,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -63,11 +65,15 @@ fun LiquidBottomTabs(
     backdrop: Backdrop,
     tabsCount: Int,
     modifier: Modifier = Modifier,
+    accentColor: Color = Color.Unspecified,
+    stiffness: Float = 1000f,
     content: @Composable RowScope.() -> Unit
 ) {
     val isLightTheme = !isSystemInDarkTheme()
+    @Suppress("NAME_SHADOWING")
     val accentColor =
-        if (isLightTheme) Color(0xFF0088FF)
+        if (accentColor.isSpecified) accentColor
+        else if (isLightTheme) Color(0xFF0088FF)
         else Color(0xFF0091FF)
     val containerColor =
         if (isLightTheme) Color(0xFFFAFAFA).copy(0.4f)
@@ -99,6 +105,12 @@ fun LiquidBottomTabs(
         var currentIndex by remember(selectedTabIndex) {
             mutableIntStateOf(selectedTabIndex())
         }
+        // Отпускание пальца приходит сюда и после обычного тапа, без единого
+        // движения. Оригинал в этом случае всё равно возвращал индекс туда, где
+        // капля была, и это гонялось с обработчиком нажатия: капля ехала к новому
+        // пункту, дёргалась назад и ехала снова. В LiquidToggle такая защита у
+        // библиотеки есть, во вкладках её забыли
+        var didDrag by remember { mutableStateOf(false) }
         val dampedDragAnimation = remember(animationScope) {
             DampedDragAnimation(
                 animationScope = animationScope,
@@ -107,11 +119,16 @@ fun LiquidBottomTabs(
                 visibilityThreshold = 0.001f,
                 initialScale = 1f,
                 pressedScale = 78f / 56f,
+                stiffness = stiffness,
                 onDragStarted = {},
                 onDragStopped = {
-                    val targetIndex = targetValue.fastRoundToInt().fastCoerceIn(0, tabsCount - 1)
-                    currentIndex = targetIndex
-                    animateToValue(targetIndex.toFloat())
+                    if (didDrag) {
+                        val targetIndex =
+                            targetValue.fastRoundToInt().fastCoerceIn(0, tabsCount - 1)
+                        currentIndex = targetIndex
+                        animateToValue(targetIndex.toFloat())
+                        didDrag = false
+                    }
                     animationScope.launch {
                         offsetAnimation.animateTo(
                             0f,
@@ -120,6 +137,7 @@ fun LiquidBottomTabs(
                     }
                 },
                 onDrag = { _, dragAmount ->
+                    if (dragAmount.x != 0f) didDrag = true
                     updateValue(
                         (targetValue + dragAmount.x / tabWidth * if (isLtr) 1f else -1f)
                             .fastCoerceIn(0f, (tabsCount - 1).toFloat())

@@ -22,13 +22,19 @@ class DampedDragAnimation(
     val visibilityThreshold: Float,
     val initialScale: Float,
     val pressedScale: Float,
+    /**
+     * Жёсткость пружины хода. У оригинала она зашита в 1000 - для короткого хода
+     * ползунка это верно, а на всю ширину панели переезд получается за миг, и
+     * анимации попросту не видно.
+     */
+    val stiffness: Float = 1000f,
     val onDragStarted: DampedDragAnimation.(position: Offset) -> Unit,
     val onDragStopped: DampedDragAnimation.() -> Unit,
     val onDrag: DampedDragAnimation.(size: IntSize, dragAmount: Offset) -> Unit,
 ) {
 
     private val valueAnimationSpec =
-        spring(1f, 1000f, visibilityThreshold)
+        spring(1f, stiffness, visibilityThreshold)
     private val velocityAnimationSpec =
         spring(0.5f, 300f, visibilityThreshold * 10f)
     private val pressProgressAnimationSpec =

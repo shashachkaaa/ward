@@ -209,6 +209,11 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui.tooling.preview)
+
+    // Жидкое стекло: линза, блики и тени под неё. Apache 2.0, условия в
+    // THIRD_PARTY.md. Высокоуровневых компонентов библиотека не публикует - они
+    // лежат в её каталоге примеров и перенесены к нам в com.kyant.backdrop.catalog
+    implementation("io.github.kyant0:backdrop-android:2.0.0")
     implementation(libs.lifecycle.runtime.compose)
 
     debugImplementation(libs.androidx.compose.ui.tooling)

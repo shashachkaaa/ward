@@ -2,14 +2,20 @@
 
 ## Kyant0/AndroidLiquidGlass
 
-Устройство стеклянной капли в переключателе и в нижней панели повторяет пример
-`LiquidToggle` из библиотеки [AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass)
-(Kyant0), распространяемой по лицензии Apache 2.0.
+Эффект жидкого стекла - линза, блики, тени, преломление - берётся из библиотеки
+[AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) (Kyant0),
+подключённой как `io.github.kyant0:backdrop-android`. На ней же сделано приложение,
+которое служило референсом.
 
-Заимствованы размеры, коэффициенты и сама модель поведения: капля раздувается по
-удержанию, а не по таймеру, и отпускается не пальцем, а прибытием. Код написан свой,
-на собственном шейдере линзы, но числа и логика - оттуда.
+Высокоуровневых компонентов библиотека не публикует - они лежат в её каталоге
+примеров. Поэтому `LiquidToggle`, `LiquidButton`, `LiquidBottomTabs`,
+`LiquidBottomTab` и вспомогательные к ним классы перенесены в проект как есть, в
+`com/kyant/backdrop/catalog`. Изменения от оригинала минимальные и отмечены на месте:
+свой акцентный цвет, признак доступности, отказ от expect/actual там, где платформа
+у нас одна.
 
     Copyright (c) Kyant0
     Licensed under the Apache License, Version 2.0
     http://www.apache.org/licenses/LICENSE-2.0
+
+Полный текст лицензии: https://github.com/Kyant0/AndroidLiquidGlass/blob/master/LICENSE

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -289,8 +290,10 @@ fun SettingsScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                // Капсула теперь с прозрачным запасом под раздувание капли
-                .padding(bottom = 8.dp)
+                // Капсула у библиотеки во всю доступную ширину, поля задаются снаружи
+                .fillMaxWidth()
+                .padding(horizontal = 28.dp)
+                .padding(bottom = 12.dp)
         )
     }
 }

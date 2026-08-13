@@ -519,9 +519,11 @@ fun MainScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
-                    // Капсула теперь с прозрачным запасом по краям под раздувание
-                    // капли, поэтому отступ снизу на этот запас и уменьшен
-                    .padding(bottom = 8.dp)
+                    // Капсула у библиотеки во всю доступную ширину, поля задаются
+                    // снаружи - как и в самом референсе
+                    .fillMaxWidth()
+                    .padding(horizontal = 28.dp)
+                    .padding(bottom = 12.dp)
             )
         }
 

@@ -9,7 +9,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -23,6 +28,7 @@ import com.kyant.backdrop.catalog.components.LiquidBottomTab
 import com.kyant.backdrop.catalog.components.LiquidBottomTabs
 import com.v2ray.ang.R
 import com.v2ray.ang.ui.compose.GlassBackdrop
+import kotlinx.coroutines.delay
 
 /** Пункты нижней капсулы. */
 enum class GlassBarItem { HOME, SETTINGS, ADD }
@@ -31,6 +37,9 @@ enum class GlassBarItem { HOME, SETTINGS, ADD }
 val GlassCapsuleShape = RoundedCornerShape(50)
 
 private val items = listOf(GlassBarItem.HOME, GlassBarItem.SETTINGS, GlassBarItem.ADD)
+
+/** Сколько капля ждёт, прежде чем вернуться на непринятом экраном пункте. */
+private const val SettleBackDelayMs = 550L
 
 /**
  * Нижняя капсула жидкого стекла.
@@ -53,18 +62,49 @@ fun LiquidGlassBar(
     onSelect: (GlassBarItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val selectedIndex = items.indexOf(selected).coerceAtLeast(0)
+    val external = items.indexOf(selected).coerceAtLeast(0)
+
+    // Индекс, который видит капля. Ведём его сами и меняем сразу по нажатию: у нас
+    // «шестерёнка» и «+» - действия, а не вкладки, и активный пункт после них
+    // остаётся прежним. Ждали бы его - капля стояла бы на месте
+    var shown by remember { mutableIntStateOf(external) }
+    LaunchedEffect(external) { shown = external }
+
+    // Экран мог и не принять выбор: «+» открывает шторку, а активным остаётся
+    // прежний пункт. Тогда капля возвращается сама - иначе она навсегда осталась бы
+    // на плюсе, и снять её оттуда можно было бы только пальцем
+    LaunchedEffect(shown, external) {
+        if (shown != external) {
+            delay(SettleBackDelayMs)
+            if (shown != external) shown = external
+        }
+    }
+
+    // Лямбду держим одну на всё время: компонент запоминает по ней своё состояние,
+    // и новый экземпляр на каждой перекомпоновке сбрасывал бы его
+    val shownState = rememberUpdatedState(shown)
+    val selectedTabIndex = remember { { shownState.value } }
+    val selectedState = rememberUpdatedState(selected)
 
     LiquidBottomTabs(
-        selectedTabIndex = { selectedIndex },
-        onTabSelected = { index -> onSelect(items[index.coerceIn(items.indices)]) },
+        selectedTabIndex = selectedTabIndex,
+        onTabSelected = { index ->
+            val item = items[index.coerceIn(items.indices)]
+            shown = index
+            // Сюда же компонент сообщает и о смене состояния снаружи. Отвечать на
+            // неё вызовом onSelect нельзя: экран уже там, и мы отправляли бы его
+            // туда повторно. Из-за этого возврат из настроек открывал их заново
+            if (item != selectedState.value) onSelect(item)
+        },
         backdrop = backdrop.backdrop,
         tabsCount = items.size,
         modifier = modifier
     ) {
         items.forEachIndexed { index, item ->
-            LiquidBottomTab(onClick = { onSelect(item) }) {
-                GlassBarIcon(item = item, active = index == selectedIndex)
+            // Нажатие только двигает каплю: о выборе сообщит onTabSelected, когда
+            // индекс сменится. Иначе onSelect звался бы дважды
+            LiquidBottomTab(onClick = { shown = index }) {
+                GlassBarIcon(item = item, active = index == shown)
             }
         }
     }

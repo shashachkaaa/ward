@@ -1,6 +1,5 @@
 package com.v2ray.ang.ui.compose
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -191,19 +190,21 @@ fun AppSnackbarHost(
                 contentAlignment = Alignment.BottomCenter
             ) {
                 // Плашка лежит поверх экрана, поэтому фон под ней размывается по-настоящему.
-                // Цвет типа сообщения кладётся сверху полупрозрачным слоем, чтобы стекло читалось
+                // Цвет типа сообщения кладётся сверху полупрозрачным слоем, чтобы стекло читалось.
+                // Красит именно поверхность стекла: фон содержимого её формой не обрезается,
+                // и плашка выходила прямоугольником поверх скруглённого стекла
                 GlassSurface(
                     modifier = Modifier
                         .wrapContentWidth()
                         .widthIn(max = maxSnackbarWidth),
                     shape = RoundedCornerShape(ToastCornerRadius),
                     backdrop = LocalGlassBackdrop.current,
-                    opaqueness = 1.1f,
-                    fallbackColor = bgColor
+                    opaqueness = 0.5f,
+                    surfaceTint = bgColor,
+                    fallbackColor = bgColor.copy(alpha = 0.94f)
                 ) {
                     Row(
                         modifier = Modifier
-                            .background(bgColor)
                             .padding(
                                 horizontal = ToastHorizontalPad,
                                 vertical = ToastVerticalPad

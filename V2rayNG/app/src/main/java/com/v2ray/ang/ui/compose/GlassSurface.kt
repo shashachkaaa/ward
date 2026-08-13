@@ -125,6 +125,8 @@ fun Modifier.glassBackdropSource(
  * @param backdrop Слой с содержимым экрана или null, если размытия не будет.
  * @param blurRadius Радиус размытия фона.
  * @param opaqueness Плотность тонировки: 1 - как у нижней капсулы, больше - матовее.
+ * @param surfaceTint Свой цвет поверх стекла. Кладётся здесь, а не фоном содержимого:
+ *   фон содержимого формой стекла не обрезается и лёг бы поверх него прямоугольником.
  * @param fallbackColor Подложка, когда слоя нет.
  */
 @Composable
@@ -133,6 +135,7 @@ fun Modifier.glassBackground(
     backdrop: GlassBackdrop? = null,
     blurRadius: Dp = GlassBlurRadius,
     opaqueness: Float = 1f,
+    surfaceTint: Color? = null,
     fallbackColor: Color? = null
 ): Modifier {
     val scheme = MaterialTheme.colorScheme
@@ -156,7 +159,12 @@ fun Modifier.glassBackground(
         },
         highlight = { Highlight.Ambient },
         shadow = { Shadow(radius = 8f.dp, color = Color.Black.copy(alpha = 0.08f)) },
-        onDrawSurface = { drawRect(tint) }
+        onDrawSurface = {
+            drawRect(tint)
+            // Библиотека обрезает эту заливку формой стекла, поэтому цвет ложится
+            // капсулой или скруглённым прямоугольником, а не квадратом
+            if (surfaceTint != null) drawRect(surfaceTint)
+        }
     )
 }
 
@@ -191,6 +199,7 @@ fun GlassSurface(
     backdrop: GlassBackdrop? = null,
     blurRadius: Dp = GlassBlurRadius,
     opaqueness: Float = 1f,
+    surfaceTint: Color? = null,
     fallbackColor: Color? = null,
     content: @Composable BoxScope.() -> Unit = {}
 ) {
@@ -200,6 +209,7 @@ fun GlassSurface(
             backdrop = backdrop,
             blurRadius = blurRadius,
             opaqueness = opaqueness,
+            surfaceTint = surfaceTint,
             fallbackColor = fallbackColor
         ),
         content = content

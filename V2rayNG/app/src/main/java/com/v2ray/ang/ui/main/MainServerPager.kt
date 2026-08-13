@@ -55,7 +55,6 @@ import com.v2ray.ang.dto.entities.SubscriptionCache
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.colorPingSlow
 import com.v2ray.ang.ui.compose.GlassMenuShape
-import com.v2ray.ang.ui.compose.GlassSurface
 import com.v2ray.ang.ui.compose.LiquidGlassButton
 import com.v2ray.ang.ui.compose.glassPanel
 import com.v2ray.ang.ui.subscription.SubEditActivity
@@ -67,6 +66,9 @@ import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+
+/** Высота стеклянных таблеток «обновить» и «пинг» в шапке группы. */
+private val SubActionPillHeight = 30.dp
 
 @Composable
 fun ChevronDown(color: Color, modifier: Modifier = Modifier) {
@@ -296,18 +298,21 @@ fun ProfileCard(
 
                     // Обновление и пинг - две стеклянные таблетки. Фон им передавать
                     // нельзя: карточка сама пишется в него, а рисовать слой внутри
-                    // его же записи запрещено
+                    // его же записи запрещено.
+                    // Высоту задаём таблетке, а не полями у иконки: padding после size
+                    // ужимает саму иконку внутрь коробки, и она выходит расплющенной
                     LiquidGlassButton(
                         onClick = { onUpdateSubscription(subscription.guid) },
+                        modifier = Modifier.height(SubActionPillHeight),
                         surfaceColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
                         applyDefaultHeight = false,
-                        contentPaddingHorizontal = 10.dp
+                        contentPaddingHorizontal = 9.dp
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_restore_24dp),
                             contentDescription = stringResource(R.string.title_sub_update),
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp).padding(vertical = 1.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
@@ -315,13 +320,14 @@ fun ProfileCard(
 
                     LiquidGlassButton(
                         onClick = { onPingProfile(subscription.guid) },
+                        modifier = Modifier.height(SubActionPillHeight),
                         surfaceColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
                         applyDefaultHeight = false,
-                        contentPaddingHorizontal = 10.dp
+                        contentPaddingHorizontal = 9.dp
                     ) {
                         ClockIcon(
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp).padding(vertical = 3.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
@@ -571,28 +577,21 @@ fun PlainServersCard(
                 }
 
                 if (groupId != null) {
-                    GlassSurface(
-                        shape = GlassCapsuleShape,
-                        opaqueness = 0.85f,
-                        fallbackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                    // Та же таблетка, что у подписок, - чтобы шапки групп не отличались
+                    LiquidGlassButton(
+                        onClick = {
+                            onAction(MainAction.SelectGroup(groupId))
+                            onAction(MainAction.TestProfilePing(groupId))
+                        },
+                        modifier = Modifier.height(SubActionPillHeight),
+                        surfaceColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                        applyDefaultHeight = false,
+                        contentPaddingHorizontal = 9.dp
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
-                        ) {
-                            IconButton(
-                                onClick = {
-                                    onAction(MainAction.SelectGroup(groupId))
-                                    onAction(MainAction.TestProfilePing(groupId))
-                                },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                ClockIcon(
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
+                        ClockIcon(
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
 
                     Spacer(Modifier.width(6.dp))

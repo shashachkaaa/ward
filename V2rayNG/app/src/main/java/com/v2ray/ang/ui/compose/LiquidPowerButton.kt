@@ -15,6 +15,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -106,8 +108,8 @@ fun LiquidPowerButton(
         label = "powerSweep"
     )
 
-    val pressed = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val isPressed by androidx.compose.foundation.interaction.collectIsPressedAsState(pressed)
+    val pressed = remember { MutableInteractionSource() }
+    val isPressed by pressed.collectIsPressedAsState()
     val press by animateFloatAsState(
         targetValue = if (isPressed) 1f else 0f,
         animationSpec = tween(180),

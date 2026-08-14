@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -69,6 +70,53 @@ import kotlin.math.sin
 
 /** Высота стеклянных таблеток «обновить» и «пинг» в шапке группы. */
 private val SubActionPillHeight = 30.dp
+
+/** Границы блока региональных букв - из пары таких букв и складывается флаг страны. */
+private const val RegionalIndicatorFirst = 0x1F1E6
+private const val RegionalIndicatorLast = 0x1F1FF
+
+/** Разделители, которые в имени сервера отделяют флаг от названия. */
+private val FlagSeparators = charArrayOf('|', '-', '–', '—', '·', ':', ',')
+
+/**
+ * Имя сервера, разобранное на флаг в начале и остаток.
+ *
+ * @param flag Флаг страны или null, если имя начинается не с него.
+ * @param title Имя без флага.
+ */
+data class ServerLabel(val flag: String?, val title: String)
+
+/**
+ * Отделяет флаг страны от имени сервера.
+ *
+ * Флагом эмодзи считает две региональные буквы подряд - поодиночке это обычные
+ * буквы, и вырывать их из имени нельзя. Всё прочее в начале имени (молния у
+ * автовыбора, джойстик у игровых) флагом не является и остаётся в тексте.
+ */
+fun parseServerLabel(remarks: String?): ServerLabel {
+    val text = remarks?.trim().orEmpty()
+    if (text.isEmpty()) return ServerLabel(null, text)
+
+    val first = text.codePointAt(0)
+    if (first !in RegionalIndicatorFirst..RegionalIndicatorLast) return ServerLabel(null, text)
+
+    val secondAt = Character.charCount(first)
+    if (secondAt >= text.length) return ServerLabel(null, text)
+    val second = text.codePointAt(secondAt)
+    if (second !in RegionalIndicatorFirst..RegionalIndicatorLast) return ServerLabel(null, text)
+
+    val end = secondAt + Character.charCount(second)
+    // «🇳🇱 | Амстердам» - это «Амстердам»: разделитель без флага рядом ни к чему
+    val title = text.substring(end).trimStart()
+        .dropLeadingSeparator()
+        .trim()
+
+    return ServerLabel(text.substring(0, end), title)
+}
+
+/** Снимает один ведущий разделитель, если он там есть. */
+private fun String.dropLeadingSeparator(): String =
+    if (isNotEmpty() && this[0] in FlagSeparators) substring(1) else this
 
 @Composable
 fun ChevronDown(color: Color, modifier: Modifier = Modifier) {
@@ -805,27 +853,48 @@ private fun ServerRow(
             }
             Spacer(Modifier.width(8.dp))
 
+            // Флаг из имени показываем плиткой вместо глобуса - страна читается
+            // с одного взгляда, а из названия он уходит, чтобы не двоиться
+            val label = remember(serverCache.profile.remarks) {
+                parseServerLabel(serverCache.profile.remarks)
+            }
+            val flag = label.flag
+
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .background(
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                        } else {
-                            MaterialTheme.colorScheme.surfaceContainerHighest
-                        },
-                        shape = RoundedCornerShape(12.dp)
+                    .then(
+                        // Под флагом подложка не нужна: он занимает всю плитку сам
+                        if (flag != null) Modifier else Modifier.background(
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHighest
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        )
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                WireframeGlobe(
-                    color = if (isSelected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    modifier = Modifier.size(22.dp)
-                )
+                if (flag != null) {
+                    Text(
+                        text = flag,
+                        // Размер в dp, а не в sp: плитка фиксированная, и от крупного
+                        // системного шрифта флаг из неё вылезал бы
+                        fontSize = with(LocalDensity.current) { 30.dp.toSp() },
+                        lineHeight = with(LocalDensity.current) { 34.dp.toSp() },
+                        textAlign = TextAlign.Center
+                    )
+                } else {
+                    WireframeGlobe(
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
 
             Spacer(Modifier.width(12.dp))
@@ -842,7 +911,7 @@ private fun ServerRow(
                         Spacer(Modifier.width(5.dp))
                     }
                     Text(
-                        text = serverCache.profile.remarks ?: stringResource(R.string.main_untitled),
+                        text = label.title.ifEmpty { stringResource(R.string.main_untitled) },
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 16.sp,
                         color = MaterialTheme.colorScheme.onSurface,

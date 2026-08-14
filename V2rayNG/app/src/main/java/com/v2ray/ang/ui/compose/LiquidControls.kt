@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.backdrops.emptyBackdrop
 import com.kyant.backdrop.catalog.components.LiquidButton
+import com.kyant.backdrop.highlight.Highlight
 
 /**
  * Стеклянная кнопка: чипы под кнопкой подключения, таблетки на карточках подписок.
@@ -45,6 +46,18 @@ fun LiquidGlassButton(
         surfaceColor = surfaceColor,
         applyDefaultHeight = applyDefaultHeight,
         contentPaddingHorizontal = contentPaddingHorizontal,
+        // Блик по умолчанию складывается с тем, что под ним (BlendMode.Plus), а
+        // результат сложения зависит от того, как собирается кадр. Внутри списка кадр
+        // на прокрутке пересобирается каждый раз, и блик с него пропадал - кнопка
+        // теряла стекло, пока список едет. Ambient кладётся поверх обычным способом,
+        // на нём же сделано и всё остальное стекло приложения
+        highlight = AmbientHighlight,
+        // Фон пустой - размывать и преломлять нечего. Это не экономия: лишний слой с
+        // эффектом переписывается каждый кадр и ровно ничего не даёт
+        applyEffects = false,
         content = content
     )
 }
+
+/** Блик, который не зависит от способа сборки кадра. */
+private val AmbientHighlight: () -> Highlight? = { Highlight.Ambient }

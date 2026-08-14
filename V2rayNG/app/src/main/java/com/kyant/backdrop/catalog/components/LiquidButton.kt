@@ -21,17 +21,32 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.BackdropEffectScope
 import com.kyant.backdrop.catalog.utils.InteractiveHighlight
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
 import com.kyant.shapes.Capsule
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.tanh
+
+/** Блик оригинала: складывается с фоном (BlendMode.Plus). */
+private val DefaultButtonHighlight: () -> Highlight? = { Highlight.Default }
+
+/** Размытие, преломление и оживление цвета - то, ради чего берётся фон. */
+private val BackdropEffects: BackdropEffectScope.() -> Unit = {
+    vibrancy()
+    blur(2f.dp.toPx())
+    lens(12f.dp.toPx(), 24f.dp.toPx())
+}
+
+/** Тот же набор, выключенный: с пустым фоном ему нечего обрабатывать. */
+private val NoBackdropEffects: BackdropEffectScope.() -> Unit = {}
 
 @Composable
 fun LiquidButton(
@@ -45,6 +60,8 @@ fun LiquidButton(
     // ровно эти два параметра, чтобы тем же компонентом делать и мелкие чипы
     applyDefaultHeight: Boolean = true,
     contentPaddingHorizontal: Dp = 16f.dp,
+    highlight: (() -> Highlight?)? = DefaultButtonHighlight,
+    applyEffects: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
     val animationScope = rememberCoroutineScope()
@@ -60,11 +77,8 @@ fun LiquidButton(
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { Capsule() },
-                effects = {
-                    vibrancy()
-                    blur(2f.dp.toPx())
-                    lens(12f.dp.toPx(), 24f.dp.toPx())
-                },
+                effects = if (applyEffects) BackdropEffects else NoBackdropEffects,
+                highlight = highlight,
                 layerBlock = if (isInteractive) {
                     {
                         val width = size.width

@@ -37,6 +37,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontWeight
@@ -50,6 +51,7 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 
@@ -83,6 +85,7 @@ fun LiquidPowerButton(
     modifier: Modifier = Modifier
 ) {
     val scheme = MaterialTheme.colorScheme
+    val gravityAngle = rememberGravityAngle()
 
     // Одна величина на всё: 0 - покой, 1 - соединение установлено
     val active by animateFloatAsState(
@@ -168,7 +171,22 @@ fun LiquidPowerButton(
                         // ней стекло видно лучше всего
                         lens(24f.dp.toPx(), 48f.dp.toPx(), chromaticAberration = true)
                     },
-                    highlight = { Highlight.Ambient },
+                    // Блик едет за наклоном телефона - настоящее стекло ловит свет
+                    // под тем углом, под которым его держат. Угол читается здесь, а
+                    // не снаружи: так датчик трогает только отрисовку, а не всю
+                    // перекомпоновку кнопки.
+                    // Блендинг оставлен обычным: складывающийся (по умолчанию у этого
+                    // стиля - Plus) зависит от того, как собирается кадр, а кадр под
+                    // кнопкой пересобирается постоянно - и бегущей дугой, и таймером
+                    highlight = {
+                        Highlight(
+                            style = HighlightStyle.Default(
+                                angle = gravityAngle.value,
+                                falloff = 2f,
+                                blendMode = DrawScope.DefaultBlendMode
+                            )
+                        )
+                    },
                     shadow = {
                         Shadow(radius = 24f.dp, color = Color.Black.copy(alpha = 0.10f + 0.10f * active))
                     },

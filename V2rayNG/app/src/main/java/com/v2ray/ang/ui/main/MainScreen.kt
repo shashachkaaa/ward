@@ -65,6 +65,7 @@ import com.v2ray.ang.ui.compose.LiquidGlassButton
 import com.v2ray.ang.ui.compose.LiquidPowerButton
 import com.v2ray.ang.ui.compose.QRCodeDialog
 import com.v2ray.ang.ui.compose.LocalGlassBackdrop
+import com.v2ray.ang.ui.compose.BottomBlurScrim
 import com.v2ray.ang.ui.compose.glassBackdropSource
 import com.v2ray.ang.ui.compose.rememberGlassBackdrop
 
@@ -489,6 +490,13 @@ fun MainScreen(
             }
         }
         
+        // Список уезжает под капсулу и обрывается о её край. Полоса кладёт поверх
+        // размытую копию того же содержимого и гасит её кверху - строки растворяются
+        BottomBlurScrim(
+            backdrop = backdrop,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+
         key(barResetToken) {
             LiquidGlassBar(
                 backdrop = backdrop,

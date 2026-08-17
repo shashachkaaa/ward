@@ -78,11 +78,13 @@ import com.v2ray.ang.ui.compose.AppIconSetting
 import com.v2ray.ang.ui.compose.AppSnackbarManager
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.PreferenceGroupHeader
+import com.v2ray.ang.ui.compose.BottomBlurScrim
 import com.v2ray.ang.ui.compose.glassBackdropSource
 import com.v2ray.ang.ui.compose.rememberGlassBackdrop
 import com.v2ray.ang.ui.compose.ResumePauseEffect
 import com.v2ray.ang.ui.compose.SettingsCategoryItem
 import com.v2ray.ang.ui.compose.SettingsEditItem
+import com.v2ray.ang.ui.compose.SettingsSliderItem
 import com.v2ray.ang.ui.compose.SettingsFileItem
 import com.v2ray.ang.ui.compose.SettingsGroupCard
 import com.v2ray.ang.ui.compose.SettingsInfoItem
@@ -276,6 +278,12 @@ fun SettingsScreen(
             }
         }
     }
+
+        // Список растворяется под капсулой, а не обрывается о её край
+        BottomBlurScrim(
+            backdrop = backdrop,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
 
         LiquidGlassBar(
             backdrop = backdrop,
@@ -590,11 +598,15 @@ private fun VpnSettings(modifier: Modifier) {
             enabled = isVpn,
             onSelected = { vpnInterfaceAddress = it }
         )
-        SettingsEditItem(
+        // MTU - число в понятных границах, а не свободный ввод: ползунком его
+        // выставить проще, чем набрать, и мимо допустимого диапазона не промахнёшься
+        SettingsSliderItem(
             title = stringResource(R.string.title_pref_vpn_mtu),
             value = vpnMtu,
+            defaultValue = AppConfig.VPN_MTU,
+            valueRange = 1280f..1500f,
             enabled = isVpn,
-            keyboardNumber = true,
+            step = 10,
             onValueChanged = { vpnMtu = it }
         )
         SettingsSwitchItem(

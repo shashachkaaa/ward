@@ -39,7 +39,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kyant.backdrop.backdrops.emptyBackdrop
+import com.kyant.backdrop.catalog.components.LiquidSlider
 import com.v2ray.ang.R
+import kotlin.math.roundToInt
 
 @Composable
 fun PreferenceGroupHeader(title: String, modifier: Modifier = Modifier) {
@@ -296,6 +299,64 @@ fun SettingsEditItem(
             dismissText = stringResource(android.R.string.cancel),
             onConfirm = { showDialog = false; onValueChanged(text) },
             onDismiss = { showDialog = false }
+        )
+    }
+}
+
+/**
+ * Числовая настройка ползунком вместо поля ввода.
+ *
+ * Значение хранится строкой - таким его ждёт ядро, - но пустая строка означает
+ * «по умолчанию», и её надо уметь показать: пока пользователь ползунок не трогал,
+ * в строке стоит подпись значения по умолчанию, а не число.
+ *
+ * @param value Текущее значение или пустая строка, если оно не задано.
+ * @param defaultValue Что подставить, когда значение не задано.
+ * @param valueRange Границы ползунка.
+ * @param step Шаг округления.
+ * @param valueLabel Как показать число в строке.
+ */
+@Composable
+fun SettingsSliderItem(
+    title: String,
+    value: String,
+    defaultValue: Int,
+    valueRange: ClosedFloatingPointRange<Float>,
+    onValueChanged: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    icon: Painter? = null,
+    enabled: Boolean = true,
+    step: Int = 1,
+    valueLabel: (Int) -> String = { it.toString() }
+) {
+    val scheme = MaterialTheme.colorScheme
+    val current = value.toIntOrNull() ?: defaultValue
+    // Ползунку нужен фон, а он тут внутри содержимого экрана: экран сам пишется в
+    // слой фона, и рисовать слой внутри его же записи нельзя. Каплю преломляет
+    // собственная дорожка ползунка - её слой он заводит себе сам
+    val backdrop = remember { emptyBackdrop() }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        SettingsItemRow(
+            icon = icon,
+            title = title,
+            description = if (value.isEmpty()) null else valueLabel(current),
+            enabled = enabled,
+            onClick = null
+        )
+        LiquidSlider(
+            value = { current.toFloat() },
+            onValueChange = { raw ->
+                val snapped = (raw / step).roundToInt() * step
+                if (snapped != current) onValueChanged(snapped.toString())
+            },
+            valueRange = valueRange,
+            visibilityThreshold = step.toFloat() / 2f,
+            backdrop = backdrop,
+            accentColor = if (enabled) scheme.primary else scheme.outlineVariant,
+            trackColor = scheme.onSurfaceVariant.copy(alpha = 0.2f),
+            thumbColor = scheme.surfaceContainerLowest,
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 18.dp)
         )
     }
 }

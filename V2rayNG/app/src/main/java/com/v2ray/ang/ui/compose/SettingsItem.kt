@@ -22,6 +22,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ripple
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -331,6 +334,19 @@ fun SettingsSliderItem(
 ) {
     val scheme = MaterialTheme.colorScheme
     val current = value.toIntOrNull() ?: defaultValue
+
+    // Ползунок ведёт непрерывную величину, а наружу уходит округлённая по шагу.
+    // Округлять прямо в обработчике нельзя: перетаскивание идёт мелкими приращениями
+    // от текущего значения, и пока приращения не набрали полшага, наружу ничего не
+    // уходило, текущее значение не менялось - и следующее приращение считалось от
+    // того же места. Капля стояла намертво, и работали только нажатия по дорожке
+    var position by remember { mutableFloatStateOf(current.toFloat()) }
+    // Значение сменилось не отсюда - подхватываем. Своё же округление не трогаем,
+    // иначе оно дёргало бы каплю обратно на шаг посреди перетаскивания
+    LaunchedEffect(current) {
+        if (position.snapTo(step) != current) position = current.toFloat()
+    }
+
     // Ползунку нужен фон, а он тут внутри содержимого экрана: экран сам пишется в
     // слой фона, и рисовать слой внутри его же записи нельзя. Каплю преломляет
     // собственная дорожка ползунка - её слой он заводит себе сам
@@ -340,26 +356,38 @@ fun SettingsSliderItem(
         SettingsItemRow(
             icon = icon,
             title = title,
-            description = if (value.isEmpty()) null else valueLabel(current),
+            // Число видно всегда, в том числе пока оно не задано: ползунок без
+            // подписи не прочитать
+            description = valueLabel(current),
             enabled = enabled,
             onClick = null
         )
         LiquidSlider(
-            value = { current.toFloat() },
+            value = { position },
             onValueChange = { raw ->
-                val snapped = (raw / step).roundToInt() * step
-                if (snapped != current) onValueChanged(snapped.toString())
+                if (enabled) {
+                    position = raw.coerceIn(valueRange)
+                    val snapped = position.snapTo(step)
+                    if (snapped != current) onValueChanged(snapped.toString())
+                }
             },
             valueRange = valueRange,
-            visibilityThreshold = step.toFloat() / 2f,
+            // Порог покоя пружины, а не шаг: с крупным порогом капля замирает, не
+            // доехав до места
+            visibilityThreshold = (valueRange.endInclusive - valueRange.start) / 1000f,
             backdrop = backdrop,
             accentColor = if (enabled) scheme.primary else scheme.outlineVariant,
             trackColor = scheme.onSurfaceVariant.copy(alpha = 0.2f),
-            thumbColor = scheme.surfaceContainerLowest,
+            // Капля матовая, а не глухая: сквозь неё видно размытую дорожку, а под
+            // пальцем плёнка сходит совсем и остаётся чистое стекло с преломлением
+            thumbColor = Color.White.copy(alpha = if (LocalDarkTheme.current) 0.72f else 0.86f),
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 18.dp)
         )
     }
 }
+
+/** Округление до ближайшего шага. */
+private fun Float.snapTo(step: Int): Int = (this / step).roundToInt() * step
 
 @Composable
 fun SettingsListItem(

@@ -205,7 +205,10 @@ fun LiquidSlider(
                     },
                     onDrawSurface = {
                         val progress = dampedDragAnimation.pressProgress
-                        drawRect(thumbColor.copy(alpha = 1f - progress))
+                        // Прозрачность капли множится, а не задаётся: у оригинала
+                        // капля глухая до нажатия, а нам нужна матовая - сквозь неё
+                        // должна читаться размытая дорожка
+                        drawRect(thumbColor.copy(alpha = thumbColor.alpha * (1f - progress)))
                     }
                 )
                 .size(40f.dp, 24f.dp)

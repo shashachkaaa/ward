@@ -32,8 +32,8 @@ import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.Shadow
 
@@ -152,7 +152,17 @@ fun Modifier.glassBackground(
         backdrop = source.backdrop,
         shape = { shape },
         effects = {
-            vibrancy()
+            // Стекло подстраивается под яркость того, что под ним. Мерить её нечем и
+            // незачем: под стеклом всегда фон приложения, а он задан темой. На тёмной
+            // размытая копия уходит в ровное серое пятно - её надо чуть поднять и
+            // растянуть по контрасту, на светлой наоборот приглушить, иначе стекло
+            // выцветает в белое. Оба набора - это colorControls, у которого saturation
+            // 1.5 и есть тот самый vibrancy
+            if (isDark) {
+                colorControls(brightness = 0.06f, contrast = 1.12f, saturation = 1.5f)
+            } else {
+                colorControls(brightness = -0.03f, contrast = 1.06f, saturation = 1.5f)
+            }
             blur(blurRadius.toPx())
             // Преломление у края - то, чем стекло отличается от простого размытия
             lens(12f.dp.toPx(), 24f.dp.toPx(), chromaticAberration = true)

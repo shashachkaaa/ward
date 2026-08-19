@@ -69,6 +69,9 @@ class DampedDragAnimation(
 
     val modifier: Modifier = Modifier.pointerInput(Unit) {
         inspectDragGestures(
+            // Тумблер, ползунок и капля в панели живут внутри прокручиваемых списков,
+            // и список отбирал у них палец: вместо элемента ехал весь экран
+            claimHorizontal = true,
             onDragStart = { down ->
                 onDragStarted(down.position)
                 press()

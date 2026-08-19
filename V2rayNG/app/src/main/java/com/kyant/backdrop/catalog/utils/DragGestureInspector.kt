@@ -11,11 +11,25 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.util.fastFirstOrNull
+import kotlin.math.abs
 
+/**
+ * @param claimHorizontal Забирать ли себе горизонтальное движение.
+ *
+ *   Жест по умолчанию ничего себе не забирает и обрывается, стоит его перехватить
+ *   кому-то выше. Для управляющих элементов - тумблера, ползунка, капли в панели - это
+ *   неверно: они живут внутри прокручиваемых списков, и список отбирал у них палец, так
+ *   что вместо тумблера ехал весь экран.
+ *
+ *   Забирается только преимущественно горизонтальное движение: все эти элементы
+ *   горизонтальные, а вертикальное - это прокрутка, и отнимать её у списка нельзя,
+ *   иначе список нельзя будет тянуть, начав с тумблера.
+ */
 suspend fun PointerInputScope.inspectDragGestures(
     onDragStart: (down: PointerInputChange) -> Unit = {},
     onDragEnd: (change: PointerInputChange) -> Unit = {},
     onDragCancel: () -> Unit = {},
+    claimHorizontal: Boolean = false,
     onDrag: (change: PointerInputChange, dragAmount: Offset) -> Unit
 ) {
     awaitEachGesture {
@@ -29,6 +43,8 @@ suspend fun PointerInputScope.inspectDragGestures(
         val upEvent =
             drag(
                 pointerId = drag.id,
+                startPosition = drag.position,
+                claimHorizontal = claimHorizontal,
                 onDrag = { onDrag(it, it.positionChange()) }
             )
         if (upEvent == null) {
@@ -41,6 +57,8 @@ suspend fun PointerInputScope.inspectDragGestures(
 
 private suspend inline fun AwaitPointerEventScope.drag(
     pointerId: PointerId,
+    startPosition: Offset,
+    claimHorizontal: Boolean,
     onDrag: (PointerInputChange) -> Unit
 ): PointerInputChange? {
     val isPointerUp = currentEvent.changes.fastFirstOrNull { it.id == pointerId }?.pressed != true
@@ -57,6 +75,14 @@ private suspend inline fun AwaitPointerEventScope.drag(
             return change
         }
         onDrag(change)
+        if (claimHorizontal) {
+            // Куда ведёт палец, считаем от места нажатия, а не по последнему событию:
+            // отдельные события мелкие и дрожат, направление по ним не определить
+            val total = change.position - startPosition
+            if (abs(total.x) > abs(total.y)) {
+                change.consume()
+            }
+        }
         pointer = change.id
     }
 }

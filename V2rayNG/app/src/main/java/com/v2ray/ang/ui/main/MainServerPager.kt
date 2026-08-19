@@ -3,7 +3,6 @@ package com.v2ray.ang.ui.main
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.expandVertically
@@ -15,7 +14,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -56,7 +54,9 @@ import com.v2ray.ang.dto.entities.SubscriptionCache
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.colorPingSlow
 import com.v2ray.ang.ui.compose.GlassMenuShape
+import com.v2ray.ang.ui.compose.GlassSurface
 import com.v2ray.ang.ui.compose.LiquidGlassButton
+import com.v2ray.ang.ui.compose.LocalContentBackdrop
 import com.v2ray.ang.ui.compose.glassPanel
 import com.v2ray.ang.ui.subscription.SubEditActivity
 import com.v2ray.ang.util.CustomConfigUtil
@@ -70,6 +70,9 @@ import kotlin.math.sin
 
 /** Высота стеклянных таблеток «обновить» и «пинг» в шапке группы. */
 private val SubActionPillHeight = 30.dp
+
+/** Форма карточки группы. */
+private val CardShape = RoundedCornerShape(26.dp)
 
 /** Границы блока региональных букв - из пары таких букв и складывается флаг страны. */
 private const val RegionalIndicatorFirst = 0x1F1E6
@@ -287,16 +290,17 @@ fun ProfileCard(
     val supportUrl = sub.supportUrl ?: ""
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        Card(
+        // Карточка из стекла: преломляет фон экрана, а не соседние карточки - для
+        // этого фон и пишется в свой отдельный слой. Контур не нужен, его роль
+        // играет блик по кромке
+        GlassSurface(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp),
-            shape = RoundedCornerShape(26.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f)
-            ),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            shape = CardShape,
+            backdrop = LocalContentBackdrop.current,
+            opaqueness = 1.2f,
+            fallbackColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f)
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp, horizontal = 14.dp)) {
                 
@@ -568,16 +572,17 @@ fun PlainServersCard(
     var showMenu by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        Card(
+        // Карточка из стекла: преломляет фон экрана, а не соседние карточки - для
+        // этого фон и пишется в свой отдельный слой. Контур не нужен, его роль
+        // играет блик по кромке
+        GlassSurface(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp),
-            shape = RoundedCornerShape(26.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f)
-            ),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            shape = CardShape,
+            backdrop = LocalContentBackdrop.current,
+            opaqueness = 1.2f,
+            fallbackColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

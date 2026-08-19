@@ -64,6 +64,8 @@ import com.v2ray.ang.ui.compose.GlassSurface
 import com.v2ray.ang.ui.compose.LiquidGlassButton
 import com.v2ray.ang.ui.compose.LiquidPowerButton
 import com.v2ray.ang.ui.compose.QRCodeDialog
+import com.v2ray.ang.ui.compose.liquidBackground
+import com.v2ray.ang.ui.compose.LocalContentBackdrop
 import com.v2ray.ang.ui.compose.LocalGlassBackdrop
 import com.v2ray.ang.ui.compose.BottomBlurScrim
 import com.v2ray.ang.ui.compose.glassBackdropSource
@@ -229,12 +231,29 @@ fun MainScreen(
     // рисовать этот слой, не попадая внутрь его записи
     val backdrop = rememberGlassBackdrop()
 
-    CompositionLocalProvider(LocalGlassBackdrop provides backdrop) {
+    // Второй слой - только фон. Стекло внутри содержимого экрана преломляет его:
+    // общий слой такому стеклу недоступен, оно само в него пишется
+    val contentBackdrop = rememberGlassBackdrop()
+
+    // Накал фона: в покое приглушён, на связи разгорается
+    val backgroundActivity by animateFloatAsState(
+        targetValue = if (uiState.isRunning) 1f else if (isConnecting) 0.5f else 0f,
+        animationSpec = tween(600),
+        label = "backgroundActivity"
+    )
+
+    CompositionLocalProvider(
+        LocalGlassBackdrop provides backdrop,
+        LocalContentBackdrop provides contentBackdrop
+    ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
-            // ДИНАМИЧЕСКИЙ ФОН: Подстраивается под тему (белый, серый или черный AMOLED)
-            containerColor = MaterialTheme.colorScheme.background,
-            modifier = Modifier.glassBackdropSource(backdrop)
+            // Фон рисуется отдельно и в свой слой: карточкам нужно преломлять именно
+            // его, а общий слой им брать нельзя - они сами в него пишутся
+            containerColor = Color.Transparent,
+            modifier = Modifier
+                .glassBackdropSource(backdrop)
+                .liquidBackground(contentBackdrop) { backgroundActivity }
         ) { innerPadding ->
             Column(
                 modifier = Modifier

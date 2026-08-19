@@ -44,6 +44,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import android.graphics.Canvas
@@ -80,6 +81,7 @@ import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.PreferenceGroupHeader
 import com.v2ray.ang.ui.compose.BottomBlurScrim
 import com.v2ray.ang.ui.compose.glassBackdropSource
+import com.v2ray.ang.ui.compose.liquidBackground
 import com.v2ray.ang.ui.compose.rememberGlassBackdrop
 import com.v2ray.ang.ui.compose.ResumePauseEffect
 import com.v2ray.ang.ui.compose.SettingsCategoryItem
@@ -219,6 +221,8 @@ fun SettingsScreen(
     // отыгран на главной, и повторять его здесь значит показать его дважды - капля
     // возвращалась к домику и ехала обратно
     val backdrop = rememberGlassBackdrop()
+    // Второй слой - только фон, для стекла внутри содержимого экрана
+    val contentBackdrop = rememberGlassBackdrop()
     var barItem by remember { mutableStateOf(GlassBarItem.SETTINGS) }
     val barScope = rememberCoroutineScope()
 
@@ -236,7 +240,11 @@ fun SettingsScreen(
     Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
-        modifier = Modifier.glassBackdropSource(backdrop),
+        containerColor = Color.Transparent,
+        // Тот же фон, что на главной: экраны не должны расходиться
+        modifier = Modifier
+            .glassBackdropSource(backdrop)
+            .liquidBackground(contentBackdrop) { 0f },
         topBar = {
             AppTopBar(
                 title = stringResource(openCategory?.titleRes ?: R.string.title_settings),

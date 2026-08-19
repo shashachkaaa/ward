@@ -118,8 +118,12 @@ fun AppTopBar(
                 }
             },
             actions = actions,
+            // Шапка прозрачная: под ней лежит фон экрана, и своя заливка обрывала
+            // его резкой чертой по нижней кромке. Содержимое под шапку не заезжает -
+            // Scaffold отводит ей место, - так что закрывать ей нечего
             colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surface,
+                containerColor = Color.Transparent,
+                scrolledContainerColor = Color.Transparent,
                 titleContentColor = MaterialTheme.colorScheme.onSurface,
                 navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
                 actionIconContentColor = MaterialTheme.colorScheme.onSurface

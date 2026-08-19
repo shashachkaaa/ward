@@ -49,10 +49,10 @@ android {
         applicationId = "com.ward.client"
         minSdk = 24
         targetSdk = 37
-        versionCode = 747
+        versionCode = 748
         // Без суффиксов вида -beta: строка уходит в User-Agent подписок и в сравнение
         // версий при проверке обновлений. Что сборка бета - помечается самим релизом
-        versionName = "0.9.6"
+        versionName = "0.9.7"
 
         buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
 

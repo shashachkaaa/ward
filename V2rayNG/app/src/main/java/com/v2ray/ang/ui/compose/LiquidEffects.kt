@@ -106,16 +106,23 @@ fun BottomBlurScrim(
 @Composable
 fun rememberGravityAngle(): State<Float> {
     val context = LocalContext.current
-    val holder = remember { GravityAngleHolder(context) }
+    val holder = remember(context) { GravityAngleHolder.of(context) }
 
     LifecycleStartEffect(holder) {
-        holder.start()
-        onStopOrDispose { holder.stop() }
+        holder.acquire()
+        onStopOrDispose { holder.release() }
     }
 
     return holder
 }
 
+/**
+ * Наклон один на всё приложение.
+ *
+ * Стекло разошлось по десяткам мест, и заводить каждому свой слушатель датчика
+ * нельзя: они все считали бы один и тот же угол, разряжая батарею в несколько рук.
+ * Датчик слушается, пока его держит хоть кто-то.
+ */
 private class GravityAngleHolder(context: Context) : State<Float> {
 
     /** 45 градусов - то же положение блика, что у библиотеки без датчика. */
@@ -143,17 +150,35 @@ private class GravityAngleHolder(context: Context) : State<Float> {
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
     }
 
-    fun start() {
+    private var holders = 0
+
+    @Synchronized
+    fun acquire() {
         val sensor = accelerometer ?: return
-        sensorManager?.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
+        if (holders++ == 0) {
+            sensorManager?.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
+        }
     }
 
-    fun stop() {
-        sensorManager?.unregisterListener(listener)
+    @Synchronized
+    fun release() {
+        if (accelerometer == null) return
+        if (--holders <= 0) {
+            holders = 0
+            sensorManager?.unregisterListener(listener)
+        }
     }
 
-    private companion object {
-        const val DefaultAngle = 45f
-        const val Smoothing = 0.5f
+    companion object {
+        private const val DefaultAngle = 45f
+        private const val Smoothing = 0.5f
+
+        @Volatile
+        private var instance: GravityAngleHolder? = null
+
+        fun of(context: Context): GravityAngleHolder =
+            instance ?: synchronized(this) {
+                instance ?: GravityAngleHolder(context).also { instance = it }
+            }
     }
 }

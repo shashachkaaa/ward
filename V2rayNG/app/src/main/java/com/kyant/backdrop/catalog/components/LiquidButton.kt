@@ -13,6 +13,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.semantics.Role
@@ -28,6 +29,8 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.InnerShadow
+import com.kyant.backdrop.shadow.Shadow
 import com.kyant.shapes.Capsule
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -37,6 +40,9 @@ import kotlin.math.tanh
 
 /** Блик оригинала: складывается с фоном (BlendMode.Plus). */
 private val DefaultButtonHighlight: () -> Highlight? = { Highlight.Default }
+
+/** Тень оригинала. */
+private val DefaultButtonShadow: () -> Shadow? = { Shadow.Default }
 
 /** Размытие, преломление и оживление цвета - то, ради чего берётся фон. */
 private val BackdropEffects: BackdropEffectScope.() -> Unit = {
@@ -62,6 +68,11 @@ fun LiquidButton(
     contentPaddingHorizontal: Dp = 16f.dp,
     highlight: (() -> Highlight?)? = DefaultButtonHighlight,
     applyEffects: Boolean = true,
+    // Толщина стекла. Без фона под кнопкой преломлять нечего, и объём ей приходится
+    // давать светом: заливка градиентом, тень внутрь и тень наружу
+    surfaceBrush: Brush? = null,
+    innerShadow: (() -> InnerShadow?)? = null,
+    shadow: (() -> Shadow?)? = DefaultButtonShadow,
     content: @Composable RowScope.() -> Unit
 ) {
     val animationScope = rememberCoroutineScope()
@@ -79,6 +90,8 @@ fun LiquidButton(
                 shape = { Capsule() },
                 effects = if (applyEffects) BackdropEffects else NoBackdropEffects,
                 highlight = highlight,
+                innerShadow = innerShadow,
+                shadow = shadow,
                 layerBlock = if (isInteractive) {
                     {
                         val width = size.width
@@ -114,6 +127,9 @@ fun LiquidButton(
                     }
                     if (surfaceColor.isSpecified) {
                         drawRect(surfaceColor)
+                    }
+                    if (surfaceBrush != null) {
+                        drawRect(surfaceBrush)
                     }
                 }
             )

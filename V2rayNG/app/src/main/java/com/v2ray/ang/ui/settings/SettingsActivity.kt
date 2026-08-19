@@ -120,13 +120,20 @@ class SettingsActivity : BaseComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Системный слайд уводил бы вместе со страницей и нижнюю капсулу, а она
-        // одинакова на обоих экранах: кроссфейд оставляет её визуально на месте
+        // одинакова на обоих экранах: кроссфейд оставляет её визуально на месте.
+        //
+        // Гаснет и проявляется только верхний экран, нижний всё это время держится
+        // непрозрачным. Гасили оба разом - на середине оба стояли примерно на
+        // половине прозрачности, сквозь них просвечивал фон, и этот провал читался
+        // рывком под конец перехода
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            overrideActivityTransition(OVERRIDE_TRANSITION_OPEN, R.anim.screen_fade_in, R.anim.screen_fade_out)
-            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.screen_fade_in, R.anim.screen_fade_out)
+            // Открытие: настройки приходят сверху и проявляются, главная под ними ждёт
+            overrideActivityTransition(OVERRIDE_TRANSITION_OPEN, R.anim.screen_fade_in, R.anim.screen_hold)
+            // Закрытие: гаснут настройки, главная под ними уже готова
+            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.screen_hold, R.anim.screen_fade_out)
         } else {
             @Suppress("DEPRECATION")
-            overridePendingTransition(R.anim.screen_fade_in, R.anim.screen_fade_out)
+            overridePendingTransition(R.anim.screen_fade_in, R.anim.screen_hold)
         }
     }
 
@@ -134,7 +141,7 @@ class SettingsActivity : BaseComponentActivity() {
         super.finish()
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             @Suppress("DEPRECATION")
-            overridePendingTransition(R.anim.screen_fade_in, R.anim.screen_fade_out)
+            overridePendingTransition(R.anim.screen_hold, R.anim.screen_fade_out)
         }
     }
 

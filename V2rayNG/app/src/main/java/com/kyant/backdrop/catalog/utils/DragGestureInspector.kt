@@ -24,6 +24,10 @@ import kotlin.math.abs
  *   Забирается только преимущественно горизонтальное движение: все эти элементы
  *   горизонтальные, а вертикальное - это прокрутка, и отнимать её у списка нельзя,
  *   иначе список нельзя будет тянуть, начав с тумблера.
+ *
+ *   И только после того, как палец ушёл дальше порога различения. Перехваченное
+ *   движение отменяет нажатие: забирай мы его с первого же пикселя, кнопка
+ *   переставала бы нажиматься от дрожания пальца.
  */
 suspend fun PointerInputScope.inspectDragGestures(
     onDragStart: (down: PointerInputChange) -> Unit = {},
@@ -44,7 +48,7 @@ suspend fun PointerInputScope.inspectDragGestures(
             drag(
                 pointerId = drag.id,
                 startPosition = drag.position,
-                claimHorizontal = claimHorizontal,
+                claimThreshold = if (claimHorizontal) viewConfiguration.touchSlop else Float.MAX_VALUE,
                 onDrag = { onDrag(it, it.positionChange()) }
             )
         if (upEvent == null) {
@@ -58,7 +62,7 @@ suspend fun PointerInputScope.inspectDragGestures(
 private suspend inline fun AwaitPointerEventScope.drag(
     pointerId: PointerId,
     startPosition: Offset,
-    claimHorizontal: Boolean,
+    claimThreshold: Float,
     onDrag: (PointerInputChange) -> Unit
 ): PointerInputChange? {
     val isPointerUp = currentEvent.changes.fastFirstOrNull { it.id == pointerId }?.pressed != true
@@ -75,13 +79,11 @@ private suspend inline fun AwaitPointerEventScope.drag(
             return change
         }
         onDrag(change)
-        if (claimHorizontal) {
-            // Куда ведёт палец, считаем от места нажатия, а не по последнему событию:
-            // отдельные события мелкие и дрожат, направление по ним не определить
-            val total = change.position - startPosition
-            if (abs(total.x) > abs(total.y)) {
-                change.consume()
-            }
+        // Куда ведёт палец, считаем от места нажатия, а не по последнему событию:
+        // отдельные события мелкие и дрожат, направление по ним не определить
+        val total = change.position - startPosition
+        if (abs(total.x) > abs(total.y) && abs(total.x) > claimThreshold) {
+            change.consume()
         }
         pointer = change.id
     }

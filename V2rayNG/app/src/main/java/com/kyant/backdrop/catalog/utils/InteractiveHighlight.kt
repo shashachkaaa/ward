@@ -95,6 +95,11 @@ half4 main(float2 coord) {
     val gestureModifier: Modifier =
         Modifier.pointerInput(animationScope) {
             inspectDragGestures(
+                // Кнопка тянется сама, а не тащит за собой список, в котором лежит.
+                // Забирается только горизонталь: вертикаль - это прокрутка списка, и
+                // отнимать её нельзя, иначе список не пролистать, поставив палец на
+                // кнопку. Порог различения не даёт отменять нажатие дрожанием пальца
+                claimHorizontal = true,
                 onDragStart = { down ->
                     startPosition = down.position
                     animationScope.launch {

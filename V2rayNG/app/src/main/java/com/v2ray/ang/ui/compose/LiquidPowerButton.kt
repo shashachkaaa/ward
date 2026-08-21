@@ -86,6 +86,7 @@ fun LiquidPowerButton(
 ) {
     val scheme = MaterialTheme.colorScheme
     val gravityAngle = rememberGravityAngle()
+    val quality = LocalGlassQuality.current
 
     // Одна величина на всё: 0 - покой, 1 - соединение установлено
     val active by animateFloatAsState(
@@ -165,11 +166,17 @@ fun LiquidPowerButton(
                     backdrop = glow,
                     shape = { CircleShape },
                     effects = {
-                        vibrancy()
-                        blur(6f.dp.toPx())
+                        if (quality.blurs) {
+                            vibrancy()
+                            blur(6f.dp.toPx())
+                        }
                         // Преломление на всю стенку: кнопка крупная, и именно на
-                        // ней стекло видно лучше всего
-                        lens(24f.dp.toPx(), 48f.dp.toPx(), chromaticAberration = true)
+                        // ней стекло видно лучше всего. Она же и самая дорогая
+                        // поверхность на экране - линза во всю стенку да ещё с
+                        // разложением по краю, поэтому на упрощённом уровне её нет
+                        if (quality.refracts) {
+                            lens(24f.dp.toPx(), 48f.dp.toPx(), chromaticAberration = true)
+                        }
                     },
                     // Блик едет за наклоном телефона - настоящее стекло ловит свет
                     // под тем углом, под которым его держат. Угол читается здесь, а

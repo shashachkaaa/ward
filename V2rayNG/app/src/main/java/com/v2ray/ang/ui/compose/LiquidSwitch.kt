@@ -40,6 +40,7 @@ fun LiquidSwitch(
 ) {
     val backdrop = remember { emptyBackdrop() }
     val active = enabled && onCheckedChange != null
+    val quality = LocalGlassQuality.current
 
     LiquidToggle(
         selected = { checked },
@@ -47,6 +48,8 @@ fun LiquidSwitch(
         backdrop = backdrop,
         modifier = modifier.alpha(if (active) 1f else 0.38f),
         accentColor = checkedTrackColor,
-        enabled = active
+        enabled = active,
+        blurs = quality.blurs,
+        refracts = quality.refracts
     )
 }

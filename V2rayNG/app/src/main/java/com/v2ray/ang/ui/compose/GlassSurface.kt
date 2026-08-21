@@ -91,6 +91,12 @@ class GlassBackdrop internal constructor(internal val layer: GraphicsLayer) : Ba
     /** Левый верхний угол записанного содержимого в координатах экрана. */
     internal var origin by mutableStateOf(Offset.Zero)
 
+    /**
+     * Записан ли слой хоть раз. На выключенном стекле экран в слой не пишется вовсе,
+     * и рисовать пустой слой нечего - а спросить об этом больше некого.
+     */
+    internal var recorded = false
+
     /** Он же в виде, понятном компонентам библиотеки. */
     val backdrop: Backdrop get() = this
 
@@ -99,6 +105,7 @@ class GlassBackdrop internal constructor(internal val layer: GraphicsLayer) : Ba
         coordinates: LayoutCoordinates?,
         layerBlock: (GraphicsLayerScope.() -> Unit)?
     ) {
+        if (!recorded) return
         val here = coordinates?.positionOnScreen() ?: return
         translate(left = origin.x - here.x, top = origin.y - here.y) {
             drawLayer(layer)
@@ -115,17 +122,26 @@ fun rememberGlassBackdrop(): GlassBackdrop {
 /**
  * Пишет содержимое в [backdrop] и тут же рисует его на экране. Вешается на корень
  * экрана, чтобы стеклянные поверхности могли размыть именно то, что под ними.
+ *
+ * На выключенном стекле не делает ничего. Это не мелочь: запись всего экрана в
+ * отдельный слой заставляет видеоядро каждый кадр рисовать в буфер, а потом
+ * выкладывать его на экран - вторая полная отрисовка поверх первой. Читать этот слой
+ * при выключенном стекле всё равно некому.
  */
 @Composable
 fun Modifier.glassBackdropSource(
     backdrop: GlassBackdrop,
     @Suppress("UNUSED_PARAMETER") blurRadius: Dp = GlassBlurRadius
-): Modifier = this
-    .onGloballyPositioned { backdrop.origin = it.positionOnScreen() }
-    .drawWithContent {
-        backdrop.layer.record { this@drawWithContent.drawContent() }
-        drawLayer(backdrop.layer)
-    }
+): Modifier {
+    if (!LocalGlassQuality.current.blurs) return this
+    return this
+        .onGloballyPositioned { backdrop.origin = it.positionOnScreen() }
+        .drawWithContent {
+            backdrop.layer.record { this@drawWithContent.drawContent() }
+            backdrop.recorded = true
+            drawLayer(backdrop.layer)
+        }
+}
 
 /**
  * Фон «жидкого стекла»: размытая копия того, что под элементом, преломление у края,
@@ -154,11 +170,13 @@ fun Modifier.glassBackground(
 ): Modifier {
     val scheme = MaterialTheme.colorScheme
     val isDark = LocalDarkTheme.current
+    val quality = LocalGlassQuality.current
 
     // Без слоя размывать нечего, и стекло должно быть плотнее: иначе сквозь него
-    // читается то, что лежит под окном
+    // читается то, что лежит под окном. Выключенное стекло идёт тем же путём -
+    // сплошная поверхность и есть то, чем стекло становится, когда его не считают
     val solid = fallbackColor ?: scheme.surface.copy(alpha = if (isDark) 0.82f else 0.86f)
-    val source = backdrop ?: return background(solid, shape)
+    val source = backdrop?.takeIf { quality.blurs } ?: return background(solid, shape)
 
     val tint = glassSurfaceColor(isDark, scheme.surface, opaqueness)
 
@@ -178,8 +196,12 @@ fun Modifier.glassBackground(
                 colorControls(brightness = -0.03f, contrast = 1.06f, saturation = 1.5f)
             }
             blur(blurRadius.toPx())
-            // Преломление у края - то, чем стекло отличается от простого размытия
-            lens(12f.dp.toPx(), 24f.dp.toPx(), chromaticAberration = dispersion)
+            // Преломление у края - то, чем стекло отличается от простого размытия.
+            // Оно же и самое дорогое: отдельная программа для видеоядра на каждую
+            // поверхность каждый кадр. На упрощённом уровне его нет
+            if (quality.refracts) {
+                lens(12f.dp.toPx(), 24f.dp.toPx(), chromaticAberration = dispersion)
+            }
         },
         highlight = { Highlight.Ambient },
         shadow = { Shadow(radius = 8f.dp, color = Color.Black.copy(alpha = 0.08f)) },

@@ -61,7 +61,9 @@ fun LiquidSlider(
     modifier: Modifier = Modifier,
     accentColor: Color = Color(0xFF0088FF),
     trackColor: Color = Color(0xFF787878).copy(0.2f),
-    thumbColor: Color = Color.White
+    thumbColor: Color = Color.White,
+    blurs: Boolean = true,
+    refracts: Boolean = true
 ) {
 
     val trackBackdrop = rememberLayerBackdrop()
@@ -168,12 +170,16 @@ fun LiquidSlider(
                     shape = { Capsule() },
                     effects = {
                         val progress = dampedDragAnimation.pressProgress
-                        blur(8f.dp.toPx() * (1f - progress))
-                        lens(
-                            10f.dp.toPx() * progress,
-                            14f.dp.toPx() * progress,
-                            chromaticAberration = true
-                        )
+                        if (blurs) {
+                            blur(8f.dp.toPx() * (1f - progress))
+                        }
+                        if (refracts) {
+                            lens(
+                                10f.dp.toPx() * progress,
+                                14f.dp.toPx() * progress,
+                                chromaticAberration = true
+                            )
+                        }
                     },
                     highlight = {
                         val progress = dampedDragAnimation.pressProgress

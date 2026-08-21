@@ -139,6 +139,13 @@ object ThemeManager {
     /** Брать ли палитру из обоев системы (Android 12+). */
     val dynamicColor: StateFlow<Boolean> = _dynamicColor.asStateFlow()
 
+    private val _glassQuality = MutableStateFlow(
+        GlassQuality.of(MmkvManager.decodeSettingsString(AppConfig.PREF_GLASS_QUALITY, null))
+    )
+
+    /** Насколько тяжёлым делать стекло. */
+    val glassQuality: StateFlow<GlassQuality> = _glassQuality.asStateFlow()
+
     private val _accentColor = MutableStateFlow(
         MmkvManager.decodeSettingsString(AppConfig.PREF_ACCENT_COLOR, AccentPalette.DEFAULT_ID)
             ?: AccentPalette.DEFAULT_ID
@@ -157,6 +164,11 @@ object ThemeManager {
         _dynamicColor.value = enabled
     }
 
+    fun setGlassQuality(quality: GlassQuality) {
+        MmkvManager.encodeSettings(AppConfig.PREF_GLASS_QUALITY, quality.id)
+        _glassQuality.value = quality
+    }
+
     fun setAccentColor(id: String) {
         MmkvManager.encodeSettings(AppConfig.PREF_ACCENT_COLOR, id)
         _accentColor.value = id
@@ -166,6 +178,8 @@ object ThemeManager {
         _themeMode.value =
             MmkvManager.decodeSettingsString(AppConfig.PREF_UI_MODE_NIGHT, "0") ?: "0"
         _dynamicColor.value = MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR, false)
+        _glassQuality.value =
+            GlassQuality.of(MmkvManager.decodeSettingsString(AppConfig.PREF_GLASS_QUALITY, null))
         _accentColor.value =
             MmkvManager.decodeSettingsString(AppConfig.PREF_ACCENT_COLOR, AccentPalette.DEFAULT_ID)
                 ?: AccentPalette.DEFAULT_ID
@@ -213,6 +227,7 @@ fun AppTheme(
         darkTheme -> DarkColor.withAccent(accent, dark = true)
         else -> LightColor.withAccent(accent, dark = false)
     }
+    val glassQuality by ThemeManager.glassQuality.collectAsState()
     val snackbarController = rememberAppSnackbarController()
 
     val view = LocalView.current
@@ -234,7 +249,8 @@ fun AppTheme(
     CompositionLocalProvider(
         LocalDarkTheme provides darkTheme,
         LocalAppSnackbar provides snackbarController,
-        LocalGlassBackdrop provides backdrop.takeIf { recordBackdrop }
+        LocalGlassBackdrop provides backdrop.takeIf { recordBackdrop },
+        LocalGlassQuality provides glassQuality
     ) {
         MaterialTheme(
             colorScheme = colorScheme

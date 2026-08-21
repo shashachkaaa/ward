@@ -70,7 +70,9 @@ fun Modifier.liquidBackground(
         blob(warm, alpha * 0.6f, Offset(size.width * 0.5f, size.height * 1.04f), size.width * 0.9f)
     }
 
-    if (backdrop == null) {
+    // Без слоя - и когда его некому дать, и когда стекло выключено: слой нужен
+    // только тому, кто фон преломляет, а на выключенном стекле таких нет
+    if (backdrop == null || !LocalGlassQuality.current.blurs) {
         return drawBehind { draw(lerp(idleAlpha, liveAlpha, activity().coerceIn(0f, 1f))) }
     }
 
@@ -86,6 +88,7 @@ fun Modifier.liquidBackground(
             val alpha = lerp(idleAlpha, liveAlpha, activity().coerceIn(0f, 1f))
             if (cache.size != size || cache.alpha != alpha) {
                 backdrop.layer.record { draw(alpha) }
+                backdrop.recorded = true
                 cache.size = size
                 cache.alpha = alpha
             }

@@ -67,6 +67,9 @@ fun LiquidBottomTabs(
     modifier: Modifier = Modifier,
     accentColor: Color = Color.Unspecified,
     stiffness: Float = 1000f,
+    blurs: Boolean = true,
+    refracts: Boolean = true,
+    containerColor: Color = Color.Unspecified,
     content: @Composable RowScope.() -> Unit
 ) {
     val isLightTheme = !isSystemInDarkTheme()
@@ -75,8 +78,12 @@ fun LiquidBottomTabs(
         if (accentColor.isSpecified) accentColor
         else if (isLightTheme) Color(0xFF0088FF)
         else Color(0xFF0091FF)
+    // Своя заливка нужна, когда размытия нет: сквозь родные 0.4 просвечивал бы
+    // список, и капсула перестала бы читаться как отдельная поверхность
+    @Suppress("NAME_SHADOWING")
     val containerColor =
-        if (isLightTheme) Color(0xFFFAFAFA).copy(0.4f)
+        if (containerColor.isSpecified) containerColor
+        else if (isLightTheme) Color(0xFFFAFAFA).copy(0.4f)
         else Color(0xFF121212).copy(0.4f)
 
     val tabsBackdrop = rememberLayerBackdrop()
@@ -185,9 +192,13 @@ fun LiquidBottomTabs(
                     backdrop = backdrop,
                     shape = { Capsule() },
                     effects = {
-                        vibrancy()
-                        blur(8f.dp.toPx())
-                        lens(24f.dp.toPx(), 24f.dp.toPx())
+                        if (blurs) {
+                            vibrancy()
+                            blur(8f.dp.toPx())
+                        }
+                        if (refracts) {
+                            lens(24f.dp.toPx(), 24f.dp.toPx())
+                        }
                     },
                     layerBlock = {
                         val progress = dampedDragAnimation.pressProgress
@@ -223,12 +234,16 @@ fun LiquidBottomTabs(
                         shape = { Capsule() },
                         effects = {
                             val progress = dampedDragAnimation.pressProgress
-                            vibrancy()
-                            blur(8f.dp.toPx())
-                            lens(
-                                24f.dp.toPx() * progress,
-                                24f.dp.toPx() * progress
-                            )
+                            if (blurs) {
+                                vibrancy()
+                                blur(8f.dp.toPx())
+                            }
+                            if (refracts) {
+                                lens(
+                                    24f.dp.toPx() * progress,
+                                    24f.dp.toPx() * progress
+                                )
+                            }
                         },
                         highlight = {
                             val progress = dampedDragAnimation.pressProgress
@@ -260,12 +275,18 @@ fun LiquidBottomTabs(
                     backdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop),
                     shape = { Capsule() },
                     effects = {
-                        val progress = dampedDragAnimation.pressProgress
-                        lens(
-                            10f.dp.toPx() * progress,
-                            14f.dp.toPx() * progress,
-                            chromaticAberration = true
-                        )
+                        // Слой у капли остаётся при любом уровне: в нём лежит ряд
+                        // иконок, подкрашенных акцентом, и только благодаря ему
+                        // иконка под каплей меняет цвет. Считается тут лишь
+                        // преломление, его и снимаем
+                        if (refracts) {
+                            val progress = dampedDragAnimation.pressProgress
+                            lens(
+                                10f.dp.toPx() * progress,
+                                14f.dp.toPx() * progress,
+                                chromaticAberration = true
+                            )
+                        }
                     },
                     highlight = {
                         val progress = dampedDragAnimation.pressProgress

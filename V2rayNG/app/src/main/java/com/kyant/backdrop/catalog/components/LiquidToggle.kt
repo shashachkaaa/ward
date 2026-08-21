@@ -52,7 +52,9 @@ fun LiquidToggle(
     backdrop: Backdrop,
     modifier: Modifier = Modifier,
     accentColor: Color = Color.Unspecified,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    blurs: Boolean = true,
+    refracts: Boolean = true
 ) {
     val isLightTheme = !isSystemInDarkTheme()
     @Suppress("NAME_SHADOWING")
@@ -162,12 +164,20 @@ fun LiquidToggle(
                     shape = { Capsule() },
                     effects = {
                         val progress = dampedDragAnimation.pressProgress
-                        blur(8f.dp.toPx() * (1f - progress))
-                        lens(
-                            5f.dp.toPx() * progress,
-                            10f.dp.toPx() * progress,
-                            chromaticAberration = true
-                        )
+                        // Оба эффекта видно только под пальцем: в покое капля залита
+                        // белым наглухо, и всё, что под ней, считается впустую.
+                        // Переключателей в настройках экран, и на слабом видеоядре
+                        // этот холостой ход стоит заметно
+                        if (blurs) {
+                            blur(8f.dp.toPx() * (1f - progress))
+                        }
+                        if (refracts) {
+                            lens(
+                                5f.dp.toPx() * progress,
+                                10f.dp.toPx() * progress,
+                                chromaticAberration = true
+                            )
+                        }
                     },
                     highlight = {
                         val progress = dampedDragAnimation.pressProgress

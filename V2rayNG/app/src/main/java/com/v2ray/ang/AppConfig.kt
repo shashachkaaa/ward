@@ -65,6 +65,12 @@ object AppConfig {
     const val PREF_DYNAMIC_COLOR = "pref_dynamic_color"
     const val PREF_ACCENT_COLOR = "pref_accent_color"
 
+    /**
+     * Насколько тяжёлым делать стекло. Размытие и преломление упираются в отрисовку,
+     * и на слабых видеоядрах это чувствуется прокруткой.
+     */
+    const val PREF_GLASS_QUALITY = "pref_glass_quality"
+
     /** Выбранный значок приложения из [com.v2ray.ang.handler.AppIconManager]. */
     const val PREF_APP_ICON = "pref_app_icon"
     const val PREF_IPV6_ENABLED = "pref_ipv6_enabled"

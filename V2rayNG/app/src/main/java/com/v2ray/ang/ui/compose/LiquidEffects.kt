@@ -76,6 +76,9 @@ fun BottomBlurScrim(
     blurRadius: Dp = 16.dp
 ) {
     if (!runtimeShadersAvailable) return
+    // Полоса во всю ширину с размытием и своей программой для видеоядра - на каждом
+    // кадре. На упрощённом уровне это первое, чем стоит пожертвовать
+    if (LocalGlassQuality.current != GlassQuality.FULL) return
 
     Box(
         modifier = modifier

@@ -90,6 +90,7 @@ import com.v2ray.ang.ui.compose.SettingsSliderItem
 import com.v2ray.ang.ui.compose.SettingsFileItem
 import com.v2ray.ang.ui.compose.SettingsGroupCard
 import com.v2ray.ang.ui.compose.SettingsInfoItem
+import com.v2ray.ang.ui.compose.GlassQuality
 import com.v2ray.ang.ui.compose.SettingsListItem
 import com.v2ray.ang.ui.compose.SettingsMenuItem
 import com.v2ray.ang.ui.compose.SettingsSwitchItem
@@ -413,6 +414,31 @@ private fun SettingsCategoryList(
     }
 }
 
+/**
+ * Уровень тяжести стекла.
+ *
+ * Отдан пользователю, а не выведен из модели устройства: угадывать по железу - гадать,
+ * а разница между «красиво» и «плавно» у каждого своя.
+ */
+@Composable
+private fun GlassQualitySetting() {
+    val quality by ThemeManager.glassQuality.collectAsStateWithLifecycle()
+    val entries = listOf(
+        stringResource(R.string.glass_quality_full),
+        stringResource(R.string.glass_quality_lite),
+        stringResource(R.string.glass_quality_off)
+    )
+    val values = listOf(GlassQuality.FULL.id, GlassQuality.LITE.id, GlassQuality.OFF.id)
+
+    SettingsListItem(
+        title = stringResource(R.string.title_pref_glass_quality),
+        entries = entries,
+        values = values,
+        selectedValue = quality.id,
+        onSelected = { ThemeManager.setGlassQuality(GlassQuality.of(it)) }
+    )
+}
+
 @Composable
 private fun UiSettings(modifier: Modifier) {
     var speedEnabled by rememberMmkvBool(AppConfig.PREF_SPEED_ENABLED, false)
@@ -439,6 +465,7 @@ private fun UiSettings(modifier: Modifier) {
             )
         }
         AccentColorSetting(enabled = !(dynamicAvailable && dynamicColor))
+        GlassQualitySetting()
         AppIconSetting()
         SettingsSwitchItem(
             title = stringResource(R.string.title_pref_speed_enabled),

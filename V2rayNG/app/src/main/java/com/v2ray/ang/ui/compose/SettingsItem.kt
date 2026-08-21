@@ -381,6 +381,8 @@ fun SettingsSliderItem(
             // Капля матовая, а не глухая: сквозь неё видно размытую дорожку, а под
             // пальцем плёнка сходит совсем и остаётся чистое стекло с преломлением
             thumbColor = Color.White.copy(alpha = if (LocalDarkTheme.current) 0.72f else 0.86f),
+            blurs = LocalGlassQuality.current.blurs,
+            refracts = LocalGlassQuality.current.refracts,
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 18.dp)
         )
     }

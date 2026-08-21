@@ -28,6 +28,7 @@ import com.kyant.backdrop.catalog.components.LiquidBottomTab
 import com.kyant.backdrop.catalog.components.LiquidBottomTabs
 import com.v2ray.ang.R
 import com.v2ray.ang.ui.compose.GlassBackdrop
+import com.v2ray.ang.ui.compose.LocalGlassQuality
 import kotlinx.coroutines.delay
 
 /** Пункты нижней капсулы. */
@@ -80,6 +81,8 @@ fun LiquidGlassBar(
     modifier: Modifier = Modifier
 ) {
     val external = items.indexOf(selected).coerceAtLeast(0)
+    val quality = LocalGlassQuality.current
+    val scheme = MaterialTheme.colorScheme
 
     // Индекс, который видит капля. Ведём его сами и меняем сразу по нажатию: у нас
     // «шестерёнка» и «+» - действия, а не вкладки, и активный пункт после них
@@ -118,10 +121,19 @@ fun LiquidGlassBar(
         modifier = modifier,
         // Иконку под каплей компонент подкрашивает сам, и по умолчанию - своим
         // синим. Нам нужен акцент приложения
-        accentColor = MaterialTheme.colorScheme.primary,
+        accentColor = scheme.primary,
         // Ход у панели во всю ширину, и с зашитой жёсткостью капля перелетала за
         // миг: анимации попросту не было видно
-        stiffness = TabTravelStiffness
+        stiffness = TabTravelStiffness,
+        // Капсула стоит поверх списка и потому дороже всего остального стекла: три
+        // поверхности одна на другой, две из них с преломлением. На слабом видеоядре
+        // именно она съедает кадры при прокрутке
+        blurs = quality.blurs,
+        refracts = quality.refracts,
+        // Без размытия под капсулой нет ничего, что отделяло бы её от списка, -
+        // заливка становится плотной
+        containerColor = if (quality.blurs) Color.Unspecified
+        else scheme.surfaceContainerHigh.copy(alpha = 0.92f)
     ) {
         items.forEachIndexed { index, item ->
             // Нажатие только двигает каплю: о выборе сообщит onTabSelected, когда

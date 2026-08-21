@@ -551,6 +551,7 @@ class MainViewModel(
             val profile = cache.profile
             profile.remarks.matchesPattern(regex, keyword) ||
                     profile.description.orEmpty().matchesPattern(regex, keyword) ||
+                    profile.serverDescription.orEmpty().matchesPattern(regex, keyword) ||
                     profile.server.orEmpty().matchesPattern(regex, keyword) ||
                     profile.configType.name.matchesPattern(regex, keyword)
         }

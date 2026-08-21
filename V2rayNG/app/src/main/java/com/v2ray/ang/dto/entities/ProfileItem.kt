@@ -12,6 +12,14 @@ data class ProfileItem(
 
     var remarks: String = "",
     var description: String? = null,
+    /**
+     * Описание сервера, пришедшее от панели: «Игровой сервер», «Низкий пинг EU».
+     *
+     * Отдельно от [description] намеренно: туда пишется составленная нами строка
+     * протокола, и по ней же работает поиск. Панель кладёт своё описание в
+     * meta.serverDescription внутри конфига подписки.
+     */
+    var serverDescription: String? = null,
     var server: String? = null,
     var serverPort: String? = null,
 
@@ -96,6 +104,7 @@ data class ProfileItem(
      * - addedTime
      * - remarks
      * - description
+     * - serverDescription
      *
      * All other fields, including configType, are included in the comparison.
      *
@@ -107,6 +116,7 @@ data class ProfileItem(
             subscriptionId = "",
             addedTime = 0L,
             remarks = "",
-            description = null
+            description = null,
+            serverDescription = null
         )
 }

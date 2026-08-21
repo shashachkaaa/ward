@@ -23,10 +23,20 @@ object CustomFmt : FmtBase() {
         config.server = outbound?.getServerAddress()
         config.serverPort = outbound?.getServerPort()?.toString()
 
+        val tree = CustomConfigUtil.parseConfig(str)
+
+        // Панель кладёт сюда своё описание сервера - «Игровой сервер», «Низкий пинг EU».
+        // Поля может не быть вовсе, а может лежать null, поэтому идём по дереву
+        // осторожно: типизированная модель о нём не знает и знать не обязана
+        config.serverDescription =
+            tree?.get("meta")?.takeIf { it.isJsonObject }?.asJsonObject
+                ?.get("serverDescription")?.takeIf { it.isJsonPrimitive }?.asString
+                ?.trim()?.takeIf { it.isNotEmpty() }
+
         // The typed model only understands the flat "address"/"port" settings shape,
         // so fall back to the JSON tree for vnext/servers/hysteria/wireguard outbounds.
         if (config.server.isNullOrBlank() || config.serverPort.isNullOrBlank()) {
-            CustomConfigUtil.getProxyOutbound(CustomConfigUtil.parseConfig(str))
+            CustomConfigUtil.getProxyOutbound(tree)
                 ?.let { CustomConfigUtil.extractHostAndPort(it) }
                 ?.let { (host, port) ->
                     config.server = host

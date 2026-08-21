@@ -771,12 +771,19 @@ private fun ServerRow(
 ) {
     val context = LocalContext.current
 
+    // Описание от панели важнее строки протокола: «Игровой сервер» говорит больше,
+    // чем «VLESS / TCP / REALITY». Нет описания - показываем протокол, как раньше
     val finalDesc = remember(serverCache.guid) {
-        val desc = getProtocolDescription(context, serverCache.profile, serverCache.guid)
-        if (serverCache.profile.configType == com.v2ray.ang.enums.EConfigType.CUSTOM) {
-            "$desc | JSON"
+        val note = serverCache.profile.serverDescription?.trim().orEmpty()
+        if (note.isNotEmpty()) {
+            note
         } else {
-            desc
+            val desc = getProtocolDescription(context, serverCache.profile, serverCache.guid)
+            if (serverCache.profile.configType == com.v2ray.ang.enums.EConfigType.CUSTOM) {
+                "$desc | JSON"
+            } else {
+                desc
+            }
         }
     }
     

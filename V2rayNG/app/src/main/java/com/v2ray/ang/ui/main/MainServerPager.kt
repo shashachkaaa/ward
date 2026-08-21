@@ -55,6 +55,7 @@ import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.colorPingSlow
 import com.v2ray.ang.ui.compose.GlassMenuShape
 import com.v2ray.ang.ui.compose.GlassSurface
+import com.v2ray.ang.ui.compose.LocalDarkTheme
 import com.v2ray.ang.ui.compose.LiquidGlassButton
 import com.v2ray.ang.ui.compose.LocalContentBackdrop
 import com.v2ray.ang.ui.compose.glassPanel
@@ -291,15 +292,22 @@ fun ProfileCard(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         // Карточка из стекла: преломляет фон экрана, а не соседние карточки - для
-        // этого фон и пишется в свой отдельный слой. Контур не нужен, его роль
-        // играет блик по кромке
+        // этого фон и пишется в свой отдельный слой.
+        //
+        // Цвет берётся из палитры приложения, а не нейтральной белёсой плёнкой:
+        // с ней карточки выбивались из темы, потому что все прочие поверхности
+        // окрашены surfaceContainerHigh. Разложение по краю на цветные каёмки
+        // выключено - это отдельный тяжёлый шейдер, а карточек на экране много
         GlassSurface(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp),
             shape = CardShape,
             backdrop = LocalContentBackdrop.current,
-            opaqueness = 1.2f,
+            opaqueness = 0.35f,
+            surfaceTint = MaterialTheme.colorScheme.surfaceContainerHigh
+                .copy(alpha = if (LocalDarkTheme.current) 0.52f else 0.58f),
+            dispersion = false,
             fallbackColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f)
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp, horizontal = 14.dp)) {
@@ -573,15 +581,22 @@ fun PlainServersCard(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         // Карточка из стекла: преломляет фон экрана, а не соседние карточки - для
-        // этого фон и пишется в свой отдельный слой. Контур не нужен, его роль
-        // играет блик по кромке
+        // этого фон и пишется в свой отдельный слой.
+        //
+        // Цвет берётся из палитры приложения, а не нейтральной белёсой плёнкой:
+        // с ней карточки выбивались из темы, потому что все прочие поверхности
+        // окрашены surfaceContainerHigh. Разложение по краю на цветные каёмки
+        // выключено - это отдельный тяжёлый шейдер, а карточек на экране много
         GlassSurface(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp),
             shape = CardShape,
             backdrop = LocalContentBackdrop.current,
-            opaqueness = 1.2f,
+            opaqueness = 0.35f,
+            surfaceTint = MaterialTheme.colorScheme.surfaceContainerHigh
+                .copy(alpha = if (LocalDarkTheme.current) 0.52f else 0.58f),
+            dispersion = false,
             fallbackColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f)
         ) {
             Row(

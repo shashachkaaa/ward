@@ -135,6 +135,9 @@ fun Modifier.glassBackdropSource(
  * @param backdrop Слой с содержимым экрана или null, если размытия не будет.
  * @param blurRadius Радиус размытия фона.
  * @param opaqueness Плотность тонировки: 1 - как у нижней капсулы, больше - матовее.
+ * @param dispersion Разложение по краю на цветные каёмки. Красиво на крупном стекле,
+ *   но это отдельный, заметно более тяжёлый шейдер: на мелких поверхностях, которых
+ *   на экране много, его лучше не включать.
  * @param surfaceTint Свой цвет поверх стекла. Кладётся здесь, а не фоном содержимого:
  *   фон содержимого формой стекла не обрезается и лёг бы поверх него прямоугольником.
  * @param fallbackColor Подложка, когда слоя нет.
@@ -146,6 +149,7 @@ fun Modifier.glassBackground(
     blurRadius: Dp = GlassBlurRadius,
     opaqueness: Float = 1f,
     surfaceTint: Color? = null,
+    dispersion: Boolean = true,
     fallbackColor: Color? = null
 ): Modifier {
     val scheme = MaterialTheme.colorScheme
@@ -175,7 +179,7 @@ fun Modifier.glassBackground(
             }
             blur(blurRadius.toPx())
             // Преломление у края - то, чем стекло отличается от простого размытия
-            lens(12f.dp.toPx(), 24f.dp.toPx(), chromaticAberration = true)
+            lens(12f.dp.toPx(), 24f.dp.toPx(), chromaticAberration = dispersion)
         },
         highlight = { Highlight.Ambient },
         shadow = { Shadow(radius = 8f.dp, color = Color.Black.copy(alpha = 0.08f)) },
@@ -220,6 +224,7 @@ fun GlassSurface(
     blurRadius: Dp = GlassBlurRadius,
     opaqueness: Float = 1f,
     surfaceTint: Color? = null,
+    dispersion: Boolean = true,
     fallbackColor: Color? = null,
     content: @Composable BoxScope.() -> Unit = {}
 ) {
@@ -230,6 +235,7 @@ fun GlassSurface(
             blurRadius = blurRadius,
             opaqueness = opaqueness,
             surfaceTint = surfaceTint,
+            dispersion = dispersion,
             fallbackColor = fallbackColor
         ),
         content = content

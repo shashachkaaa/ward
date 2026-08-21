@@ -2,9 +2,11 @@ package com.v2ray.ang.ui.compose
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -57,10 +59,8 @@ fun Modifier.liquidBackground(
     val idleAlpha = if (isDark) 0.10f else 0.16f
     val liveAlpha = if (isDark) 0.20f else 0.28f
 
-    val draw: DrawScope.() -> Unit = {
+    val draw: DrawScope.(alpha: Float) -> Unit = { alpha ->
         drawRect(base)
-        val alpha = lerp(idleAlpha, liveAlpha, activity().coerceIn(0f, 1f))
-
         // Сверху слева - основное пятно акцента
         blob(warm, alpha, Offset(size.width * 0.12f, size.height * 0.04f), size.width * 0.95f)
         // Справа, ниже кнопки - второй тон, чтобы фон не был одноцветным
@@ -70,14 +70,33 @@ fun Modifier.liquidBackground(
         blob(warm, alpha * 0.6f, Offset(size.width * 0.5f, size.height * 1.04f), size.width * 0.9f)
     }
 
-    if (backdrop == null) return drawBehind(draw)
+    if (backdrop == null) {
+        return drawBehind { draw(lerp(idleAlpha, liveAlpha, activity().coerceIn(0f, 1f))) }
+    }
+
+    // Фон неподвижен, а перерисовывался каждый кадр: три радиальных градиента во весь
+    // экран, и каждый заново создавал свой шейдер. На прокрутке это ложилось поверх
+    // всей остальной работы. Теперь картинка пишется в слой только когда меняется -
+    // при смене размера или накала, - а каждый кадр слой просто выкладывается на экран
+    val cache = remember(backdrop) { BackgroundCache() }
 
     return this
         .onGloballyPositioned { backdrop.origin = it.positionOnScreen() }
         .drawBehind {
-            backdrop.layer.record { draw() }
+            val alpha = lerp(idleAlpha, liveAlpha, activity().coerceIn(0f, 1f))
+            if (cache.size != size || cache.alpha != alpha) {
+                backdrop.layer.record { draw(alpha) }
+                cache.size = size
+                cache.alpha = alpha
+            }
             drawLayer(backdrop.layer)
         }
+}
+
+/** Что уже записано в слой фона: пока это не изменилось, перезаписывать нечего. */
+private class BackgroundCache {
+    var size: Size = Size.Unspecified
+    var alpha: Float = Float.NaN
 }
 
 /** Одно размытое пятно: цвет в центре, прозрачность к краю. */

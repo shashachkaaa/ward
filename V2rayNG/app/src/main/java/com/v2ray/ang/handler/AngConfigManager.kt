@@ -28,6 +28,7 @@ import com.v2ray.ang.util.JsonUtil
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.QRCodeDecoder
 import com.v2ray.ang.util.Utils
+import java.io.IOException
 import java.net.URI
 
 object AngConfigManager {
@@ -628,43 +629,41 @@ object AngConfigManager {
             val proxyUsername = SettingsManager.getSocksUsername()
             val proxyPassword = SettingsManager.getSocksPassword()
 
-            var configText = ""
-            var responseHeaders = mapOf<String, String>()
-
-            try {
-                val httpPort = SettingsManager.getHttpPort()
-                val result = HttpUtil.getUrlContentWithUserAgent(
-                    UrlContentRequest(
-                        url = url,
-                        userAgent = userAgent,
-                        requestHeaders = finalHeadersJson, // Передаем корректную JSON-строку
-                        timeout = 15000,
-                        httpPort = httpPort,
-                        proxyUsername = proxyUsername,
-                        proxyPassword = proxyPassword
-                    )
-                )
-                configText = result.first
-                responseHeaders = result.second
-            } catch (e: Exception) {
-                LogUtil.e(AppConfig.ANG_PACKAGE, "Update subscription: proxy not ready or other error", e)
-            }
-
-            if (configText.isEmpty()) {
+            // Забирает подписку заданным User-Agent: сперва через прокси, потом напрямую
+            fun fetch(agent: String?): Pair<String, Map<String, String>> {
                 try {
-                    val result = HttpUtil.getUrlContentWithUserAgent(
+                    val httpPort = SettingsManager.getHttpPort()
+                    return HttpUtil.getUrlContentWithUserAgent(
                         UrlContentRequest(
                             url = url,
-                            userAgent = userAgent,
+                            userAgent = agent,
+                            requestHeaders = finalHeadersJson, // Передаем корректную JSON-строку
+                            timeout = 15000,
+                            httpPort = httpPort,
+                            proxyUsername = proxyUsername,
+                            proxyPassword = proxyPassword
+                        )
+                    ).takeIf { r -> r.first.isNotEmpty() } ?: throw IOException("empty body")
+                } catch (e: Exception) {
+                    LogUtil.e(AppConfig.ANG_PACKAGE, "Update subscription: proxy not ready or other error", e)
+                }
+                try {
+                    return HttpUtil.getUrlContentWithUserAgent(
+                        UrlContentRequest(
+                            url = url,
+                            userAgent = agent,
                             requestHeaders = finalHeadersJson // И здесь тоже JSON-строка
                         )
                     )
-                    configText = result.first
-                    responseHeaders = result.second
                 } catch (e: Exception) {
                     LogUtil.e(AppConfig.TAG, "Update subscription: Failed to get URL content with user agent", e)
                 }
+                return "" to mapOf()
             }
+
+            val fetched = fetch(userAgent)
+            val configText = fetched.first
+            val responseHeaders = fetched.second
 
             if (configText.isEmpty()) {
                 return SubscriptionUpdateResult(failureCount = 1)
@@ -762,7 +761,21 @@ object AngConfigManager {
             }
             // --------------------------------------------------------
 
-            val count = parseConfigViaSub(configText, it.guid, false)
+            var count = parseConfigViaSub(configText, it.guid, false)
+
+            // Ни одного конфига - возможно, панель знает наш токен и отдала под него
+            // формат, которого мы не понимаем. Пробуем прежним User-Agent: его понимают
+            // все, и хуже обычных ссылок под него не отдают. Свой User-Agent у подписки
+            // не трогаем - его задал пользователь, и подменять его молча нельзя.
+            // Заголовки перечитывать незачем: панель та же, они от User-Agent не зависят
+            if (count == 0 && userAgent.isNullOrBlank()) {
+                LogUtil.w(AppConfig.TAG, "Subscription parsed to nothing, retrying with legacy user agent")
+                val retryText = fetch(HttpUtil.legacyUserAgent()).first
+                if (retryText.isNotEmpty() && retryText != configText) {
+                    count = parseConfigViaSub(retryText, it.guid, false)
+                }
+            }
+
             if (count > 0) {
                 it.subscription.lastUpdated = System.currentTimeMillis()
                 MmkvManager.encodeSubscription(it.guid, it.subscription)

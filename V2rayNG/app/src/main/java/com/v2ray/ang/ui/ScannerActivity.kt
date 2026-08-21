@@ -157,15 +157,12 @@ enum class ScannerUiState {
 /**
  * Что происходит с кадрами прямо сейчас.
  *
- * Временно и намеренно на виду. Сканер уже дважды чинился вслепую, а журнал
- * приложения по умолчанию отбрасывает всё ниже уровня «warning», так что записи в
- * него не помогали. По этим трём числам сразу видно, где обрыв: нет кадров - молчит
- * камера, кадры есть и попыток разбора столько же - не находится код, есть признак
- * распознавания - ломается возврат результата.
+ * Нужно подсказке под рамкой: пока кадров нет, она честно говорит, что камера
+ * молчит, вместо того чтобы звать наводить на код. По этому же признаку нашлась
+ * причина, по которой сканер не читал коды: кадры шли, значит дело было в разборе.
  */
 class ScannerStats {
     var frames by mutableIntStateOf(0)
-    var frameSize by mutableStateOf("")
     var recognized by mutableStateOf(false)
 }
 
@@ -350,17 +347,18 @@ private fun ScannerIdlePlaceholder(onStartClick: () -> Unit) {
 }
 
 /**
- * Строка состояния разбора под окном наведения.
+ * Подсказка под окном наведения.
  *
- * Временная и намеренно на виду: сканер уже дважды чинился вслепую. Пока кадров нет,
- * говорит об этом прямо - значит молчит камера, а не разбор.
+ * Она же и диагностика: молчащую камеру видно сразу, а не по отсутствию реакции.
+ * Именно так нашлась причина, по которой сканер не читал коды, - кадры шли, значит
+ * дело было в разборе.
  */
 @Composable
 private fun ScannerStatusLine(stats: ScannerStats, modifier: Modifier = Modifier) {
     val text = when {
-        stats.recognized -> "код найден"
-        stats.frames == 0 -> "нет кадров с камеры"
-        else -> "кадры: ${stats.frames} · ${stats.frameSize}"
+        stats.recognized -> stringResource(R.string.scanner_found)
+        stats.frames == 0 -> stringResource(R.string.scanner_no_frames)
+        else -> stringResource(R.string.scanner_hint)
     }
     Text(
         text = text,
@@ -454,11 +452,13 @@ fun CameraXPreview(
                     // Пишем состояние до разбора: если разбор упадёт, кадр всё равно
                     // будет засчитан, и станет видно, что камера работает
                     stats.frames += 1
-                    stats.frameSize = "${imageProxy.width}x${imageProxy.height}"
                     if (stats.frames % 60 == 1) {
                         // Уровень «warn», а не «info»: журнал по умолчанию режет всё
                         // ниже него, и записи попросту не доходили
-                        LogUtil.w(AppConfig.TAG, "Scanner: frame #${stats.frames} ${stats.frameSize}")
+                        LogUtil.w(
+                            AppConfig.TAG,
+                            "Scanner: frame #${stats.frames} ${imageProxy.width}x${imageProxy.height}"
+                        )
                     }
                     processImageProxy(imageProxy, foundResult) { text ->
                         stats.recognized = true
@@ -548,7 +548,11 @@ private fun processImageProxy(
         val hints = mapOf(
             DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
             DecodeHintType.TRY_HARDER to true,
-            DecodeHintType.CHARACTER_SET to "UTF-8"
+            DecodeHintType.CHARACTER_SET to "UTF-8",
+            // Светлый код на тёмном фоне. Обычный разбор ищет тёмные модули на
+            // светлом и такой код не видит вовсе - а панели и генераторы охотно
+            // делают их под тёмную тему
+            DecodeHintType.ALSO_INVERTED to true
         )
 
         // Сначала середина кадра - в неё и наводят по рамке. На весь кадр бинаризатор

@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -153,6 +154,21 @@ enum class ScannerUiState {
     ACTIVE
 }
 
+/**
+ * Что происходит с кадрами прямо сейчас.
+ *
+ * Временно и намеренно на виду. Сканер уже дважды чинился вслепую, а журнал
+ * приложения по умолчанию отбрасывает всё ниже уровня «warning», так что записи в
+ * него не помогали. По этим трём числам сразу видно, где обрыв: нет кадров - молчит
+ * камера, кадры есть и попыток разбора столько же - не находится код, есть признак
+ * распознавания - ломается возврат результата.
+ */
+class ScannerStats {
+    var frames by mutableIntStateOf(0)
+    var frameSize by mutableStateOf("")
+    var recognized by mutableStateOf(false)
+}
+
 @Composable
 fun ScannerScreen(
     uiState: ScannerUiState,
@@ -170,6 +186,7 @@ fun ScannerScreen(
     // Слой с картинкой камеры: его и размывают стеклянные капсулы управления.
     // Общий слой темы тут не годится - капсулы сами в него пишутся
     val previewBackdrop = rememberGlassBackdrop()
+    val stats = remember { ScannerStats() }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         when (uiState) {
@@ -178,6 +195,7 @@ fun ScannerScreen(
                 Box(modifier = Modifier.fillMaxSize().glassBackdropSource(previewBackdrop)) {
                     CameraXPreview(
                         onScanResult = onScanResult,
+                        stats = stats,
                         onCameraReady = { control, info ->
                             cameraControl = control
                             hasTorch = info.hasFlashUnit()
@@ -188,6 +206,12 @@ fun ScannerScreen(
                     )
                 }
                 ScannerFrame(modifier = Modifier.fillMaxSize())
+                ScannerStatusLine(
+                    stats = stats,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(top = 260.dp)
+                )
             }
         }
 
@@ -326,6 +350,29 @@ private fun ScannerIdlePlaceholder(onStartClick: () -> Unit) {
 }
 
 /**
+ * Строка состояния разбора под окном наведения.
+ *
+ * Временная и намеренно на виду: сканер уже дважды чинился вслепую. Пока кадров нет,
+ * говорит об этом прямо - значит молчит камера, а не разбор.
+ */
+@Composable
+private fun ScannerStatusLine(stats: ScannerStats, modifier: Modifier = Modifier) {
+    val text = when {
+        stats.recognized -> "код найден"
+        stats.frames == 0 -> "нет кадров с камеры"
+        else -> "кадры: ${stats.frames} · ${stats.frameSize}"
+    }
+    Text(
+        text = text,
+        color = Color.White,
+        style = MaterialTheme.typography.labelMedium,
+        modifier = modifier
+            .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    )
+}
+
+/**
  * Окно наведения: затемнение вокруг и уголки по краю.
  *
  * Затемнение рисуется четырьмя полосами вокруг окна, а не сплошным прямоугольником с
@@ -376,7 +423,8 @@ private fun ScannerFrame(modifier: Modifier = Modifier) {
 @Composable
 fun CameraXPreview(
     onScanResult: (String) -> Unit,
-    onCameraReady: (CameraControl, CameraInfo) -> Unit
+    onCameraReady: (CameraControl, CameraInfo) -> Unit,
+    stats: ScannerStats
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -402,17 +450,20 @@ fun CameraXPreview(
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
             .apply {
-                // Счёт кадров уходит в журнал: если сканер снова замолчит, по нему
-                // сразу видно, доходят ли кадры до разбора или дело в самой камере
-                var frames = 0
                 setAnalyzer(analysisExecutor) { imageProxy ->
-                    if (frames++ % 60 == 0) {
-                        LogUtil.i(
-                            AppConfig.TAG,
-                            "Scanner: frame #$frames ${imageProxy.width}x${imageProxy.height}"
-                        )
+                    // Пишем состояние до разбора: если разбор упадёт, кадр всё равно
+                    // будет засчитан, и станет видно, что камера работает
+                    stats.frames += 1
+                    stats.frameSize = "${imageProxy.width}x${imageProxy.height}"
+                    if (stats.frames % 60 == 1) {
+                        // Уровень «warn», а не «info»: журнал по умолчанию режет всё
+                        // ниже него, и записи попросту не доходили
+                        LogUtil.w(AppConfig.TAG, "Scanner: frame #${stats.frames} ${stats.frameSize}")
                     }
-                    processImageProxy(imageProxy, foundResult, onScanResult)
+                    processImageProxy(imageProxy, foundResult) { text ->
+                        stats.recognized = true
+                        onScanResult(text)
+                    }
                 }
             }
 
@@ -521,7 +572,7 @@ private fun processImageProxy(
         )
 
         if (!text.isNullOrEmpty() && foundResult.compareAndSet(false, true)) {
-            LogUtil.i(AppConfig.TAG, "Scanner: code recognized")
+            LogUtil.w(AppConfig.TAG, "Scanner: code recognized")
             onResult(text)
         }
     } catch (_: Exception) {

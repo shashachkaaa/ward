@@ -20,20 +20,21 @@ import androidx.camera.viewfinder.core.ImplementationMode
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -46,8 +47,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -66,7 +67,9 @@ import com.v2ray.ang.R
 import com.v2ray.ang.enums.PermissionType
 import com.v2ray.ang.extension.toast
 import com.v2ray.ang.ui.base.HelperBaseComponentActivity
-import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.GlassSurface
+import com.v2ray.ang.ui.compose.glassBackdropSource
+import com.v2ray.ang.ui.compose.rememberGlassBackdrop
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.QRCodeDecoder
 import java.util.concurrent.Executors
@@ -79,8 +82,8 @@ class ScannerActivity : HelperBaseComponentActivity() {
 
     private val uiState = mutableStateOf(ScannerUiState.IDLE)
 
-    // Видоискатель рисует внешняя поверхность камеры - в слой она не попадёт,
-    // а превью может почернеть, поэтому фон для стекла тут не пишем
+    // Свой слой у экрана уже есть - в него пишется картинка камеры, и её размывают
+    // стеклянные капсулы управления. Второй, общий, тут не нужен
     override val recordGlassBackdrop: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -164,68 +167,15 @@ fun ScannerScreen(
     var hasTorch by remember { mutableStateOf(false) }
     var torchEnabled by rememberSaveable { mutableStateOf(false) }
 
-    Scaffold(
-        contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
-        topBar = {
-            AppTopBar(
-                title = stringResource(R.string.menu_item_import_config_qrcode),
-                onBackClick = onBackClick,
-                actions = {
-                    IconButton(
-                        onClick = {
-                            if (isScanning) {
-                                if (torchEnabled) {
-                                    torchEnabled = false
-                                    cameraControl?.enableTorch(false)
-                                }
-                                onStopScan()
-                            } else {
-                                onStartScan()
-                            }
-                        }
-                    ) {
-                        Icon(
-                            painterResource(
-                                if (isScanning) R.drawable.ic_stop_24dp
-                                else R.drawable.ic_scan_24dp
-                            ),
-                            contentDescription = if (isScanning) "stop scan" else "start scan"
-                        )
-                    }
-                    if (isScanning && hasTorch) {
-                        IconButton(
-                            onClick = {
-                                torchEnabled = !torchEnabled
-                                cameraControl?.enableTorch(torchEnabled)
-                            }
-                        ) {
-                            Icon(
-                                painterResource(
-                                    if (torchEnabled) R.drawable.ic_flash_on_24dp
-                                    else R.drawable.ic_flash_off_24dp
-                                ),
-                                contentDescription = "Torch"
-                            )
-                        }
-                    }
-                    IconButton(onClick = onSelectPhoto) {
-                        Icon(
-                            painterResource(R.drawable.ic_image_24dp),
-                            contentDescription = "select image"
-                        )
-                    }
-                }
-            )
-        }
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            when (uiState) {
-                ScannerUiState.IDLE -> ScannerIdlePlaceholder(onStartClick = onStartScan)
-                ScannerUiState.ACTIVE -> {
+    // Слой с картинкой камеры: его и размывают стеклянные капсулы управления.
+    // Общий слой темы тут не годится - капсулы сами в него пишутся
+    val previewBackdrop = rememberGlassBackdrop()
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        when (uiState) {
+            ScannerUiState.IDLE -> ScannerIdlePlaceholder(onStartClick = onStartScan)
+            ScannerUiState.ACTIVE -> {
+                Box(modifier = Modifier.fillMaxSize().glassBackdropSource(previewBackdrop)) {
                     CameraXPreview(
                         onScanResult = onScanResult,
                         onCameraReady = { control, info ->
@@ -236,12 +186,112 @@ fun ScannerScreen(
                             }
                         }
                     )
-                    ScannerOverlay()
+                }
+                ScannerFrame(modifier = Modifier.fillMaxSize())
+            }
+        }
+
+        // Управление плавает над камерой стеклянными капсулами - как нижняя панель на
+        // главной. Обычная шапка делала из сканера отдельную страницу, хотя он
+        // накладка поверх камеры, а не раздел приложения
+        GlassSurface(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .fillMaxWidth(),
+            shape = ScannerBarShape,
+            backdrop = previewBackdrop.takeIf { isScanning },
+            opaqueness = 1.1f,
+            fallbackColor = Color.Black.copy(alpha = 0.45f)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBackClick) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_arrow_back_24dp),
+                        contentDescription = "Back",
+                        tint = Color.White
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.menu_item_import_config_qrcode),
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f).padding(start = 4.dp)
+                )
+            }
+        }
+
+        GlassSurface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = 32.dp, vertical = 16.dp),
+            shape = ScannerBarShape,
+            backdrop = previewBackdrop.takeIf { isScanning },
+            opaqueness = 1.1f,
+            fallbackColor = Color.Black.copy(alpha = 0.45f)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = {
+                        if (isScanning) {
+                            if (torchEnabled) {
+                                torchEnabled = false
+                                cameraControl?.enableTorch(false)
+                            }
+                            onStopScan()
+                        } else {
+                            onStartScan()
+                        }
+                    }
+                ) {
+                    Icon(
+                        painterResource(
+                            if (isScanning) R.drawable.ic_stop_24dp else R.drawable.ic_scan_24dp
+                        ),
+                        contentDescription = if (isScanning) "stop scan" else "start scan",
+                        tint = Color.White
+                    )
+                }
+                if (isScanning && hasTorch) {
+                    IconButton(
+                        onClick = {
+                            torchEnabled = !torchEnabled
+                            cameraControl?.enableTorch(torchEnabled)
+                        }
+                    ) {
+                        Icon(
+                            painterResource(
+                                if (torchEnabled) R.drawable.ic_flash_on_24dp
+                                else R.drawable.ic_flash_off_24dp
+                            ),
+                            contentDescription = "Torch",
+                            tint = if (torchEnabled) MaterialTheme.colorScheme.primary else Color.White
+                        )
+                    }
+                }
+                IconButton(onClick = onSelectPhoto) {
+                    Icon(
+                        painterResource(R.drawable.ic_image_24dp),
+                        contentDescription = "select image",
+                        tint = Color.White
+                    )
                 }
             }
         }
     }
 }
+
+/** Форма плавающих капсул сканера. */
+private val ScannerBarShape = RoundedCornerShape(28.dp)
 
 @Composable
 private fun ScannerIdlePlaceholder(onStartClick: () -> Unit) {
@@ -275,63 +325,51 @@ private fun ScannerIdlePlaceholder(onStartClick: () -> Unit) {
     }
 }
 
+/**
+ * Окно наведения: затемнение вокруг и уголки по краю.
+ *
+ * Затемнение рисуется четырьмя полосами вокруг окна, а не сплошным прямоугольником с
+ * вырезом через BlendMode.Clear, как было раньше. Clear вычищает пиксели окна
+ * приложения, и что окажется под ними, зависит от того, как собирается кадр и каким
+ * способом выводится камера: где-то проступала картинка, где-то оставалась дыра.
+ * Четыре полосы дают тот же вид и ни от чего не зависят.
+ */
 @Composable
-fun ScannerOverlay() {
-    val scanBoxSize = 250.dp
-    val cornerLength = 24.dp
-    val cornerWidth = 3.dp
-    val cornerColor = Color(0xFF4CAF50)
+private fun ScannerFrame(modifier: Modifier = Modifier) {
+    val accent = MaterialTheme.colorScheme.primary
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val canvasWidth = size.width
-            val canvasHeight = size.height
-            val boxSizePx = scanBoxSize.toPx()
-            val left = (canvasWidth - boxSizePx) / 2f
-            val top = (canvasHeight - boxSizePx) / 2f
-            drawRect(color = Color(0x80000000))
-            drawRect(
-                color = Color.Transparent,
-                topLeft = Offset(left, top),
-                size = Size(boxSizePx, boxSizePx),
-                blendMode = BlendMode.Clear
-            )
-        }
-        Box(
-            modifier = Modifier
-                .size(scanBoxSize)
-                .align(Alignment.Center)
-        ) {
-            listOf(
-                Alignment.TopStart,
-                Alignment.TopEnd,
-                Alignment.BottomStart,
-                Alignment.BottomEnd
-            ).forEach { align ->
-                Box(
-                    modifier = Modifier
-                        .align(align)
-                        .width(cornerLength)
-                        .height(cornerWidth)
-                        .background(cornerColor)
-                )
-                Box(
-                    modifier = Modifier
-                        .align(align)
-                        .width(cornerWidth)
-                        .height(cornerLength)
-                        .background(cornerColor)
-                )
-            }
-        }
-        Text(
-            text = stringResource(R.string.menu_item_scan_qrcode),
-            color = Color.White,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier
-                .align(Alignment.Center)
-                .offset(y = scanBoxSize / 2 + 24.dp)
+    Canvas(modifier = modifier) {
+        val box = minOf(size.width, size.height) * 0.66f
+        val left = (size.width - box) / 2f
+        val top = (size.height - box) / 2f
+        val dim = Color.Black.copy(alpha = 0.5f)
+
+        drawRect(dim, size = Size(size.width, top))
+        drawRect(
+            dim,
+            topLeft = Offset(0f, top + box),
+            size = Size(size.width, size.height - top - box)
         )
+        drawRect(dim, topLeft = Offset(0f, top), size = Size(left, box))
+        drawRect(
+            dim,
+            topLeft = Offset(left + box, top),
+            size = Size(size.width - left - box, box)
+        )
+
+        // Уголки: восемь отрезков по углам окна
+        val len = box * 0.13f
+        val stroke = 4.dp.toPx()
+        val right = left + box
+        val bottom = top + box
+        fun corner(x: Float, y: Float, dx: Float, dy: Float) {
+            drawLine(accent, Offset(x, y), Offset(x + dx, y), strokeWidth = stroke, cap = StrokeCap.Round)
+            drawLine(accent, Offset(x, y), Offset(x, y + dy), strokeWidth = stroke, cap = StrokeCap.Round)
+        }
+        corner(left, top, len, len)
+        corner(right, top, -len, len)
+        corner(left, bottom, len, -len)
+        corner(right, bottom, -len, -len)
     }
 }
 
@@ -364,7 +402,16 @@ fun CameraXPreview(
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
             .apply {
+                // Счёт кадров уходит в журнал: если сканер снова замолчит, по нему
+                // сразу видно, доходят ли кадры до разбора или дело в самой камере
+                var frames = 0
                 setAnalyzer(analysisExecutor) { imageProxy ->
+                    if (frames++ % 60 == 0) {
+                        LogUtil.i(
+                            AppConfig.TAG,
+                            "Scanner: frame #$frames ${imageProxy.width}x${imageProxy.height}"
+                        )
+                    }
                     processImageProxy(imageProxy, foundResult, onScanResult)
                 }
             }
@@ -404,7 +451,10 @@ fun CameraXPreview(
         val coordinateTransformer = remember { MutableCoordinateTransformer() }
         CameraXViewfinder(
             surfaceRequest = request,
-            implementationMode = ImplementationMode.EXTERNAL,
+            // Картинку рисует сам Compose, а не отдельная поверхность под окном.
+            // С отдельной поверхностью её не видит ни стекло, ни слой фона, и окно
+            // наведения приходилось прорезать насквозь через BlendMode.Clear
+            implementationMode = ImplementationMode.EMBEDDED,
             coordinateTransformer = coordinateTransformer,
             modifier = Modifier.fillMaxSize()
         )
@@ -471,6 +521,7 @@ private fun processImageProxy(
         )
 
         if (!text.isNullOrEmpty() && foundResult.compareAndSet(false, true)) {
+            LogUtil.i(AppConfig.TAG, "Scanner: code recognized")
             onResult(text)
         }
     } catch (_: Exception) {

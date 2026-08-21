@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.v2ray.ang.ui.compose.ReleaseNotesText
 import com.v2ray.ang.ui.compose.GlassAlertDialog
 import com.v2ray.ang.BuildConfig
 import com.v2ray.ang.R
@@ -106,7 +107,7 @@ fun CheckUpdateScreen(
         GlassAlertDialog(
             onDismissRequest = { viewModel.dismissUpdateDialog() },
             title = { Text(stringResource(R.string.update_new_version_found, result.latestVersion ?: "")) },
-            text = { Text(result.releaseNotes ?: "") },
+            text = { ReleaseNotesText(result.releaseNotes.orEmpty()) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.dismissUpdateDialog()

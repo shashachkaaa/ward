@@ -2,15 +2,10 @@ package com.v2ray.ang.ui.perappproxy
 
 import android.os.Bundle
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -19,10 +14,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,23 +24,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.v2ray.ang.ui.compose.LiquidSwitch
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.AppInfo
-import com.v2ray.ang.extension.toastInfo
 import com.v2ray.ang.extension.toastSuccess
 import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.compose.AppDivider
 import com.v2ray.ang.ui.compose.AppListItem
 import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.SettingsSwitchItem
 import com.v2ray.ang.ui.compose.ItemDivider
-import com.v2ray.ang.ui.compose.colorFabActive
 import com.v2ray.ang.util.Utils
 import androidx.compose.ui.graphics.Color
 import com.v2ray.ang.ui.compose.GlassMenuShape
@@ -79,9 +69,6 @@ class PerAppProxyActivity : BaseComponentActivity() {
             onBackClick = { finish() },
             onPerAppProxyChanged = { viewModel.setPerAppProxyEnabled(it) },
             onBypassAppsChanged = { viewModel.setBypassAppsEnabled(it) },
-            onInfoClick = {
-                toastInfo(R.string.summary_pref_per_app_proxy)
-            },
             onToggleApp = { viewModel.toggle(it) },
             onSearch = { viewModel.filterApps(it) },
             onSelectAll = { viewModel.selectAll() },
@@ -111,7 +98,6 @@ fun PerAppProxyScreen(
     onBackClick: () -> Unit,
     onPerAppProxyChanged: (Boolean) -> Unit,
     onBypassAppsChanged: (Boolean) -> Unit,
-    onInfoClick: () -> Unit,
     onToggleApp: (String) -> Unit,
     onSearch: (String) -> Unit,
     onSelectAll: () -> Unit,
@@ -200,59 +186,21 @@ fun PerAppProxyScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surface
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.per_app_proxy_settings_enable),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        LiquidSwitch(
-                            checked = perAppProxyEnabled,
-                            onCheckedChange = onPerAppProxyChanged,
-                            checkedTrackColor = colorFabActive
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.switch_bypass_apps_mode),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        LiquidSwitch(
-                            checked = bypassApps,
-                            onCheckedChange = onBypassAppsChanged,
-                            checkedTrackColor = colorFabActive
-                        )
-                    }
-                    IconButton(onClick = onInfoClick) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_about_24dp),
-                            contentDescription = stringResource(R.string.summary_pref_per_app_proxy),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
+            // Оба переключателя стояли в одной строке рядом с подписями и кнопкой
+            // справки. Ширины на это не хватало: подпись забирала строку целиком, а
+            // тумблеру места не оставалось - он сжимался в полоску. Теперь это
+            // обычные строки настроек, такие же, как везде в приложении
+            SettingsSwitchItem(
+                title = stringResource(R.string.per_app_proxy_settings_enable),
+                checked = perAppProxyEnabled,
+                onCheckedChange = onPerAppProxyChanged
+            )
+            SettingsSwitchItem(
+                title = stringResource(R.string.switch_bypass_apps_mode),
+                summary = stringResource(R.string.summary_pref_per_app_proxy),
+                checked = bypassApps,
+                onCheckedChange = onBypassAppsChanged
+            )
             AppDivider()
 
             LazyColumn(

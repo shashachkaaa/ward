@@ -43,7 +43,6 @@ import com.v2ray.ang.ui.server.ServerVlessActivity
 import com.v2ray.ang.ui.server.ServerVmessActivity
 import com.v2ray.ang.ui.server.ServerWireguardActivity
 import com.v2ray.ang.ui.settings.SettingsActivity
-import com.v2ray.ang.ui.subscription.SubSettingActivity
 import com.v2ray.ang.ui.userasset.UserAssetActivity
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.Utils
@@ -161,7 +160,6 @@ class MainActivity : HelperBaseComponentActivity() {
 
     private fun navigateTo(destination: String) {
         val intent = when (destination) {
-            "sub_setting" -> Intent(this, SubSettingActivity::class.java)
             "per_app_proxy" -> Intent(this, PerAppProxyActivity::class.java)
             "routing_setting" -> Intent(this, RoutingSettingActivity::class.java)
             "user_asset" -> Intent(this, UserAssetActivity::class.java)

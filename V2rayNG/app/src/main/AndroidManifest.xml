@@ -237,9 +237,6 @@
             android:windowSoftInputMode="stateUnchanged|adjustResize"
             android:exported="false" />
         <activity
-            android:name=".ui.subscription.SubSettingActivity"
-            android:exported="false" />
-        <activity
             android:name=".ui.userasset.UserAssetActivity"
             android:exported="false" />
         <activity

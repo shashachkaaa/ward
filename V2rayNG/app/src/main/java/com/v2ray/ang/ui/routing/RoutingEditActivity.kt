@@ -16,8 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -41,7 +39,7 @@ import com.v2ray.ang.extension.toastSuccess
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.ui.apppicker.AppPickerActivity
 import com.v2ray.ang.ui.base.BaseComponentActivity
-import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.AppScreenScaffold
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.FormDropdownField
 import com.v2ray.ang.ui.compose.FormTextField
@@ -174,29 +172,24 @@ fun RoutingEditScreen(
         return rulesetItem
     }
 
-    Scaffold(
-        contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
-        topBar = {
-            AppTopBar(
-                title = stringResource(R.string.routing_settings_rule_title),
-                onBackClick = onBackClick,
-                actions = {
-                    if (position >= 0) {
-                        IconButton(onClick = { showDeleteConfirm = true }) {
-                            Icon(
-                                painterResource(R.drawable.ic_delete_24dp),
-                                contentDescription = stringResource(R.string.menu_item_del_config)
-                            )
-                        }
-                    }
-                    IconButton(onClick = { onSave(buildRuleset()) }) {
-                        Icon(
-                            painterResource(R.drawable.ic_fab_check),
-                            contentDescription = stringResource(R.string.menu_item_save_config)
-                        )
-                    }
+    AppScreenScaffold(
+        title = stringResource(R.string.routing_settings_rule_title),
+        onBackClick = onBackClick,
+        actions = {
+            if (position >= 0) {
+                IconButton(onClick = { showDeleteConfirm = true }) {
+                    Icon(
+                        painterResource(R.drawable.ic_delete_24dp),
+                        contentDescription = stringResource(R.string.menu_item_del_config)
+                    )
                 }
-            )
+            }
+            IconButton(onClick = { onSave(buildRuleset()) }) {
+                Icon(
+                    painterResource(R.drawable.ic_fab_check),
+                    contentDescription = stringResource(R.string.menu_item_save_config)
+                )
+            }
         }
     ) { innerPadding ->
         Column(

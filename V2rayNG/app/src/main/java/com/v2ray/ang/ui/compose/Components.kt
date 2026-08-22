@@ -246,10 +246,16 @@ fun AppListItem(
                 overflow = TextOverflow.Ellipsis
             )
         }
+        // Акцент, а не зашитый оранжевый: цвет выбирается в настройках, и галочки
+        // не должны жить своей жизнью
         Checkbox(
             checked = checked,
             onCheckedChange = onCheckedChange,
-            colors = CheckboxDefaults.colors(checkedColor = colorFabActive)
+            colors = CheckboxDefaults.colors(
+                checkedColor = MaterialTheme.colorScheme.primary,
+                checkmarkColor = MaterialTheme.colorScheme.onPrimary,
+                uncheckedColor = MaterialTheme.colorScheme.outline
+            )
         )
     }
 }

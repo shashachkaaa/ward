@@ -22,8 +22,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -41,6 +39,16 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.v2ray.ang.ui.compose.LiquidSwitch
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import com.v2ray.ang.ui.compose.AppScreenScaffold
+import com.v2ray.ang.ui.compose.BottomBlurHeight
+import com.v2ray.ang.ui.compose.ContentCard
+import com.v2ray.ang.ui.compose.PreferenceGroupHeader
+import com.v2ray.ang.ui.compose.SettingsGroupCard
+import com.v2ray.ang.ui.compose.reorderableDragHandle
+import sh.calvin.reorderable.ReorderableCollectionItemScope
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.RulesetItem
@@ -49,13 +57,8 @@ import com.v2ray.ang.extension.toastSuccess
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.ui.base.HelperBaseComponentActivity
-import com.v2ray.ang.ui.compose.AppTopBar
-import com.v2ray.ang.ui.compose.ItemDivider
-import com.v2ray.ang.ui.compose.ReorderableListItem
 import com.v2ray.ang.ui.compose.SelectListDialog
 import com.v2ray.ang.ui.compose.SettingsListItem
-import com.v2ray.ang.ui.compose.colorConfigType
-import com.v2ray.ang.ui.compose.colorFabActive
 import com.v2ray.ang.util.JsonUtil
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.Utils
@@ -202,53 +205,49 @@ fun RoutingSettingScreen(
         viewModel.move(fromIndex, toIndex)
     }
 
-    Scaffold(
-        contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
-        topBar = {
-            AppTopBar(
-                title = stringResource(R.string.routing_settings_title),
-                onBackClick = onBackClick,
-                actions = {
-                    IconButton(onClick = onAddRule) {
-                        Icon(
-                            painterResource(R.drawable.ic_add_24dp),
-                            contentDescription = stringResource(R.string.routing_settings_add_rule)
-                        )
-                    }
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(
-                                painterResource(R.drawable.ic_more_vert_24dp),
-                                contentDescription = null
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false },
-                            containerColor = Color.Transparent,
-                            shadowElevation = 0.dp,
-                            modifier = Modifier.glassPanel(GlassMenuShape)
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.routing_settings_import_predefined_rulesets)) },
-                                onClick = { showMenu = false; showPresetDialog = true }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.routing_settings_import_rulesets_from_clipboard)) },
-                                onClick = { showMenu = false; onImportClipboard() }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.routing_settings_import_rulesets_from_qrcode)) },
-                                onClick = { showMenu = false; onImportQRcode() }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.routing_settings_export_rulesets_to_clipboard)) },
-                                onClick = { showMenu = false; onExportClipboard() }
-                            )
-                        }
-                    }
+    AppScreenScaffold(
+        title = stringResource(R.string.routing_settings_title),
+        onBackClick = onBackClick,
+        actions = {
+            IconButton(onClick = onAddRule) {
+                Icon(
+                    painterResource(R.drawable.ic_add_24dp),
+                    contentDescription = stringResource(R.string.routing_settings_add_rule)
+                )
+            }
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        painterResource(R.drawable.ic_more_vert_24dp),
+                        contentDescription = null
+                    )
                 }
-            )
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    shape = GlassMenuShape,
+                    containerColor = Color.Transparent,
+                    shadowElevation = 0.dp,
+                    modifier = Modifier.glassPanel(GlassMenuShape)
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.routing_settings_import_predefined_rulesets)) },
+                        onClick = { showMenu = false; showPresetDialog = true }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.routing_settings_import_rulesets_from_clipboard)) },
+                        onClick = { showMenu = false; onImportClipboard() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.routing_settings_import_rulesets_from_qrcode)) },
+                        onClick = { showMenu = false; onImportQRcode() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.routing_settings_export_rulesets_to_clipboard)) },
+                        onClick = { showMenu = false; onExportClipboard() }
+                    )
+                }
+            }
         }
     ) { innerPadding ->
         LazyColumn(
@@ -257,21 +256,24 @@ fun RoutingSettingScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            // Стратегия - отдельная карточка, как строка настроек в настройках:
+            // это не правило, и в общий список правил ей вставать незачем
             item(key = "domain_strategy") {
-                SettingsListItem(
-                    title = stringResource(R.string.routing_settings_domain_strategy),
-                    entries = domainStrategies,
-                    values = domainStrategies,
-                    selectedValue = domainStrategy,
-                    onSelected = { onDomainStrategySelected(it) }
-                )
+                Column {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SettingsGroupCard {
+                        SettingsListItem(
+                            title = stringResource(R.string.routing_settings_domain_strategy),
+                            entries = domainStrategies,
+                            values = domainStrategies,
+                            selectedValue = domainStrategy,
+                            onSelected = { onDomainStrategySelected(it) }
+                        )
+                    }
+                }
             }
-            item {
-                Text(
-                    text = stringResource(R.string.routing_settings_rule_title),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(16.dp)
-                )
+            item(key = "rules_header") {
+                PreferenceGroupHeader(title = stringResource(R.string.routing_settings_rule_title))
             }
 
             itemsIndexed(
@@ -279,10 +281,10 @@ fun RoutingSettingScreen(
                 key = { _, ruleset -> ruleset.id }
             ) { index, ruleset ->
                 ReorderableItem(reorderableState, key = ruleset.id) { isDragging ->
-                    ReorderableListItem(
-                        scope = this,
-                        isDragging = isDragging
-                    ) {
+                    // Каждое правило - своя карточка. Сплошной список с
+                    // разделителями остался от v2rayNG и с остальным приложением
+                    // не сходился ничем
+                    RoutingRuleCard(scope = this, isDragging = isDragging) {
                         RoutingRulesetItem(
                             ruleset = ruleset,
                             onEdit = { onEditRule(index) },
@@ -292,8 +294,11 @@ fun RoutingSettingScreen(
                             }
                         )
                     }
-                    ItemDivider()
                 }
+            }
+
+            item(key = "bottom_space") {
+                Spacer(modifier = Modifier.height(BottomBlurHeight))
             }
         }
     }
@@ -312,6 +317,42 @@ fun RoutingSettingScreen(
     }
 }
 
+/**
+ * Стеклянная карточка правила с ручкой перетаскивания.
+ *
+ * Своя, а не общий [ReorderableListItem]: тот кладёт содержимое в непрозрачную
+ * поверхность с тенью, и стекло под ней не видно вовсе.
+ *
+ * @param scope Область элемента списка - из неё берётся ручка перетаскивания.
+ * @param isDragging Карточку сейчас тащат: она чуть приподнимается.
+ */
+@Composable
+private fun RoutingRuleCard(
+    scope: ReorderableCollectionItemScope,
+    isDragging: Boolean,
+    content: @Composable () -> Unit
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (isDragging) 1.02f else 1f,
+        animationSpec = tween(160),
+        label = "ruleDrag"
+    )
+
+    ContentCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .padding(bottom = 8.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .then(with(scope) { reorderableDragHandle() })
+    ) {
+        content()
+    }
+}
+
 @Composable
 private fun RoutingRulesetItem(
     ruleset: RulesetItem,
@@ -321,7 +362,7 @@ private fun RoutingRulesetItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -358,7 +399,7 @@ private fun RoutingRulesetItem(
                 Text(
                     text = ruleset.outboundTag,
                     style = MaterialTheme.typography.labelMedium,
-                    color = colorConfigType
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -376,8 +417,7 @@ private fun RoutingRulesetItem(
             Spacer(modifier = Modifier.height(4.dp))
             LiquidSwitch(
                 checked = ruleset.enabled ?: false,
-                onCheckedChange = onEnabledChange,
-                checkedTrackColor = colorFabActive
+                onCheckedChange = onEnabledChange
             )
         }
     }

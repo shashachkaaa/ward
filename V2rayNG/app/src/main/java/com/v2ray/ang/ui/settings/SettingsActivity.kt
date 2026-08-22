@@ -72,7 +72,6 @@ import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.checkupdate.CheckUpdateActivity
 import com.v2ray.ang.ui.perappproxy.PerAppProxyActivity
 import com.v2ray.ang.ui.routing.RoutingSettingActivity
-import com.v2ray.ang.ui.subscription.SubSettingActivity
 import com.v2ray.ang.ui.userasset.UserAssetActivity
 import com.v2ray.ang.ui.compose.AccentColorSetting
 import com.v2ray.ang.ui.compose.AppIconSetting
@@ -174,6 +173,7 @@ enum class SettingsCategory(
 ) {
     UI(R.string.title_ui_settings, R.string.summary_settings_ui),
     MODE(R.string.title_mode_settings, R.string.summary_settings_mode),
+    SUBSCRIPTIONS(R.string.title_subscription_settings, R.string.summary_subscription_settings),
     VPN_TUNNEL(R.string.title_vpn_settings, R.string.summary_settings_vpn),
     CORE(R.string.title_core_settings, R.string.summary_settings_core),
     MUX(R.string.title_mux_settings, R.string.summary_settings_mux),
@@ -192,7 +192,7 @@ private data class SettingsSection(
 private val settingsSections = listOf(
     SettingsSection(
         R.string.title_settings_section_general,
-        listOf(SettingsCategory.UI, SettingsCategory.MODE)
+        listOf(SettingsCategory.UI, SettingsCategory.MODE, SettingsCategory.SUBSCRIPTIONS)
     ),
     SettingsSection(
         R.string.title_settings_section_connection,
@@ -283,6 +283,7 @@ fun SettingsScreen(
                 }
                 SettingsCategory.UI -> UiSettings(modifier)
                 SettingsCategory.MODE -> ModeSettings(modifier, viewModel, onModeHelpClicked)
+                SettingsCategory.SUBSCRIPTIONS -> SubscriptionSettings(modifier, viewModel)
                 SettingsCategory.VPN_TUNNEL -> VpnSettings(modifier)
                 SettingsCategory.CORE -> CoreSettings(modifier)
                 SettingsCategory.MUX -> MuxSettings(modifier)
@@ -396,11 +397,6 @@ private fun SettingsCategoryList(
                 onClick = { context.startActivity(Intent(context, UserAssetActivity::class.java)) }
             )
             SettingsCategoryItem(
-                title = stringResource(R.string.title_sub_setting),
-                summary = stringResource(R.string.summary_settings_subscriptions),
-                onClick = { context.startActivity(Intent(context, SubSettingActivity::class.java)) }
-            )
-            SettingsCategoryItem(
                 title = stringResource(R.string.title_configuration_backup_restore),
                 summary = stringResource(R.string.summary_settings_backup),
                 onClick = { context.startActivity(Intent(context, BackupActivity::class.java)) }
@@ -437,6 +433,53 @@ private fun GlassQualitySetting() {
         selectedValue = quality.id,
         onSelected = { ThemeManager.setGlassQuality(GlassQuality.of(it)) }
     )
+}
+
+/**
+ * Настройки подписок.
+ *
+ * Раньше жили в отдельном экране «Группы», который сам по себе повторял главный:
+ * тот же список подписок, только в настройках. Список убран, а настройки - вот они,
+ * там же, где все остальные.
+ */
+@Composable
+private fun SubscriptionSettings(modifier: Modifier, viewModel: SettingsViewModel) {
+    var updateSubscription by rememberMmkvBool(AppConfig.PREF_UPDATE_SUBSCRIPTION, false)
+    var autoTest by rememberMmkvBool(AppConfig.PREF_AUTO_TEST_AFTER_UPDATE_SUBSCRIPTION, false)
+    var autoRemoveInvalid by rememberMmkvBool(AppConfig.PREF_AUTO_REMOVE_INVALID_AFTER_TEST, false)
+    var autoSort by rememberMmkvBool(AppConfig.PREF_AUTO_SORT_AFTER_TEST, false)
+
+    SettingsColumn(modifier) {
+        SettingsSwitchItem(
+            title = stringResource(R.string.title_pref_auto_update_subscription),
+            checked = updateSubscription,
+            onCheckedChange = { updateSubscription = it }
+        )
+        SettingsSwitchItem(
+            title = stringResource(R.string.title_pref_auto_test_after_update_subscription),
+            summary = stringResource(R.string.summary_pref_auto_test_after_update_subscription),
+            checked = autoTest,
+            onCheckedChange = { autoTest = it }
+        )
+        SettingsSwitchItem(
+            title = stringResource(R.string.title_pref_auto_remove_invalid_after_test),
+            summary = stringResource(R.string.summary_pref_auto_remove_invalid_after_test),
+            checked = autoRemoveInvalid,
+            enabled = autoTest,
+            onCheckedChange = { autoRemoveInvalid = it }
+        )
+        SettingsSwitchItem(
+            title = stringResource(R.string.title_pref_auto_sort_after_test),
+            summary = stringResource(R.string.summary_pref_auto_sort_after_test),
+            checked = autoSort,
+            enabled = autoTest,
+            onCheckedChange = { autoSort = it }
+        )
+        SettingsMenuItem(
+            title = stringResource(R.string.action_update_all_subscriptions),
+            onClick = { viewModel.updateAllSubscriptions() }
+        )
+    }
 }
 
 @Composable

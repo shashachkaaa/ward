@@ -465,7 +465,11 @@ class MainViewModel(
      * версию уже закрыли рукой - напоминать о ней при каждом запуске незачем.
      */
     private suspend fun checkForUpdateQuietly() {
-        val update = UpdateCheckerManager.checkQuietly() ?: return
+        // Проверяем при каждом запуске, не глядя на время прошлой проверки. Раньше
+        // между походами в сеть держался шестичасовой перерыв, и человек, открывший
+        // приложение сразу после выхода версии, узнавал о ней только к вечеру.
+        // Стоит это одного небольшого запроса на старте
+        val update = UpdateCheckerManager.checkQuietly(force = true) ?: return
         val version = update.latestVersion.orEmpty()
         if (MmkvManager.decodeSettingsString(AppConfig.PREF_UPDATE_DISMISSED_VERSION) == version) {
             return

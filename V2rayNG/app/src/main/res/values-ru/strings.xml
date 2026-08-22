@@ -147,6 +147,14 @@
     <string name="glass_quality_full">Полные</string>
     <string name="glass_quality_lite">Упрощённые · плавнее</string>
     <string name="glass_quality_off">Выключены · быстрее всего</string>
+    <string name="routing_settings_process_select">Выбрать приложение</string>
+    <string name="sub_setting_request_headers">Заголовки запроса (в формате JSON)</string>
+    <string name="subscription_updater_job_tips">Задача выполнится в фоне, ход работы будет виден в уведомлении.</string>
+    <string name="title_pref_auto_test_after_update_subscription">Проверять серверы после обновления</string>
+    <string name="summary_pref_auto_test_after_update_subscription">Проверка занимает заметное время - придётся подождать.</string>
+    <string name="title_subscription_settings">Подписки</string>
+    <string name="summary_subscription_settings">Обновление подписок и проверка серверов</string>
+    <string name="action_update_all_subscriptions">Обновить все подписки</string>
     <string name="title_url">URL</string>
     <string name="menu_item_download_file">Загрузить файлы</string>
     <string name="title_user_asset_add_url">Добавить URL ресурса</string>
@@ -275,7 +283,6 @@
     <string name="summary_settings_per_app_proxy">Выбрать, какие приложения идут через туннель</string>
     <string name="summary_settings_routing">Правила: что в прокси, что напрямую, что никуда</string>
     <string name="summary_settings_assets">Geo-файлы со списками доменов и адресов</string>
-    <string name="summary_settings_subscriptions">Список подписок и их настройки</string>
     <string name="summary_settings_backup">Сохранить настройки в файл или восстановить</string>
     <string name="summary_settings_update">Проверить наличие новой версии прямо сейчас</string>
     <string name="title_settings_section_other">Прочее</string>
@@ -454,7 +461,7 @@
     <string name="title_del_duplicate_config">Удалить дубликаты профилей</string>
     <string name="title_del_invalid_config">Удалить нерабочие профили</string>
     <string name="title_export_all">Экспорт профилей в буфер обмена</string>
-    <string name="title_sub_setting">Группы</string>
+    <string name="title_sub_setting">Подписка</string>
     <string name="sub_setting_remarks">Название</string>
     <string name="sub_setting_url">URL (необязательно)</string>
     <string name="sub_setting_user_agent">User Agent</string>

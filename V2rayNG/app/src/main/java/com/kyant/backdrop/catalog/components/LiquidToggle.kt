@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -72,6 +73,16 @@ fun LiquidToggle(
     val animationScope = rememberCoroutineScope()
     var didDrag by remember { mutableStateOf(false) }
     var fraction by remember { mutableFloatStateOf(if (selected()) 1f else 0f) }
+
+    // Обработчик перетаскивания создаётся один раз и на всю жизнь переключателя, а
+    // `selected` и `onSelect` приходят новыми на каждой перекомпоновке. Значит,
+    // внутри него живут те, что были в самый первый раз: `selected()` вечно
+    // отвечает начальным значением, и нажатие переводит тумблер только в одну
+    // сторону. Раньше это скрывала строка настройки - она ловила тот же палец и
+    // делала работу за него; стоило перестать, и стало видно
+    val currentSelected by rememberUpdatedState(selected)
+    val currentOnSelect by rememberUpdatedState(onSelect)
+
     val dampedDragAnimation = remember(animationScope) {
         DampedDragAnimation(
             animationScope = animationScope,
@@ -84,11 +95,13 @@ fun LiquidToggle(
             onDragStopped = {
                 if (didDrag) {
                     fraction = if (targetValue >= 0.5f) 1f else 0f
-                    onSelect(fraction == 1f)
+                    currentOnSelect(fraction == 1f)
                     didDrag = false
                 } else {
-                    fraction = if (selected()) 0f else 1f
-                    onSelect(fraction == 1f)
+                    // От того, где тумблер сейчас, а не от того, что о нём думает
+                    // вызывающий: своё положение он знает точнее
+                    fraction = if (fraction >= 0.5f) 0f else 1f
+                    currentOnSelect(fraction == 1f)
                 }
             },
             onDrag = { _, dragAmount ->
@@ -108,8 +121,8 @@ fun LiquidToggle(
                 dampedDragAnimation.updateValue(fraction)
             }
     }
-    LaunchedEffect(selected) {
-        snapshotFlow { selected() }
+    LaunchedEffect(Unit) {
+        snapshotFlow { currentSelected() }
             .collectLatest { isSelected ->
                 val target = if (isSelected) 1f else 0f
                 if (target != fraction) {

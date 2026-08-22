@@ -14,6 +14,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -1019,6 +1021,9 @@ private fun InfoSettings(modifier: Modifier) {
         }.getOrNull()
     }
 
+    var taps by remember { mutableIntStateOf(0) }
+    val tapSource = remember { MutableInteractionSource() }
+
     SettingsColumn(modifier, grouped = false) {
         appIcon?.let {
             Image(
@@ -1029,6 +1034,13 @@ private fun InfoSettings(modifier: Modifier) {
                     .size(84.dp)
                     .clip(RoundedCornerShape(22.dp))
                     .align(Alignment.CenterHorizontally)
+                    .clickable(interactionSource = tapSource, indication = null) {
+                        taps += 1
+                        if (taps >= 7) {
+                            taps = 0
+                            AppSnackbarManager.show("Ферз, тут нет золота.")
+                        }
+                    }
             )
         }
 

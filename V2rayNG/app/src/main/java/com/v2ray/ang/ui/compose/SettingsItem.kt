@@ -6,9 +6,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,7 +21,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ripple
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -109,6 +110,14 @@ fun SettingsCategoryItem(
     )
 }
 
+/**
+ * @param clickExcludesTrailing Не считать нажатием по строке нажатие по тому, что
+ *   стоит справа. Нужно строкам с переключателем: у него свой обработчик, а строка
+ *   вокруг него ловила тот же палец и подсвечивалась целиком - будто нажали её.
+ *   Здесь нажатие просто не доходит до строки, вместо того чтобы гасить его задним
+ *   числом: перехватывать чужой жест и потом отменять - это гонка, и выигрывает её
+ *   то один, то другой.
+ */
 @Composable
 private fun SettingsItemRow(
     icon: Painter?,
@@ -117,14 +126,17 @@ private fun SettingsItemRow(
     enabled: Boolean,
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
-    trailing: @Composable (() -> Unit)? = null
+    trailing: @Composable (() -> Unit)? = null,
+    clickExcludesTrailing: Boolean = false
 ) {
     val titleColor = if (enabled) MaterialTheme.colorScheme.onSurface
     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
     val descriptionColor = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant
     else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
 
-    // Лёгкое проседание строки под пальцем вместо резкой заливки
+    // Лёгкое проседание строки под пальцем вместо резкой заливки. Заливки здесь
+    // нарочно нет: рябь во всю строку - это разметка Android, а не наша, и рядом с
+    // жидким стеклом она смотрится чужой
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -133,25 +145,19 @@ private fun SettingsItemRow(
         label = "rowScale"
     )
 
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(
-                        enabled = enabled,
-                        interactionSource = interactionSource,
-                        indication = ripple(),
-                        onClick = onClick
-                    )
-                } else {
-                    Modifier
-                }
+    val clickable =
+        if (onClick != null) {
+            Modifier.clickable(
+                enabled = enabled,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
             )
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+        } else {
+            Modifier
+        }
+
+    val label: @Composable RowScope.() -> Unit = {
         if (icon != null) {
             Icon(
                 painter = icon,
@@ -178,7 +184,40 @@ private fun SettingsItemRow(
                 )
             }
         }
-        trailing?.invoke()
+    }
+
+    if (clickExcludesTrailing && trailing != null) {
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .scale(scale),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .then(clickable)
+                    .padding(start = 20.dp, end = 8.dp)
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                content = label
+            )
+            Box(modifier = Modifier.padding(end = 20.dp)) {
+                trailing()
+            }
+        }
+    } else {
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .scale(scale)
+                .then(clickable)
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            label()
+            trailing?.invoke()
+        }
     }
 }
 
@@ -470,6 +509,8 @@ fun SettingsSwitchItem(
             { onCheckedChange(!checked) }
         } else null,
         modifier = modifier,
+        // Нажатие по самому переключателю - его дело, а не строки
+        clickExcludesTrailing = true,
         trailing = {
             LiquidSwitch(
                 checked = checked,

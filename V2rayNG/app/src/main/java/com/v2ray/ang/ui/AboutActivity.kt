@@ -2,6 +2,9 @@ package com.v2ray.ang.ui
 
 import android.os.Bundle
 import android.webkit.WebView
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,6 +33,7 @@ import com.v2ray.ang.BuildConfig
 import com.v2ray.ang.R
 import com.v2ray.ang.core.CoreNativeManager
 import com.v2ray.ang.ui.base.BaseComponentActivity
+import com.v2ray.ang.ui.compose.AppSnackbarManager
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.SettingsMenuItem
 import com.v2ray.ang.ui.compose.VersionInfoBlock
@@ -51,6 +55,10 @@ class AboutActivity : BaseComponentActivity() {
 fun AboutScreen(onBackClick: () -> Unit) {
     val context = LocalContext.current
     var showOssDialog by remember { mutableStateOf(false) }
+
+    // Счётчик нажатий по версии
+    var taps by remember { mutableIntStateOf(0) }
+    val versionTaps = remember { MutableInteractionSource() }
 
     val versionText = "v${BuildConfig.VERSION_NAME} (${CoreNativeManager.getLibVersion()})"
     val appIdText = BuildConfig.APPLICATION_ID
@@ -97,7 +105,17 @@ fun AboutScreen(onBackClick: () -> Unit) {
             )
             VersionInfoBlock(
                 versionText = versionText,
-                appIdText = appIdText
+                appIdText = appIdText,
+                modifier = Modifier.clickable(
+                    interactionSource = versionTaps,
+                    indication = null
+                ) {
+                    taps += 1
+                    if (taps >= 7) {
+                        taps = 0
+                        AppSnackbarManager.show("Ферз, тут нет золота.")
+                    }
+                }
             )
         }
     }

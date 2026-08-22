@@ -79,27 +79,52 @@ fun Modifier.liquidBackground(
     // Фон неподвижен, а перерисовывался каждый кадр: три радиальных градиента во весь
     // экран, и каждый заново создавал свой шейдер. На прокрутке это ложилось поверх
     // всей остальной работы. Теперь картинка пишется в слой только когда меняется -
-    // при смене размера или накала, - а каждый кадр слой просто выкладывается на экран
+    // при смене размера, накала или цветов, - а каждый кадр слой просто выкладывается
+    // на экран
     val cache = remember(backdrop) { BackgroundCache() }
 
     return this
         .onGloballyPositioned { backdrop.origin = it.positionOnScreen() }
         .drawBehind {
             val alpha = lerp(idleAlpha, liveAlpha, activity().coerceIn(0f, 1f))
-            if (cache.size != size || cache.alpha != alpha) {
+            if (cache.needsRedraw(size, alpha, base, warm, cool)) {
                 backdrop.layer.record { draw(alpha) }
                 backdrop.recorded = true
-                cache.size = size
-                cache.alpha = alpha
+                cache.remember(size, alpha, base, warm, cool)
             }
             drawLayer(backdrop.layer)
         }
 }
 
-/** Что уже записано в слой фона: пока это не изменилось, перезаписывать нечего. */
+/**
+ * Что уже записано в слой фона: пока это не изменилось, перезаписывать нечего.
+ *
+ * Цвета здесь не для красоты. Первый заход сравнивал только размер и накал, и смена
+ * акцента в настройках до фона не доходила: размер тот же, накал тот же - значит
+ * перерисовывать нечего. Пятна оставались прежнего цвета до перезапуска, пока весь
+ * остальной экран уже был перекрашен.
+ */
 private class BackgroundCache {
-    var size: Size = Size.Unspecified
-    var alpha: Float = Float.NaN
+    private var size: Size = Size.Unspecified
+    private var alpha: Float = Float.NaN
+    private var base: Color = Color.Unspecified
+    private var warm: Color = Color.Unspecified
+    private var cool: Color = Color.Unspecified
+
+    fun needsRedraw(size: Size, alpha: Float, base: Color, warm: Color, cool: Color): Boolean =
+        this.size != size ||
+                this.alpha != alpha ||
+                this.base != base ||
+                this.warm != warm ||
+                this.cool != cool
+
+    fun remember(size: Size, alpha: Float, base: Color, warm: Color, cool: Color) {
+        this.size = size
+        this.alpha = alpha
+        this.base = base
+        this.warm = warm
+        this.cool = cool
+    }
 }
 
 /** Одно размытое пятно: цвет в центре, прозрачность к краю. */

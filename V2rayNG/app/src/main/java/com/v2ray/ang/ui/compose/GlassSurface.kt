@@ -1,6 +1,7 @@
 package com.v2ray.ang.ui.compose
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -25,12 +27,12 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionOnScreen
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.backdrops.emptyBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
@@ -176,25 +178,31 @@ fun Modifier.glassBackground(
     // Без слоя размывать нечего, и поверхность должна быть плотнее: иначе сквозь неё
     // читается то, что лежит под окном
     val solid = fallbackColor ?: scheme.surface.copy(alpha = if (isDark) 0.82f else 0.86f)
-    val plain = remember { emptyBackdrop() }
     val source = backdrop?.takeIf { quality.blurs }
 
     if (source == null) {
-        // Слоя нет - но край всё равно держим бликом. Ровная заливка отличается от
+        // Слоя нет - но край всё равно держим светом. Ровная заливка отличается от
         // фона только тоном, и на широкой карточке такое отличие читается чертой
-        // поперёк экрана, а не поверхностью. Блик по контуру стоит одну отрисовку
-        // и никаких программ для видеоядра: под ним пусто, преломлять нечего
-        return drawBackdrop(
-            backdrop = plain,
-            shape = { shape },
-            effects = {},
-            highlight = { Highlight.Ambient },
-            shadow = { Shadow(radius = 6f.dp, color = Color.Black.copy(alpha = 0.06f)) },
-            onDrawSurface = {
-                drawRect(solid)
-                if (surfaceTint != null) drawRect(surfaceTint)
-            }
+        // поперёк экрана, а не поверхностью.
+        //
+        // Свет рисуется обводкой, а не бликом библиотеки. Блик у неё - размытие
+        // контура по слою во всю поверхность, а поверхности тут бывают ростом со
+        // всё содержимое экрана: в разделе настроек одна карточка оборачивает всю
+        // прокручиваемую колонку. Размывать контур по такому слою каждый кадр -
+        // это и есть те самые рывки. Обводка же просто линия.
+        //
+        // Свет падает сверху, поэтому и гаснет он книзу - и гаснет на своей высоте,
+        // не растягиваясь по всей карточке, какой бы длинной она ни была
+        val rim = Brush.verticalGradient(
+            colors = listOf(
+                Color.White.copy(alpha = if (isDark) 0.12f else 0.60f),
+                Color.White.copy(alpha = if (isDark) 0.04f else 0.16f),
+                Color.Transparent
+            ),
+            startY = 0f,
+            endY = with(LocalDensity.current) { 56.dp.toPx() }
         )
+        return background(solid, shape).border(1.dp, rim, shape)
     }
 
     val tint = glassSurfaceColor(isDark, scheme.surface, opaqueness)

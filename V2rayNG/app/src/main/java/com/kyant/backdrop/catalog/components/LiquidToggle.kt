@@ -179,17 +179,19 @@ fun LiquidToggle(
                         val progress = dampedDragAnimation.pressProgress
                         // Оба эффекта видно только под пальцем: в покое капля залита
                         // белым наглухо, и всё, что под ней, считается впустую.
-                        // Переключателей в настройках экран, и на слабом видеоядре
-                        // этот холостой ход стоит заметно
-                        if (blurs) {
-                            blur(8f.dp.toPx() * (1f - progress))
-                        }
-                        if (refracts) {
-                            lens(
-                                5f.dp.toPx() * progress,
-                                10f.dp.toPx() * progress,
-                                chromaticAberration = true
-                            )
+                        // Переключателей в настройках экран, и этот холостой ход
+                        // шёл на каждом кадре прокрутки, хотя не давал ни пикселя
+                        if (progress > 0f) {
+                            if (blurs) {
+                                blur(8f.dp.toPx() * (1f - progress))
+                            }
+                            if (refracts) {
+                                lens(
+                                    5f.dp.toPx() * progress,
+                                    10f.dp.toPx() * progress,
+                                    chromaticAberration = true
+                                )
+                            }
                         }
                     },
                     highlight = {

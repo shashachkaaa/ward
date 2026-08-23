@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 
 /** Что сейчас происходит с обновлением: из этого рисуется плашка на главном экране. */
 sealed class UpdateInstallState {
@@ -75,7 +76,14 @@ object AppUpdateInstaller {
      */
     suspend fun downloadAndInstall(context: Context, url: String): Boolean =
         withContext(Dispatchers.IO) {
+            // Каждый шаг пишется в журнал уровнем ошибки. Не потому, что это ошибки, а
+            // потому, что журнал по умолчанию показывает только их, и увидеть, где
+            // установка встала, иначе нечем: сорвись она молча - снаружи это выглядит
+            // как «нажал, и ничего»
+            LogUtil.e(AppConfig.TAG, "Update: starting, url=$url")
+
             if (!canInstall(context)) {
+                LogUtil.e(AppConfig.TAG, "Update: install from unknown sources not allowed")
                 _state.value = UpdateInstallState.NeedsPermission
                 return@withContext false
             }
@@ -91,17 +99,26 @@ object AppUpdateInstaller {
                     download(url, target, httpPort = SettingsManager.getHttpPort())
 
             if (!downloaded) {
-                _state.value = UpdateInstallState.Failed(null)
+                LogUtil.e(AppConfig.TAG, "Update: download failed")
+                _state.value = UpdateInstallState.Failed("download failed")
                 return@withContext false
             }
 
+            LogUtil.e(AppConfig.TAG, "Update: downloaded ${target.length()} bytes")
             _state.value = UpdateInstallState.Installing
-            val started = runCatching { startInstall(context, target) }
-                .onFailure { LogUtil.e(AppConfig.TAG, "Failed to start install session", it) }
-                .getOrDefault(false)
 
+            val outcome = runCatching { startInstall(context, target) }
+            val error = outcome.exceptionOrNull()
+            if (error != null) {
+                LogUtil.e(AppConfig.TAG, "Update: failed to start install session", error)
+                _state.value = UpdateInstallState.Failed(error.message ?: "install session failed")
+                return@withContext false
+            }
+
+            val started = outcome.getOrDefault(false)
             if (!started) {
-                _state.value = UpdateInstallState.Failed(null)
+                LogUtil.e(AppConfig.TAG, "Update: install session was not started")
+                _state.value = UpdateInstallState.Failed("install session not started")
             }
             started
         }
@@ -114,9 +131,23 @@ object AppUpdateInstaller {
         )
 
     private fun startInstall(context: Context, apk: File): Boolean {
-        if (!apk.exists() || apk.length() <= 0L) return false
+        if (!apk.exists() || apk.length() <= 0L) {
+            LogUtil.e(AppConfig.TAG, "Update: apk missing or empty")
+            return false
+        }
 
         val installer = context.packageManager.packageInstaller
+
+        // Сессии от прошлых попыток закрываем. Брошенная сессия висит в системе со
+        // своим ожиданием ответа, и следующая попытка может занять её место в очереди
+        // подтверждения - установщик тогда не показывается вовсе
+        runCatching {
+            installer.mySessions.forEach { info ->
+                LogUtil.e(AppConfig.TAG, "Update: abandoning stale session ${info.sessionId}")
+                runCatching { installer.abandonSession(info.sessionId) }
+            }
+        }
+
         val params = PackageInstaller.SessionParams(
             PackageInstaller.SessionParams.MODE_FULL_INSTALL
         )
@@ -134,14 +165,21 @@ object AppUpdateInstaller {
             } else {
                 PendingIntent.FLAG_UPDATE_CURRENT
             }
+            // Номер запроса свой на каждую попытку, а не номер сессии: система
+            // переиспользует номера сессий, и запрос от прошлой попытки мог достаться
+            // новой уже отменённым - ответ по нему не приходил бы никогда
             val statusIntent = PendingIntent.getBroadcast(
                 context,
-                sessionId,
+                attempts.incrementAndGet(),
                 Intent(context, UpdateInstallReceiver::class.java),
                 flags
             )
             session.commit(statusIntent.intentSender)
+            LogUtil.e(AppConfig.TAG, "Update: session $sessionId committed, waiting for installer")
         }
         return true
     }
+
+    /** Номер попытки - он же номер запроса к системе, лишь бы не повторялся. */
+    private val attempts = AtomicInteger(0)
 }

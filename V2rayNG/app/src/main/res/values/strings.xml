@@ -565,6 +565,7 @@
     <string name="update_later">Later</string>
     <string name="update_downloading">Downloading… %1$d%%</string>
     <string name="update_installing">Starting the installer…</string>
+    <string name="update_open_in_browser">Open the download page</string>
     <string name="update_failed">Could not download the update</string>
     <string name="update_needs_permission">Allow Ward to install apps, then tap Update again</string>
     <string name="update_auto_check">Check automatically</string>

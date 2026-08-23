@@ -561,6 +561,7 @@
     <string name="update_later">Позже</string>
     <string name="update_downloading">Загрузка… %1$d%%</string>
     <string name="update_installing">Запускаем установщик…</string>
+    <string name="update_open_in_browser">Открыть страницу загрузки</string>
     <string name="update_failed">Не удалось скачать обновление</string>
     <string name="update_needs_permission">Разрешите Ward устанавливать приложения и нажмите «Обновить» ещё раз</string>
     <string name="update_auto_check">Проверять автоматически</string>

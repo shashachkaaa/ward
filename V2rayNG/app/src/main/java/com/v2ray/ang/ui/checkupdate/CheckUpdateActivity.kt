@@ -11,6 +11,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -26,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import com.v2ray.ang.handler.AppUpdateInstaller
 import com.v2ray.ang.handler.UpdateInstallState
 import com.v2ray.ang.ui.compose.AppScreenScaffold
-import com.v2ray.ang.ui.compose.AppSnackbarManager
 import com.v2ray.ang.ui.compose.ReleaseNotesText
 import com.v2ray.ang.ui.compose.GlassAlertDialog
 import com.v2ray.ang.BuildConfig
@@ -72,20 +75,27 @@ fun CheckUpdateScreen(
         viewModel.checkForUpdates()
     }
 
-    // Установка запрещена системой - ведём в настройки, где её разрешают. Установка
-    // закончилась - окно закрывать нечего, приложение уже перезапускается
+    // Сорвавшуюся установку показываем в самом окне. Снекбар живёт в окне активности,
+    // а диалог стоит поверх него отдельным окном со своим затемнением: сообщение об
+    // ошибке уходило за него, и снаружи это выглядело как «нажал, и ничего»
+    var installError by remember { mutableStateOf<String?>(null) }
+
+    // Установка запрещена системой - ведём в настройки, где её разрешают
     LaunchedEffect(installState) {
-        when (installState) {
+        when (val state = installState) {
             is UpdateInstallState.NeedsPermission -> {
-                AppSnackbarManager.show(context.getString(R.string.update_needs_permission))
+                installError = context.getString(R.string.update_needs_permission)
                 runCatching { context.startActivity(AppUpdateInstaller.permissionIntent(context)) }
                 AppUpdateInstaller.reset()
             }
 
             is UpdateInstallState.Failed -> {
-                AppSnackbarManager.show(context.getString(R.string.update_failed))
+                installError = state.message?.let { "${context.getString(R.string.update_failed)}: $it" }
+                    ?: context.getString(R.string.update_failed)
                 AppUpdateInstaller.reset()
             }
+
+            is UpdateInstallState.Downloading -> installError = null
 
             else -> Unit
         }
@@ -147,6 +157,22 @@ fun CheckUpdateScreen(
                                 else -> stringResource(R.string.update_installing)
                             },
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    installError?.let { message ->
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = message,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            text = stringResource(R.string.update_open_in_browser),
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .padding(top = 8.dp)
+                                .clickable {
+                                    result.downloadUrl?.let { Utils.openUri(context, it) }
+                                }
                         )
                     }
                 }

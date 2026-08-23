@@ -122,7 +122,19 @@ object NotificationManager {
 
         applyLiveUpdate(service.getString(R.string.notification_live_connected))
 
-        service.startForeground(NOTIFICATION_ID, mBuilder?.build())
+        val notification = mBuilder?.build()
+        if (notification != null && liveUpdateEnabled()) {
+            // Система умеет сказать заранее, годится ли уведомление в «живые».
+            // Без этого пришлось бы гадать, почему плашки нет: не показала оболочка
+            // или мы сами собрали уведомление не так
+            LogUtil.e(
+                AppConfig.TAG,
+                "Live notification: promotable=" +
+                        NotificationCompat.hasPromotableCharacteristics(notification)
+            )
+        }
+
+        service.startForeground(NOTIFICATION_ID, notification)
     }
 
     /**
@@ -145,11 +157,11 @@ object NotificationManager {
         // Выключили при поднятом туннеле - плашку надо убрать сразу, а не ждать
         // переподключения: просьба уже отправлена и сама собой не отзовётся
         if (!liveUpdateEnabled()) {
-            builder.requestPromotedOngoing(false)
+            builder.setRequestPromotedOngoing(false)
             return
         }
 
-        builder.requestPromotedOngoing(true)
+        builder.setRequestPromotedOngoing(true)
         builder.setShortCriticalText(shortText)
     }
 

@@ -102,10 +102,14 @@ object NotificationManager {
             .setOngoing(true)
             .setShowWhen(false)
             .setOnlyAlertOnce(true)
-            // Акцент из настроек: система красит им значок и название приложения.
-            // Заливать им всё уведомление (setColorized) не станем - палитра
-            // светлая, и белый текст по ней местами не читался бы
+            // Акцент из настроек. Заливка им всего уведомления обязательна, а не
+            // на вкус: без неё система не считает уведомление годным для «живого»
+            // (hasPromotableCharacteristics требует isColorizedRequested), и плашки
+            // не будет. За читаемость текста на цветном фоне отвечает сама система:
+            // она подбирает контраст, а не кладёт белым поверх чего попало.
+            // Работает это только у службы переднего плана - наш случай
             .setColor(accentColor())
+            .setColorized(true)
             .setContentIntent(contentPendingIntent)
             .addAction(
                 R.drawable.ic_delete_24dp,

@@ -2,7 +2,6 @@ package com.v2ray.ang.ui.compose
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -31,7 +30,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -64,20 +62,27 @@ fun PreferenceGroupHeader(title: String, modifier: Modifier = Modifier) {
 
 /**
  * Скруглённый контейнер, объединяющий несколько строк настроек в один блок.
+ *
+ * Стекло, а не ровная заливка. Заливка была светлее фона на плоские одиннадцать
+ * единиц, а карточка занимает почти всю ширину - её верхняя кромка читалась
+ * сплошной чертой поперёк экрана, будто заголовок отрезали от остального.
+ * У стекла край держит блик и преломление, и это читается поверхностью, а не
+ * разрывом. Заодно настройки перестали быть единственным местом, где карточки
+ * сделаны иначе, чем везде.
  */
 @Composable
 fun SettingsGroupCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Column(
+    ContentCard(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f)),
-        content = content
-    )
+            .padding(horizontal = 12.dp),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(content = content)
+    }
 }
 
 /**

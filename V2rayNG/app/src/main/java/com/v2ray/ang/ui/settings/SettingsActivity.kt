@@ -36,6 +36,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -83,6 +84,7 @@ import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.PreferenceGroupHeader
 import com.v2ray.ang.ui.compose.BottomBlurScrim
 import com.v2ray.ang.ui.compose.glassBackdropSource
+import com.v2ray.ang.ui.compose.LocalContentBackdrop
 import com.v2ray.ang.ui.compose.liquidBackground
 import com.v2ray.ang.ui.compose.rememberGlassBackdrop
 import com.v2ray.ang.ui.compose.ResumePauseEffect
@@ -242,6 +244,9 @@ fun SettingsScreen(
     BackHandler(enabled = openCategory != null) { openCategoryName = null }
 
     Box(modifier = Modifier.fillMaxSize()) {
+    // Слой фона отдаётся содержимому: без него стеклянные карточки настроек не
+    // найдут, что преломлять, и молча станут сплошными
+    CompositionLocalProvider(LocalContentBackdrop provides contentBackdrop) {
     Scaffold(
         contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
         containerColor = Color.Transparent,
@@ -297,6 +302,7 @@ fun SettingsScreen(
                 SettingsCategory.INFO -> InfoSettings(modifier)
             }
         }
+    }
     }
 
         // Список растворяется под капсулой, а не обрывается о её край

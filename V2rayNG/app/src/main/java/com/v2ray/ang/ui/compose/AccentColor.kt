@@ -95,9 +95,29 @@ private fun Color.tone(lightness: Float, saturation: Float = 1f): Color {
 
 /**
  * Пересобирает семейства primary и secondary вокруг выбранного цвета.
- * Фон, поверхности и семантические цвета (пинг, ошибки) не трогаются:
- * чёрный AMOLED-фон и красный «сервер не отвечает» от акцента не зависят.
+ *
+ * На светлой теме заодно пересобираются подложки карточек. Они были зашиты
+ * индигово-серыми - остаток от исходного акцента, - и с любым другим цветом
+ * ссорились с фоном: фон подкрашен акцентом, а карточка кладёт поверх чужой
+ * оттенок и гасит его. На зелёном это видно прямо в цифрах: рядом с карточкой
+ * фон зеленоватый, под ней уходит в сиреневый, и по кромке идёт обрыв.
+ *
+ * Светлота остаётся прежней, меняется только оттенок, и тот еле-еле: подложке
+ * полагается быть почти серой, иначе она полезет в глаза.
+ *
+ * На тёмной теме трогать нечего: там подложки почти чёрные, оттенку в них
+ * взяться неоткуда, да и ради чёрного на AMOLED всё и затевалось.
+ *
+ * Семантические цвета (пинг, ошибки) не трогаются: красный «сервер не отвечает»
+ * от акцента не зависит.
  */
+/**
+ * Сколько акцента остаётся в подложках. Доля от насыщенности самого цвета, а не
+ * абсолютная величина: крикливый оранжевый и приглушённый бирюзовый должны
+ * оставить в сером примерно одинаковый след.
+ */
+private const val SurfaceTintStrength = 0.14f
+
 fun ColorScheme.withAccent(option: AccentOption, dark: Boolean): ColorScheme {
     if (option.id == AccentPalette.DEFAULT_ID) return this
     val seed = option.seed
@@ -126,7 +146,16 @@ fun ColorScheme.withAccent(option: AccentOption, dark: Boolean): ColorScheme {
             secondary = seed.tone(0.45f, 0.75f),
             onSecondary = Color.White,
             secondaryContainer = seed.tone(0.9f, 0.6f),
-            onSecondaryContainer = seed.tone(0.2f, 0.7f)
+            onSecondaryContainer = seed.tone(0.2f, 0.7f),
+            // Подложки карточек: светлота как была, оттенок от акцента и совсем
+            // немного - иначе карточка перестанет быть подложкой и станет пятном
+            background = seed.tone(0.97f, SurfaceTintStrength),
+            surfaceVariant = seed.tone(0.92f, SurfaceTintStrength),
+            outlineVariant = seed.tone(0.85f, SurfaceTintStrength),
+            surfaceContainerLow = seed.tone(0.96f, SurfaceTintStrength),
+            surfaceContainer = seed.tone(0.94f, SurfaceTintStrength),
+            surfaceContainerHigh = seed.tone(0.92f, SurfaceTintStrength),
+            surfaceContainerHighest = seed.tone(0.90f, SurfaceTintStrength)
         )
     }
 }

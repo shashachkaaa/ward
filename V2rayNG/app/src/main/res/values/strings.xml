@@ -154,6 +154,10 @@
     <string name="notification_live_connected">Connected</string>
     <string name="title_pref_live_notification">Live notification</string>
     <string name="summary_pref_live_notification">A status bar chip with the current speed while the tunnel is up. Whether it shows is up to the phone\'s system</string>
+    <string name="title_live_notification_status">Chip status</string>
+    <string name="live_notification_not_allowed">The system has not allowed promoted notifications for this app. Tap to open the settings and allow it</string>
+    <string name="live_notification_not_promotable">The notification does not meet the system\'s conditions — that is a flaw in the app, not a setting</string>
+    <string name="live_notification_ready">Everything is ready. Whether the chip shows is up to the phone\'s system</string>
     <string name="title_url">URL</string>
     <string name="menu_item_download_file">Download files</string>
     <string name="title_user_asset_add_url">Add asset URL</string>

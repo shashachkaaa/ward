@@ -65,6 +65,7 @@ import com.v2ray.ang.dto.LogFileInfo
 import com.v2ray.ang.enums.PingType
 import com.v2ray.ang.extension.toTrafficString
 import com.v2ray.ang.handler.CrashReportManager
+import com.v2ray.ang.handler.LiveNotificationStatus
 import com.v2ray.ang.handler.LogFileManager
 import com.v2ray.ang.handler.MmkvManager.rememberMmkvBool
 import com.v2ray.ang.handler.MmkvManager.rememberMmkvString
@@ -484,6 +485,50 @@ private fun SubscriptionSettings(modifier: Modifier, viewModel: SettingsViewMode
     }
 }
 
+/**
+ * Отчёт о том, почему живого уведомления нет.
+ *
+ * Условий несколько, и система молчит обо всех сразу - плашки просто нет. Строка
+ * называет то, которое не выполнено, а если дело в разрешении, по нажатию ведёт
+ * туда, где его выдают. В журнал это писать бесполезно: на части прошивок его из
+ * приложения не прочитать.
+ */
+@Composable
+private fun LiveNotificationStatusItem(enabled: Boolean) {
+    val context = LocalContext.current
+    var status by remember { mutableStateOf<LiveNotificationStatus?>(null) }
+
+    // Пересчитываем на каждом возвращении: разрешение выдают в системных настройках,
+    // и вернуться оттуда человек может с любым ответом
+    ResumePauseEffect(
+        key = enabled,
+        onResume = { status = LiveNotificationStatus.of(context) },
+        onPause = {}
+    )
+
+    val current = status ?: return
+    if (current == LiveNotificationStatus.UNSUPPORTED || current == LiveNotificationStatus.DISABLED) {
+        return
+    }
+
+    val summaryRes = when (current) {
+        LiveNotificationStatus.NOT_ALLOWED -> R.string.live_notification_not_allowed
+        LiveNotificationStatus.NOT_PROMOTABLE -> R.string.live_notification_not_promotable
+        else -> R.string.live_notification_ready
+    }
+
+    SettingsInfoItem(
+        title = stringResource(R.string.title_live_notification_status),
+        summary = stringResource(summaryRes),
+        onClick = if (current == LiveNotificationStatus.NOT_ALLOWED) {
+            {
+                runCatching { context.startActivity(LiveNotificationStatus.settingsIntent(context)) }
+                    .onFailure { AppSnackbarManager.show(context.getString(R.string.toast_failure)) }
+            }
+        } else null
+    )
+}
+
 @Composable
 private fun UiSettings(modifier: Modifier) {
     var speedEnabled by rememberMmkvBool(AppConfig.PREF_SPEED_ENABLED, false)
@@ -528,6 +573,7 @@ private fun UiSettings(modifier: Modifier) {
                 checked = liveNotification,
                 onCheckedChange = { liveNotification = it }
             )
+            LiveNotificationStatusItem(enabled = liveNotification)
         }
         SettingsSwitchItem(
             title = stringResource(R.string.title_pref_confirm_remove),

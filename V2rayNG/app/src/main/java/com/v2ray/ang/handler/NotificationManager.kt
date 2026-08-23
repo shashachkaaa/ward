@@ -71,33 +71,48 @@ object NotificationManager {
         // Reset last query time to avoid querying stats too soon after showing the notification
         lastQueryTime = System.currentTimeMillis()
 
+        mBuilder = buildNotification(service, currentConfig?.remarks)
+        applyLiveUpdate(service.getString(R.string.notification_live_connected))
+
+        service.startForeground(NOTIFICATION_ID, mBuilder?.build())
+    }
+
+    /**
+     * Собирает уведомление службы.
+     *
+     * Вынесено отдельно и принимает любой контекст, потому что этим же занята
+     * проверка в настройках: она показывает, годится ли уведомление в «живые».
+     * Собирай проверка свою копию - копия и разошлась бы с настоящим уведомлением,
+     * а проверять надо именно то, что уходит системе.
+     */
+    fun buildNotification(context: Context, title: String?): NotificationCompat.Builder {
         val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
 
-        val startMainIntent = Intent(service, MainActivity::class.java)
-        val contentPendingIntent = PendingIntent.getActivity(service, NOTIFICATION_PENDING_INTENT_CONTENT, startMainIntent, flags)
+        val startMainIntent = Intent(context, MainActivity::class.java)
+        val contentPendingIntent = PendingIntent.getActivity(context, NOTIFICATION_PENDING_INTENT_CONTENT, startMainIntent, flags)
 
         val stopV2RayIntent = Intent(AppConfig.BROADCAST_ACTION_SERVICE)
         stopV2RayIntent.`package` = AppConfig.ANG_PACKAGE
         stopV2RayIntent.putExtra("key", AppConfig.MSG_STATE_STOP)
-        val stopV2RayPendingIntent = PendingIntent.getBroadcast(service, NOTIFICATION_PENDING_INTENT_STOP_V2RAY, stopV2RayIntent, flags)
+        val stopV2RayPendingIntent = PendingIntent.getBroadcast(context, NOTIFICATION_PENDING_INTENT_STOP_V2RAY, stopV2RayIntent, flags)
 
         val restartV2RayIntent = Intent(AppConfig.BROADCAST_ACTION_SERVICE)
         restartV2RayIntent.`package` = AppConfig.ANG_PACKAGE
         restartV2RayIntent.putExtra("key", AppConfig.MSG_STATE_RESTART)
-        val restartV2RayPendingIntent = PendingIntent.getBroadcast(service, NOTIFICATION_PENDING_INTENT_RESTART_V2RAY, restartV2RayIntent, flags)
+        val restartV2RayPendingIntent = PendingIntent.getBroadcast(context, NOTIFICATION_PENDING_INTENT_RESTART_V2RAY, restartV2RayIntent, flags)
 
         val channelId =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                createNotificationChannel()
+                createNotificationChannel(context)
             } else {
                 // If earlier version channel ID is not used
                 // https://developer.android.com/reference/android/support/v4/app/NotificationCompat.Builder.html#NotificationCompat.Builder(android.content.Context)
                 ""
             }
 
-        mBuilder = NotificationCompat.Builder(service, channelId)
+        return NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_stat_name)
-            .setContentTitle(currentConfig?.remarks ?: service.getString(R.string.app_name))
+            .setContentTitle(title ?: context.getString(R.string.app_name))
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .setShowWhen(false)
@@ -113,32 +128,14 @@ object NotificationManager {
             .setContentIntent(contentPendingIntent)
             .addAction(
                 R.drawable.ic_delete_24dp,
-                service.getString(R.string.notification_action_stop_v2ray),
+                context.getString(R.string.notification_action_stop_v2ray),
                 stopV2RayPendingIntent
             )
             .addAction(
                 R.drawable.ic_restore_24dp,
-                service.getString(R.string.title_service_restart),
+                context.getString(R.string.title_service_restart),
                 restartV2RayPendingIntent
             )
-
-        //mBuilder?.setDefaults(NotificationCompat.FLAG_ONLY_ALERT_ONCE)
-
-        applyLiveUpdate(service.getString(R.string.notification_live_connected))
-
-        val notification = mBuilder?.build()
-        if (notification != null && liveUpdateEnabled()) {
-            // Система умеет сказать заранее, годится ли уведомление в «живые».
-            // Без этого пришлось бы гадать, почему плашки нет: не показала оболочка
-            // или мы сами собрали уведомление не так
-            LogUtil.e(
-                AppConfig.TAG,
-                "Live notification: promotable=" +
-                        NotificationCompat.hasPromotableCharacteristics(notification)
-            )
-        }
-
-        service.startForeground(NOTIFICATION_ID, notification)
     }
 
     /**
@@ -222,14 +219,16 @@ object NotificationManager {
      * @return The channel ID.
      */
     @RequiresApi(Build.VERSION_CODES.O)
-    private fun createNotificationChannel(): String {
+    private fun createNotificationChannel(context: Context): String {
         val channelId = AppConfig.RAY_NG_CHANNEL_ID
         val channelName = AppConfig.RAY_NG_CHANNEL_NAME
         // Foreground-service notifications must remain visible; LOW is silent but valid.
         val chan = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW)
         chan.lightColor = Color.DKGRAY
         chan.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
-        getNotificationManager()?.createNotificationChannel(chan)
+        val manager = getNotificationManager()
+            ?: context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        manager?.createNotificationChannel(chan)
         return channelId
     }
 

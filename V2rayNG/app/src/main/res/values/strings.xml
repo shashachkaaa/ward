@@ -151,6 +151,9 @@
     <string name="title_subscription_settings">Subscriptions</string>
     <string name="summary_subscription_settings">Subscription updates and server testing</string>
     <string name="action_update_all_subscriptions">Update all subscriptions</string>
+    <string name="notification_live_connected">Connected</string>
+    <string name="title_pref_live_notification">Live notification</string>
+    <string name="summary_pref_live_notification">A status bar chip with the current speed while the tunnel is up. Whether it shows is up to the phone\'s system</string>
     <string name="title_url">URL</string>
     <string name="menu_item_download_file">Download files</string>
     <string name="title_user_asset_add_url">Add asset URL</string>

@@ -155,6 +155,9 @@
     <string name="title_subscription_settings">Подписки</string>
     <string name="summary_subscription_settings">Обновление подписок и проверка серверов</string>
     <string name="action_update_all_subscriptions">Обновить все подписки</string>
+    <string name="notification_live_connected">Подключен</string>
+    <string name="title_pref_live_notification">Живое уведомление</string>
+    <string name="summary_pref_live_notification">Плашка в строке состояния со скоростью, пока подключение поднято. Показать её или нет, решает оболочка телефона</string>
     <string name="title_url">URL</string>
     <string name="menu_item_download_file">Загрузить файлы</string>
     <string name="title_user_asset_add_url">Добавить URL ресурса</string>

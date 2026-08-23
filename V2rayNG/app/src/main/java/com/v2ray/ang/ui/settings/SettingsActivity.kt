@@ -488,6 +488,7 @@ private fun SubscriptionSettings(modifier: Modifier, viewModel: SettingsViewMode
 private fun UiSettings(modifier: Modifier) {
     var speedEnabled by rememberMmkvBool(AppConfig.PREF_SPEED_ENABLED, false)
     var confirmRemove by rememberMmkvBool(AppConfig.PREF_CONFIRM_REMOVE, false)
+    var liveNotification by rememberMmkvBool(AppConfig.PREF_LIVE_NOTIFICATION, true)
     var language by rememberMmkvString(AppConfig.PREF_LANGUAGE, "auto")
     var uiModeNight by rememberMmkvString(AppConfig.PREF_UI_MODE_NIGHT, "0")
 
@@ -518,6 +519,16 @@ private fun UiSettings(modifier: Modifier) {
             checked = speedEnabled,
             onCheckedChange = { speedEnabled = it }
         )
+        // Живое уведомление появилось в Android 16. На старых прятать пункт честнее,
+        // чем показывать переключатель, который ничего не делает
+        if (Build.VERSION.SDK_INT >= 36) {
+            SettingsSwitchItem(
+                title = stringResource(R.string.title_pref_live_notification),
+                summary = stringResource(R.string.summary_pref_live_notification),
+                checked = liveNotification,
+                onCheckedChange = { liveNotification = it }
+            )
+        }
         SettingsSwitchItem(
             title = stringResource(R.string.title_pref_confirm_remove),
             summary = stringResource(R.string.summary_pref_confirm_remove),

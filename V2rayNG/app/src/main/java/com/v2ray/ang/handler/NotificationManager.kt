@@ -10,6 +10,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.app.NotificationCompat
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.R
@@ -17,6 +18,7 @@ import com.v2ray.ang.core.CoreServiceManager
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.helper.MessageHelper
 import com.v2ray.ang.extension.toSpeedString
+import com.v2ray.ang.ui.compose.AccentPalette
 import com.v2ray.ang.ui.main.MainActivity
 import com.v2ray.ang.util.LogUtil
 import kotlinx.coroutines.CoroutineScope
@@ -100,6 +102,10 @@ object NotificationManager {
             .setOngoing(true)
             .setShowWhen(false)
             .setOnlyAlertOnce(true)
+            // Акцент из настроек: система красит им значок и название приложения.
+            // Заливать им всё уведомление (setColorized) не станем - палитра
+            // светлая, и белый текст по ней местами не читался бы
+            .setColor(accentColor())
             .setContentIntent(contentPendingIntent)
             .addAction(
                 R.drawable.ic_delete_24dp,
@@ -114,8 +120,49 @@ object NotificationManager {
 
         //mBuilder?.setDefaults(NotificationCompat.FLAG_ONLY_ALERT_ONCE)
 
+        applyLiveUpdate(service.getString(R.string.notification_live_connected))
+
         service.startForeground(NOTIFICATION_ID, mBuilder?.build())
     }
+
+    /**
+     * Просит систему поднять уведомление до «живого».
+     *
+     * С Android 16 такое уведомление система выносит отдельной плашкой в строку
+     * состояния и на экран блокировки - там видно короткую строку, скорость в нашем
+     * случае. Просьба именно просьба: система вправе отказать, и тогда останется
+     * обычное уведомление службы. На версиях до 16 вызовы просто ничего не делают.
+     *
+     * Оболочки вроде OriginOS или HyperOS рисуют такие уведомления по-своему -
+     * «островом» или «фокусом». Подхватят ли они стандартную просьбу, зависит от
+     * оболочки, и узнать это можно только на живом устройстве.
+     *
+     * @param shortText Короткая строка для плашки. Место там на несколько символов.
+     */
+    private fun applyLiveUpdate(shortText: String) {
+        val builder = mBuilder ?: return
+
+        // Выключили при поднятом туннеле - плашку надо убрать сразу, а не ждать
+        // переподключения: просьба уже отправлена и сама собой не отзовётся
+        if (!liveUpdateEnabled()) {
+            builder.requestPromotedOngoing(false)
+            return
+        }
+
+        builder.requestPromotedOngoing(true)
+        builder.setShortCriticalText(shortText)
+    }
+
+    /** Просить ли систему о живом уведомлении: есть ли куда просить и хотят ли этого. */
+    private fun liveUpdateEnabled(): Boolean =
+        Build.VERSION.SDK_INT >= 36 &&
+                MmkvManager.decodeSettingsBool(AppConfig.PREF_LIVE_NOTIFICATION, true)
+
+    /** Цвет акцента из настроек - тот же, которым покрашено приложение. */
+    private fun accentColor(): Int =
+        AccentPalette.find(MmkvManager.decodeSettingsString(AppConfig.PREF_ACCENT_COLOR))
+            .seed
+            .toArgb()
 
     /**
      * Fulfills or refreshes the foreground-service contract before a start command can
@@ -149,7 +196,7 @@ object NotificationManager {
         speedNotificationJob?.let {
             it.cancel()
             speedNotificationJob = null
-            updateNotification("", 0, 0)
+            updateNotification("", null, 0, 0)
             TrafficSpeedState.reset()
         }
     }
@@ -176,19 +223,33 @@ object NotificationManager {
      * @param proxyTraffic The proxy traffic.
      * @param directTraffic The direct traffic.
      */
-    private fun updateNotification(contentText: String?, proxyTraffic: Long, directTraffic: Long) {
-        if (mBuilder != null) {
-            if (proxyTraffic < NOTIFICATION_ICON_THRESHOLD && directTraffic < NOTIFICATION_ICON_THRESHOLD) {
-                mBuilder?.setSmallIcon(R.drawable.ic_stat_name)
-            } else if (proxyTraffic > directTraffic) {
-                mBuilder?.setSmallIcon(R.drawable.ic_stat_proxy)
-            } else {
-                mBuilder?.setSmallIcon(R.drawable.ic_stat_direct)
-            }
-            mBuilder?.setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
-            mBuilder?.setContentText(contentText)
-            getNotificationManager()?.notify(NOTIFICATION_ID, mBuilder?.build())
+    private fun updateNotification(
+        contentText: String?,
+        shortText: String?,
+        proxyTraffic: Long,
+        directTraffic: Long
+    ) {
+        val builder = mBuilder ?: return
+
+        if (proxyTraffic < NOTIFICATION_ICON_THRESHOLD && directTraffic < NOTIFICATION_ICON_THRESHOLD) {
+            builder.setSmallIcon(R.drawable.ic_stat_name)
+        } else if (proxyTraffic > directTraffic) {
+            builder.setSmallIcon(R.drawable.ic_stat_proxy)
+        } else {
+            builder.setSmallIcon(R.drawable.ic_stat_direct)
         }
+
+        // Строку уведомления обновляем только если её показывают. Плашка живёт своей
+        // жизнью: она нужна и тогда, когда цифры скорости в уведомлении выключены
+        if (contentText != null) {
+            builder.setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
+            builder.setContentText(contentText)
+        }
+        if (shortText != null) {
+            applyLiveUpdate(shortText)
+        }
+
+        getNotificationManager()?.notify(NOTIFICATION_ID, builder.build())
     }
 
     /**
@@ -310,8 +371,20 @@ object NotificationManager {
                 directUplink / sinceLastQueryInSeconds,
                 directDownlink / sinceLastQueryInSeconds
             )
-            if (MmkvManager.decodeSettingsBool(AppConfig.PREF_SPEED_ENABLED) == true) {
-                updateNotification(text.toString(), proxyTotal, directTotal)
+
+            val speedShown = MmkvManager.decodeSettingsBool(AppConfig.PREF_SPEED_ENABLED) == true
+            // В плашку идёт входящая скорость: места там на несколько символов, а из
+            // всех цифр эта - та самая, ради которой на неё и посмотрят
+            val shortText = ((proxyDownlink + directDownlink + otherDownlink) /
+                    sinceLastQueryInSeconds).toLong().toSpeedString()
+
+            if (speedShown || liveUpdateEnabled()) {
+                updateNotification(
+                    contentText = text.toString().takeIf { speedShown },
+                    shortText = shortText,
+                    proxyTraffic = proxyTotal,
+                    directTraffic = directTotal
+                )
             }
         }
         lastQueryTime = queryTime

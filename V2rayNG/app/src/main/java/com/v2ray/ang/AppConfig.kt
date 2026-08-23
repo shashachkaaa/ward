@@ -72,6 +72,12 @@ object AppConfig {
     const val PREF_GLASS_QUALITY = "pref_glass_quality"
 
     /** Выбранный значок приложения из [com.v2ray.ang.handler.AppIconManager]. */
+    /**
+     * Просить ли систему о «живом» уведомлении - плашке в строке состояния с
+     * состоянием подключения. Работает с Android 16.
+     */
+    const val PREF_LIVE_NOTIFICATION = "pref_live_notification"
+
     const val PREF_APP_ICON = "pref_app_icon"
     const val PREF_IPV6_ENABLED = "pref_ipv6_enabled"
     const val PREF_PREFER_IPV6 = "pref_prefer_ipv6"

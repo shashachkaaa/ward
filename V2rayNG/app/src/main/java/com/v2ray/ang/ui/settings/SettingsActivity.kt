@@ -507,20 +507,22 @@ private fun LiveNotificationStatusItem(enabled: Boolean) {
     )
 
     val current = status ?: return
-    if (current == LiveNotificationStatus.UNSUPPORTED || current == LiveNotificationStatus.DISABLED) {
-        return
-    }
 
-    val summaryRes = when (current) {
-        LiveNotificationStatus.NOT_ALLOWED -> R.string.live_notification_not_allowed
-        LiveNotificationStatus.NOT_PROMOTABLE -> R.string.live_notification_not_promotable
-        else -> R.string.live_notification_ready
-    }
+    // Оба ответа сразу: они про разные починки - одна в системных настройках,
+    // другая в коде, - и знать надо про обе
+    val permission = stringResource(
+        if (current.allowed) R.string.live_notification_allowed
+        else R.string.live_notification_not_allowed
+    )
+    val ours = stringResource(
+        if (current.promotable) R.string.live_notification_promotable
+        else R.string.live_notification_not_promotable
+    )
 
     SettingsInfoItem(
         title = stringResource(R.string.title_live_notification_status),
-        summary = stringResource(summaryRes),
-        onClick = if (current == LiveNotificationStatus.NOT_ALLOWED) {
+        summary = "$permission\n$ours",
+        onClick = if (!current.allowed) {
             {
                 runCatching { context.startActivity(LiveNotificationStatus.settingsIntent(context)) }
                     .onFailure { AppSnackbarManager.show(context.getString(R.string.toast_failure)) }

@@ -13,49 +13,36 @@ import com.v2ray.ang.util.LogUtil
  * Почему нет «живого» уведомления.
  *
  * Условий у системы несколько, и молчит она обо всех сразу: плашки просто нет.
- * Гадать по её отсутствию бесполезно - тут каждое условие спрашивается отдельно и
- * показывается в настройках. Журнал для этого не годится: на части прошивок его
+ * Гадать по её отсутствию бесполезно, поэтому каждое условие спрашивается отдельно
+ * и показывается в настройках. Журнал для этого не годится: на части прошивок его
  * из приложения не прочитать.
+ *
+ * Отвечают оба вопроса, а не первый попавшийся. Останавливайся проверка на
+ * неразрешённом разрешении - мы бы так и не узнали, готова ли наша сторона, а это
+ * разные починки: одна в системных настройках, другая в коде.
+ *
+ * @param allowed Система разрешила приложению продвинутые уведомления. Отдельное
+ *   разрешение, выдаёт его человек; приложение может только привести его туда.
+ * @param promotable Само уведомление проходит по условиям системы. Если нет -
+ *   недосмотр наш, и чинить надо здесь.
  */
-enum class LiveNotificationStatus {
-
-    /** Живых уведомлений не бывает: система старше Android 16. */
-    UNSUPPORTED,
-
-    /** Выключено в настройках приложения. */
-    DISABLED,
-
-    /**
-     * Система не разрешила приложению продвинутые уведомления.
-     *
-     * Это отдельное разрешение, и выдаёт его человек в системных настройках -
-     * приложение может только привести его туда.
-     */
-    NOT_ALLOWED,
-
-    /**
-     * Разрешение есть, но само уведомление под условия не подходит - значит
-     * недосмотр наш, и чинить надо здесь.
-     */
-    NOT_PROMOTABLE,
-
-    /**
-     * Всё, что зависит от приложения, выполнено. Показать плашку или нет - дело
-     * оболочки: рисуют её все по-своему, а некоторые не рисуют вовсе.
-     */
-    READY;
+data class LiveNotificationStatus(
+    val allowed: Boolean,
+    val promotable: Boolean
+) {
 
     companion object {
 
-        fun of(context: Context): LiveNotificationStatus {
-            if (Build.VERSION.SDK_INT < 36) return UNSUPPORTED
+        /** null - живых уведомлений на этой системе не бывает или они выключены. */
+        fun of(context: Context): LiveNotificationStatus? {
+            if (Build.VERSION.SDK_INT < 36) return null
             if (!MmkvManager.decodeSettingsBool(AppConfig.PREF_LIVE_NOTIFICATION, true)) {
-                return DISABLED
+                return null
             }
 
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE)
                     as? SystemNotificationManager
-            if (manager?.canPostPromotedNotifications() != true) return NOT_ALLOWED
+            val allowed = manager?.canPostPromotedNotifications() == true
 
             // Проверяем настоящее уведомление, а не его подобие: собирает его тот же
             // код, что отдаёт уведомление системе
@@ -65,13 +52,20 @@ enum class LiveNotificationStatus {
                     .build()
             }.onFailure {
                 LogUtil.e(AppConfig.TAG, "Live notification check failed", it)
-            }.getOrNull() ?: return NOT_PROMOTABLE
+            }.getOrNull()
 
-            return if (NotificationCompat.hasPromotableCharacteristics(notification)) READY
-            else NOT_PROMOTABLE
+            val promotable = notification != null &&
+                    NotificationCompat.hasPromotableCharacteristics(notification)
+
+            return LiveNotificationStatus(allowed = allowed, promotable = promotable)
         }
 
-        /** Экран системных настроек, где разрешают продвинутые уведомления. */
+        /**
+         * Экран системных настроек, где разрешают продвинутые уведомления.
+         *
+         * Есть он не везде: часть оболочек этого экрана не завела, и переход
+         * приводит на обычную страницу уведомлений приложения.
+         */
         fun settingsIntent(context: Context): Intent =
             Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS)
                 .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)

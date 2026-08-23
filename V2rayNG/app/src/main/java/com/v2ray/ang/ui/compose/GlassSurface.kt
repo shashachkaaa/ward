@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.emptyBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
@@ -172,11 +173,29 @@ fun Modifier.glassBackground(
     val isDark = LocalDarkTheme.current
     val quality = LocalGlassQuality.current
 
-    // Без слоя размывать нечего, и стекло должно быть плотнее: иначе сквозь него
-    // читается то, что лежит под окном. Выключенное стекло идёт тем же путём -
-    // сплошная поверхность и есть то, чем стекло становится, когда его не считают
+    // Без слоя размывать нечего, и поверхность должна быть плотнее: иначе сквозь неё
+    // читается то, что лежит под окном
     val solid = fallbackColor ?: scheme.surface.copy(alpha = if (isDark) 0.82f else 0.86f)
-    val source = backdrop?.takeIf { quality.blurs } ?: return background(solid, shape)
+    val plain = remember { emptyBackdrop() }
+    val source = backdrop?.takeIf { quality.blurs }
+
+    if (source == null) {
+        // Слоя нет - но край всё равно держим бликом. Ровная заливка отличается от
+        // фона только тоном, и на широкой карточке такое отличие читается чертой
+        // поперёк экрана, а не поверхностью. Блик по контуру стоит одну отрисовку
+        // и никаких программ для видеоядра: под ним пусто, преломлять нечего
+        return drawBackdrop(
+            backdrop = plain,
+            shape = { shape },
+            effects = {},
+            highlight = { Highlight.Ambient },
+            shadow = { Shadow(radius = 6f.dp, color = Color.Black.copy(alpha = 0.06f)) },
+            onDrawSurface = {
+                drawRect(solid)
+                if (surfaceTint != null) drawRect(surfaceTint)
+            }
+        )
+    }
 
     val tint = glassSurfaceColor(isDark, scheme.surface, opaqueness)
 

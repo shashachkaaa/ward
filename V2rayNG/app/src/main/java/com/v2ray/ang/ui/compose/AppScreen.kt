@@ -93,17 +93,23 @@ val ContentCardShape = RoundedCornerShape(26.dp)
  * Слой берётся сам: карточке внутри содержимого доступен только слой фона, и
  * ошибиться тут легче, чем кажется - общий слой пишет сам экран, и рисовать его
  * внутри его же записи запрещено.
+ *
+ * @param refracts Брать ли слой фона под преломление. Крупным карточкам во всю
+ *   ширину это ни к чему: под ними ровный градиент, размывать в нём нечего, а
+ *   линза считается каждый кадр и на всю площадь - на длинных списках это первое,
+ *   что съедает кадры. Край такой карточки держит блик, и этого хватает.
  */
 @Composable
 fun ContentCard(
     modifier: Modifier = Modifier,
     shape: Shape = ContentCardShape,
+    refracts: Boolean = true,
     content: @Composable BoxScope.() -> Unit
 ) {
     GlassSurface(
         modifier = modifier,
         shape = shape,
-        backdrop = LocalContentBackdrop.current,
+        backdrop = if (refracts) LocalContentBackdrop.current else null,
         opaqueness = 0.35f,
         surfaceTint = MaterialTheme.colorScheme.surfaceContainerHigh
             .copy(alpha = if (LocalDarkTheme.current) 0.52f else 0.58f),

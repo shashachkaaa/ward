@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -333,15 +334,30 @@ fun ProfileCard(
                             .clickable(onClick = onToggleExpanded)
                             .padding(vertical = 2.dp)
                     ) {
-                        ChevronDown(
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .size(14.dp)
-                                .graphicsLayer { rotationZ = chevronRotation }
-                        )
+                        // Значок сервиса встаёт на место шеврона, а не рядом с ним.
+                        // Рядом строке не хватало ширины: значок с отступом съедал
+                        // тридцать точек, и название группы обрезалось многоточием.
+                        // Свернуть-развернуть по-прежнему по нажатию на строку, а
+                        // состояние видно по самому списку под ней
+                        val serviceIcon = rememberSubscriptionIcon(sub.icon.orEmpty())
+                        if (serviceIcon != null) {
+                            Image(
+                                bitmap = serviceIcon,
+                                contentDescription = null,
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                            )
+                        } else {
+                            ChevronDown(
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .size(14.dp)
+                                    .graphicsLayer { rotationZ = chevronRotation }
+                            )
+                        }
                         Spacer(Modifier.width(8.dp))
-
-                        SubscriptionIcon(source = sub.icon.orEmpty())
 
                         Column(Modifier.weight(1f)) {
                             Text(
@@ -1041,18 +1057,19 @@ private fun ServerRow(
 }
 
 /**
- * Значок сервиса из заголовка подписки.
+ * Значок сервиса из заголовка подписки, или null - если его нет либо он не разобрался.
  *
- * Ничего не рисует, пока картинки нет: ни рамки, ни заглушки. Значок присылают
- * далеко не все, и пустое место рядом с названием выглядело бы поломкой.
+ * Отдаёт картинку, а не рисует: место у значка чужое - он встаёт вместо шеврона, -
+ * и решать, что там будет, должна сама строка. Не разобрался - строка рисует шеврон,
+ * как рисовала всегда.
  *
  * Разбор идёт в стороне от отрисовки и только один раз на значение: у base64 это
  * раскладывание картинки, у ссылки - ещё и поход в сеть. Готовое лежит в памяти,
  * поэтому при пролистывании списка ничего не пересчитывается.
  */
 @Composable
-private fun SubscriptionIcon(source: String) {
-    if (source.isBlank()) return
+private fun rememberSubscriptionIcon(source: String): ImageBitmap? {
+    if (source.isBlank()) return null
 
     val context = LocalContext.current
     var image by remember(source) { mutableStateOf(SubscriptionIconLoader.cached(source)) }
@@ -1060,15 +1077,5 @@ private fun SubscriptionIcon(source: String) {
     LaunchedEffect(source) {
         if (image == null) image = SubscriptionIconLoader.load(context, source)
     }
-
-    val bitmap = image ?: return
-    Image(
-        bitmap = bitmap,
-        contentDescription = null,
-        contentScale = ContentScale.Fit,
-        modifier = Modifier
-            .size(22.dp)
-            .clip(RoundedCornerShape(6.dp))
-    )
-    Spacer(Modifier.width(8.dp))
+    return image
 }

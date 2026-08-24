@@ -345,9 +345,12 @@ fun ProfileCard(
                                 bitmap = serviceIcon,
                                 contentDescription = null,
                                 contentScale = ContentScale.Fit,
+                                // Ровно во всю строку: знак стоит рядом с блоком из
+                                // названия и даты, и мельче он читается недомерком.
+                                // Замер по снимку: блок 121 точка, значок был 91
                                 modifier = Modifier
-                                    .size(26.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .size(34.dp)
+                                    .clip(RoundedCornerShape(10.dp))
                             )
                         } else {
                             ChevronDown(

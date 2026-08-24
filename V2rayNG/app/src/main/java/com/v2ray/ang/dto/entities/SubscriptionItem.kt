@@ -16,6 +16,11 @@ data class SubscriptionItem(
     var requestHeaders: String? = null,
     var announce: String = "",
     var supportUrl: String = "",
+    /**
+     * Значок сервиса из заголовка `profile-icon`: ссылка или `base64:` с самой
+     * картинкой. Хранится как пришло - разбирается при отрисовке.
+     */
+    var icon: String = "",
     var trafficUpload: Long = 0L,
     var trafficDownload: Long = 0L,
     var trafficTotal: Long = 0L,

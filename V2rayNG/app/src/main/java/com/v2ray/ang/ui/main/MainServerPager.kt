@@ -13,6 +13,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -51,6 +53,7 @@ import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.dto.entities.ServersCache
 import com.v2ray.ang.dto.entities.SubscriptionCache
+import com.v2ray.ang.handler.SubscriptionIconLoader
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.colorPingSlow
 import com.v2ray.ang.ui.compose.GlassMenuShape
@@ -337,6 +340,8 @@ fun ProfileCard(
                                 .graphicsLayer { rotationZ = chevronRotation }
                         )
                         Spacer(Modifier.width(8.dp))
+
+                        SubscriptionIcon(source = sub.icon.orEmpty())
 
                         Column(Modifier.weight(1f)) {
                             Text(
@@ -1033,4 +1038,37 @@ private fun ServerRow(
         )
     }
     }
+}
+
+/**
+ * Значок сервиса из заголовка подписки.
+ *
+ * Ничего не рисует, пока картинки нет: ни рамки, ни заглушки. Значок присылают
+ * далеко не все, и пустое место рядом с названием выглядело бы поломкой.
+ *
+ * Разбор идёт в стороне от отрисовки и только один раз на значение: у base64 это
+ * раскладывание картинки, у ссылки - ещё и поход в сеть. Готовое лежит в памяти,
+ * поэтому при пролистывании списка ничего не пересчитывается.
+ */
+@Composable
+private fun SubscriptionIcon(source: String) {
+    if (source.isBlank()) return
+
+    val context = LocalContext.current
+    var image by remember(source) { mutableStateOf(SubscriptionIconLoader.cached(source)) }
+
+    LaunchedEffect(source) {
+        if (image == null) image = SubscriptionIconLoader.load(context, source)
+    }
+
+    val bitmap = image ?: return
+    Image(
+        bitmap = bitmap,
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        modifier = Modifier
+            .size(22.dp)
+            .clip(RoundedCornerShape(6.dp))
+    )
+    Spacer(Modifier.width(8.dp))
 }

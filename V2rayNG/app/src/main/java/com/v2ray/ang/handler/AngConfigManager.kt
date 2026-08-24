@@ -715,6 +715,12 @@ object AngConfigManager {
             val supportUrlRaw = responseHeaders["support-url"]
             it.subscription.supportUrl = supportUrlRaw ?: ""
 
+            // --- ОБРАБОТКА profile-icon ---
+            // Значок сервиса: ссылка или сама картинка в base64. Храним как пришло -
+            // разбирает и проверяет это тот, кто рисует. Пустой заголовок стирает
+            // прежний значок: иначе он остался бы от старой подписки
+            it.subscription.icon = responseHeaders["profile-icon"]?.trim().orEmpty()
+
             // --- ОБРАБОТКА profile-update-interval ---
             // Сервер присылает интервал в часах ("1"), а храним мы его в минутах.
             // Дробные значения тоже встречаются, поэтому читаем как число с плавающей точкой

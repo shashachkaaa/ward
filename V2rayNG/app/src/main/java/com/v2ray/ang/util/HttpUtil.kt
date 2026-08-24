@@ -303,11 +303,15 @@ object HttpUtil {
     /**
      * @param onProgress Доля скачанного от 0 до 100. Вызывается, только если сервер
      * сообщил размер: без него проценты считать не из чего.
+     * @param maxBytes Потолок веса, 0 - без потолка. Проверяется по ходу, а не после:
+     *   хост на том конце чужой, и «скачаем, а потом посмотрим» означает, что он
+     *   волен занять весь диск, пока мы досматриваем.
      */
     fun downloadToFile(
         request: UrlContentRequest,
         targetFile: File,
-        onProgress: ((Int) -> Unit)? = null
+        onProgress: ((Int) -> Unit)? = null,
+        maxBytes: Long = 0L
     ): Boolean {
         val url = request.url ?: return false
         val client = buildOkHttpClient(request.timeout, request.httpPort, request.proxyUsername, request.proxyPassword, followRedirects = true)
@@ -327,6 +331,10 @@ object HttpUtil {
                 }
                 val body = response.body ?: return false
                 val total = body.contentLength()
+                if (maxBytes > 0 && total > maxBytes) {
+                    LogUtil.w(AppConfig.TAG, "Download too large: $total > $maxBytes, url=$url")
+                    return false
+                }
                 body.byteStream().use { input ->
                     targetFile.outputStream().use { output ->
                         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
@@ -337,6 +345,12 @@ object HttpUtil {
                             if (read <= 0) break
                             output.write(buffer, 0, read)
                             copied += read
+                            // Размер могли и не сообщить, и сообщить неправду - режем по
+                            // тому, что реально пришло
+                            if (maxBytes > 0 && copied > maxBytes) {
+                                LogUtil.w(AppConfig.TAG, "Download exceeded $maxBytes bytes, url=$url")
+                                return false
+                            }
                             if (onProgress != null && total > 0) {
                                 val percent = (copied * 100 / total).toInt()
                                 if (percent != lastPercent) {

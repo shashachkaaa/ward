@@ -31,8 +31,18 @@ import java.util.concurrent.ConcurrentHashMap
  */
 object SubscriptionIconLoader {
 
-    /** Больше этого не скачиваем: значок в разы меньше, остальное - повод не верить. */
-    private const val MAX_BYTES = 256 * 1024L
+    /**
+     * Больше этого не скачиваем.
+     *
+     * Первый потолок был 256 КБ - «значок ведь маленький». Настоящий логотип из
+     * редактора весит и триста, и пятьсот: он приходит крупным PNG, а ужимаем его
+     * уже мы. Файл скачивался и тут же выбрасывался, значка не было, и молча.
+     *
+     * От веса тут защищаться почти нечего: память ест не файл, а разложенная
+     * картинка, а её размер держит [MAX_SIZE_PX]. Потолок нужен только чтобы
+     * чужой хост не гнал в нас гигабайты.
+     */
+    private const val MAX_BYTES = 2 * 1024 * 1024L
 
     /** До скольки точек ужимаем. Плитка на карточке меньше, запас - на плотные экраны. */
     private const val MAX_SIZE_PX = 192
@@ -95,18 +105,14 @@ object SubscriptionIconLoader {
             }
         }
 
-        if (file.length() > MAX_BYTES) {
-            LogUtil.w(AppConfig.TAG, "profile-icon: ${file.length()} байт - слишком много")
-            runCatching { file.delete() }
-            return null
-        }
         return file.readBytes()
     }
 
     private fun download(url: String, target: File, httpPort: Int): Boolean =
         HttpUtil.downloadToFile(
             request = UrlContentRequest(url = url, timeout = 15000, httpPort = httpPort),
-            targetFile = target
+            targetFile = target,
+            maxBytes = MAX_BYTES
         )
 
     /**

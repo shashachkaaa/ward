@@ -122,6 +122,51 @@ fun parseServerLabel(remarks: String?): ServerLabel {
     return ServerLabel(text.substring(0, end), title)
 }
 
+/**
+ * Снимает эмодзи в начале названия - когда рядом уже стоит значок сервиса.
+ *
+ * Значок и эмодзи говорят одно и то же: чей это сервис. Рядом они спорят друг с
+ * другом и отнимают у названия ширину, а её в строке и так впритык.
+ *
+ * Снимается ровно одна связка в начале и разделитель за ней, если он там есть.
+ * Не все подряд: эмодзи внутри названия - часть текста, и вырезать их не наше дело.
+ * Пустого названия тоже не бывает: если кроме эмодзи там ничего нет, оставляем как
+ * было - лучше значок и сердечко, чем значок и пустота.
+ */
+fun dropLeadingEmoji(text: String): String {
+    // Пробел в начале названия встречается чаще, чем кажется, и без этого разбор
+    // прекращался на первом же символе - эмодзи оставалось на месте
+    val trimmed = text.trimStart()
+
+    var i = 0
+    while (i < trimmed.length) {
+        val code = trimmed.codePointAt(i)
+        if (!isEmojiPart(code)) break
+        i += Character.charCount(code)
+    }
+    if (i == 0) return text
+
+    val rest = trimmed.substring(i).trimStart().dropLeadingSeparator().trim()
+    return rest.ifEmpty { text }
+}
+
+/**
+ * Похож ли символ на часть эмодзи.
+ *
+ * Точного ответа тут не бывает - «эмодзи» это не свойство символа, а договорённость
+ * о наборе; берём блоки, из которых их складывают, вместе со связующими: избиратель
+ * начертания, нулевой пробел-соединитель, тона кожи и клавишная рамка. Без них
+ * составные вроде флага или семьи распались бы на половинки.
+ */
+private fun isEmojiPart(code: Int): Boolean = when (code) {
+    0xFE0F, 0x200D, 0x20E3, 0x2640, 0x2642 -> true
+    in 0x1F3FB..0x1F3FF -> true          // тона кожи
+    in 0x2600..0x27BF -> true            // символы и дингбаты: сердце, молния, самолёт
+    in 0x2B00..0x2BFF -> true            // звёзды и стрелки
+    in 0x1F000..0x1FAFF -> true          // основные эмодзи-блоки, флаги в том числе
+    else -> false
+}
+
 /** Снимает один ведущий разделитель, если он там есть. */
 private fun String.dropLeadingSeparator(): String =
     if (isNotEmpty() && this[0] in FlagSeparators) substring(1) else this
@@ -340,6 +385,10 @@ fun ProfileCard(
                         // Свернуть-развернуть по-прежнему по нажатию на строку, а
                         // состояние видно по самому списку под ней
                         val serviceIcon = rememberSubscriptionIcon(sub.icon.orEmpty())
+                        // Значок и эмодзи в начале названия говорят одно и то же.
+                        // Значка нет - эмодзи остаётся: это единственная примета,
+                        // по которой группу узнают с одного взгляда
+                        val shownTitle = if (serviceIcon != null) dropLeadingEmoji(title) else title
                         if (serviceIcon != null) {
                             Image(
                                 bitmap = serviceIcon,
@@ -364,7 +413,7 @@ fun ProfileCard(
 
                         Column(Modifier.weight(1f)) {
                             Text(
-                                text = title, 
+                                text = shownTitle,
                                 fontSize = 16.sp,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.ExtraBold,

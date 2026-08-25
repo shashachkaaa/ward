@@ -250,6 +250,9 @@ fun SettingsScreen(
     Scaffold(
         contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
         containerColor = Color.Transparent,
+        // У прозрачного контейнера Scaffold не из чего вывести цвет текста -
+        // берётся Unspecified, и Text без своего цвета выходит чёрным
+        contentColor = MaterialTheme.colorScheme.onSurface,
         // Тот же фон, что на главной: экраны не должны расходиться
         modifier = Modifier
             .glassBackdropSource(backdrop)

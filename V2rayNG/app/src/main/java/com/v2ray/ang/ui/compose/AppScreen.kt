@@ -74,6 +74,11 @@ fun AppScreenScaffold(
             Scaffold(
                 contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
                 containerColor = Color.Transparent,
+                // Цвет текста задаётся явно. Scaffold выводит его из цвета контейнера,
+                // а для прозрачного вывести нечего - выходит Unspecified, и всякий
+                // Text без своего цвета рисуется чёрным. На тёмной теме это чёрным
+                // по чёрному: так пропали названия приложений и весь журнал
+                contentColor = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier
                     .glassBackdropSource(backdrop)
                     // Накал ровный: он значит состояние подключения, а его показывает

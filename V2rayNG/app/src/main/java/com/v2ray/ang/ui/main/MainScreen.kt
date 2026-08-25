@@ -251,6 +251,9 @@ fun MainScreen(
             // Фон рисуется отдельно и в свой слой: карточкам нужно преломлять именно
             // его, а общий слой им брать нельзя - они сами в него пишутся
             containerColor = Color.Transparent,
+            // У прозрачного контейнера Scaffold не из чего вывести цвет текста -
+            // берётся Unspecified, и Text без своего цвета выходит чёрным
+            contentColor = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier
                 .glassBackdropSource(backdrop)
                 .liquidBackground(contentBackdrop) { backgroundActivity }

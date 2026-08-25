@@ -1005,7 +1005,11 @@ private fun ServerRow(
 
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    // Плитка держит строку: она должна оставаться не ниже текста рядом.
+                    // Текст задан в sp и растёт вместе с системным шрифтом, плитка в dp
+                    // и не растёт, поэтому запас у неё нужен - иначе на крупном шрифте
+                    // флаг выглядит мелкой наклейкой сбоку от двух строк
+                    .size(38.dp)
                     .then(
                         // Под флагом подложка не нужна: он занимает всю плитку сам
                         if (flag != null) Modifier else Modifier.background(
@@ -1024,8 +1028,8 @@ private fun ServerRow(
                         text = flag,
                         // Размер в dp, а не в sp: плитка фиксированная, и от крупного
                         // системного шрифта флаг из неё вылезал бы
-                        fontSize = with(LocalDensity.current) { 26.dp.toSp() },
-                        lineHeight = with(LocalDensity.current) { 30.dp.toSp() },
+                        fontSize = with(LocalDensity.current) { 30.dp.toSp() },
+                        lineHeight = with(LocalDensity.current) { 34.dp.toSp() },
                         textAlign = TextAlign.Center
                     )
                 } else {
@@ -1035,7 +1039,7 @@ private fun ServerRow(
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
-                        modifier = Modifier.size(19.dp)
+                        modifier = Modifier.size(21.dp)
                     )
                 }
             }

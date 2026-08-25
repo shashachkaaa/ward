@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.v2ray.ang.BuildConfig
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.LogFileInfo
 import com.v2ray.ang.extension.toSpeedString
@@ -64,6 +65,8 @@ import com.v2ray.ang.ui.compose.GlassSurface
 import com.v2ray.ang.ui.compose.LiquidGlassButton
 import com.v2ray.ang.ui.compose.LiquidPowerButton
 import com.v2ray.ang.ui.compose.QRCodeDialog
+import com.v2ray.ang.ui.compose.ReleaseNotesText
+import com.v2ray.ang.ui.compose.GlassAlertDialog
 import com.v2ray.ang.ui.compose.liquidBackground
 import com.v2ray.ang.ui.compose.LocalContentBackdrop
 import com.v2ray.ang.ui.compose.LocalGlassBackdrop
@@ -191,6 +194,7 @@ fun MainScreen(
 
     val availableUpdate by mainViewModel.availableUpdate.collectAsStateWithLifecycle()
     val crashReport by mainViewModel.crashReport.collectAsStateWithLifecycle()
+    val whatsNew by mainViewModel.whatsNew.collectAsStateWithLifecycle()
     val installState by AppUpdateInstaller.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -581,6 +585,23 @@ fun MainScreen(
             QRCodeDialog(
                 bitmap = bitmap,
                 onDismiss = { onAction(MainAction.DismissQRCodeDialog) }
+            )
+        }
+
+        // Что нового: показывается один раз после обновления. Текст тот же, что на
+        // странице релиза, и разбирается той же разметкой, что и в проверке обновлений
+        whatsNew?.let { notes ->
+            GlassAlertDialog(
+                onDismissRequest = { mainViewModel.dismissWhatsNew() },
+                title = {
+                    Text(stringResource(R.string.whats_new_title, BuildConfig.VERSION_NAME))
+                },
+                text = { ReleaseNotesText(notes) },
+                confirmButton = {
+                    TextButton(onClick = { mainViewModel.dismissWhatsNew() }) {
+                        Text(stringResource(android.R.string.ok))
+                    }
+                }
             )
         }
 

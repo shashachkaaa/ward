@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.v2ray.ang.AppConfig
+import com.v2ray.ang.BuildConfig
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.GroupMapItem
 import com.v2ray.ang.dto.CheckUpdateResult
@@ -91,6 +92,11 @@ class MainViewModel(
     /** Отчёт о сбое прошлого запуска: о нём сообщаем один раз, плашкой на главном. */
     val crashReport: StateFlow<LogFileInfo?> = _crashReport.asStateFlow()
 
+    private val _whatsNew = MutableStateFlow<String?>(null)
+
+    /** Изменения в только что установленной версии: показываются окном один раз. */
+    val whatsNew: StateFlow<String?> = _whatsNew.asStateFlow()
+
     val isImporting = MutableStateFlow(false)
     val importError = MutableStateFlow<String?>(null)
 
@@ -105,9 +111,6 @@ class MainViewModel(
     private val groupPageFlows = ConcurrentHashMap<String, MutableStateFlow<List<ServersCache>>>()
     private val groupLoadMutexes = ConcurrentHashMap<String, Mutex>()
 
-    /** Ожидание второго, уточнённого результата проверки подключения. */
-    private var delayResultJob: Job? = null
-
     private var setupGroupJob: Job? = null
     private var preloadJob: Job? = null
     private var selectedGroupLoadJob: Job? = null
@@ -116,11 +119,6 @@ class MainViewModel(
     private var testingGroupId: String? = null
 
     private val initialPageReady = CompletableDeferred<Unit>()
-
-    companion object {
-        /** Сколько ждать адрес, прежде чем показать результат проверки. */
-        private const val DELAY_RESULT_MERGE_MS = 1500L
-    }
 
     class Factory(
         private val application: Application,
@@ -181,15 +179,9 @@ class MainViewModel(
             is MainServiceEvent.MeasureDelaySuccess -> {
                 _uiState.update { it.copy(statusText = event.content) }
                 // Результат ручной проверки виден только в баннере теста,
-                // а он к этому моменту уже скрыт - показываем плашкой.
-                // Служба присылает результат дважды: сперва задержку, следом её же с
-                // адресом. Ждём добавку, иначе плашки выскакивают одна за другой
+                // а он к этому моменту уже скрыт - показываем плашкой
                 if (!uiState.value.isTesting && event.content.isNotBlank()) {
-                    delayResultJob?.cancel()
-                    delayResultJob = viewModelScope.launch {
-                        delay(DELAY_RESULT_MERGE_MS)
-                        AppSnackbarManager.show(event.content)
-                    }
+                    AppSnackbarManager.show(event.content)
                 }
             }
             MainServiceEvent.MeasureConfigSuccess -> {
@@ -489,6 +481,7 @@ class MainViewModel(
                 dataSource.initAssets()
                 dataSource.syncSubscriptions()
                 _crashReport.value = CrashReportManager.unseenReport(app)
+                loadWhatsNew()
                 checkForUpdateQuietly()
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -496,6 +489,49 @@ class MainViewModel(
                 LogUtil.e(AppConfig.TAG, "Main background initialization failed", error)
             }
         }
+    }
+
+    /**
+     * Окно «что нового» после обновления.
+     *
+     * Сравниваем номер сборки с тем, что видел прошлый запуск. Ноль означает первую
+     * установку либо обновление со сборки без счётчика - эти два случая разводит
+     * проверка ниже. Больше текущего бывает при откате на старую сборку: там молчим
+     * и просто выравниваем запись.
+     *
+     * Номер записывается только после того, как заметки нашлись. Иначе сеть,
+     * промолчавшая на первом запуске после обновления, лишила бы человека окна
+     * навсегда - а так оно просто дождётся следующего запуска.
+     */
+    private suspend fun loadWhatsNew() {
+        val seen = MmkvManager.decodeSettingsLong(AppConfig.PREF_LAST_RUN_VERSION_CODE, 0L)
+        val current = BuildConfig.VERSION_CODE.toLong()
+        if (seen == current) return
+
+        // Записи нет у двух разных людей: у того, кто только что поставил приложение,
+        // и у того, кто обновился со сборки, где счётчика ещё не было. Первому окно ни
+        // к чему, второму - как раз к месту. Различаем по тому, есть ли уже подписки:
+        // на чистой установке их взяться неоткуда
+        val upgradedFromUntracked = seen == 0L && MmkvManager.decodeSubsList().isNotEmpty()
+
+        if ((seen == 0L && !upgradedFromUntracked) || seen > current) {
+            MmkvManager.encodeSettings(AppConfig.PREF_LAST_RUN_VERSION_CODE, current)
+            return
+        }
+
+        val notes = UpdateCheckerManager.releaseNotesFor(BuildConfig.VERSION_NAME)
+        if (notes == null) {
+            LogUtil.i(AppConfig.TAG, "Заметки к версии не получены, окно ждёт следующего запуска")
+            return
+        }
+
+        MmkvManager.encodeSettings(AppConfig.PREF_LAST_RUN_VERSION_CODE, current)
+        _whatsNew.value = notes
+    }
+
+    /** Окно с изменениями закрыто: до следующего обновления оно больше не нужно. */
+    fun dismissWhatsNew() {
+        _whatsNew.value = null
     }
 
     /**

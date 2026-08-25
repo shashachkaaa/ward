@@ -21,7 +21,6 @@ import com.v2ray.ang.extension.isNotNullEmpty
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.NotificationManager
 import com.v2ray.ang.handler.SettingsManager
-import com.v2ray.ang.handler.SpeedtestManager
 import com.v2ray.ang.helper.MessageHelper
 import com.v2ray.ang.service.DialerNativeService
 import com.v2ray.ang.service.DialerWebviewService
@@ -354,14 +353,12 @@ object CoreServiceManager {
             } else {
                 service.getString(R.string.connection_test_error, humanizeDelayError(service, errorStr))
             }
+            // Результат уходит один раз. Раньше следом уходил он же с адресом выхода,
+            // и на экране появлялись две плашки подряд: адрес спрашивается у стороннего
+            // сервиса через туннель, ответ приходит когда придёт, и склеить его с первым
+            // сообщением по времени не выходит. Заодно это снимает лишний запрос наружу
+            // при каждой проверке - клиенту, которым пользуются ради приватности, он ни к чему
             MessageHelper.sendMsg2UI(service, AppConfig.MSG_MEASURE_DELAY_SUCCESS, result)
-
-            // Only fetch IP info if the delay test was successful
-            if (time >= 0) {
-                SpeedtestManager.getRemoteIPInfo()?.let { ip ->
-                    MessageHelper.sendMsg2UI(service, AppConfig.MSG_MEASURE_DELAY_SUCCESS, "$result\n$ip")
-                }
-            }
         }
     }
 

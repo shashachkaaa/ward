@@ -114,6 +114,40 @@ object UpdateCheckerManager {
         }
     }
 
+    /**
+     * Заметки к установленной версии - для окна «что нового» после обновления.
+     *
+     * Берутся с релиза на GitHub, а не из ресурсов приложения: там они уже написаны
+     * при выпуске, и вторая копия в коде однажды разойдётся с первой. Цена - поход
+     * в сеть; не ответила, значит окно подождёт до следующего запуска.
+     *
+     * @param version Версия как в теге релиза, без «v».
+     * @return Текст заметок или null, если релиза нет, он пуст либо сеть молчит.
+     */
+    suspend fun releaseNotesFor(version: String): String? = withContext(Dispatchers.IO) {
+        val url = AppConfig.APP_API_URL.concatUrl("tags", version)
+
+        // Сначала напрямую, потом через туннель - тем же путём, что и проверка обновлений
+        val response = HttpUtil.getUrlContent(UrlContentRequest(url = url, timeout = 5000))
+            ?: HttpUtil.getUrlContent(
+                UrlContentRequest(
+                    url = url,
+                    timeout = 5000,
+                    httpPort = SettingsManager.getHttpPort(),
+                    proxyUsername = SettingsManager.getSocksUsername(),
+                    proxyPassword = SettingsManager.getSocksPassword()
+                )
+            )
+            ?: return@withContext null
+
+        val release = JsonUtil.fromJsonSafe(response, GitHubRelease::class.java)
+            ?: return@withContext null
+        // Поле объявлено непустым, но Gson собирает объект в обход конструктора, и у
+        // релиза без описания оно окажется null - отсюда явный тип с вопросом
+        val notes: String? = release.body
+        notes?.takeIf { it.isNotBlank() }
+    }
+
     /** Запоминает найденную версию, чтобы показать её без похода в сеть. */
     private fun rememberPending(result: CheckUpdateResult) {
         val value = if (result.hasUpdate) {

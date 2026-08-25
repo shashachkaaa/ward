@@ -118,6 +118,14 @@ object AppConfig {
     /** Версия, для которой плашку на главном закрыли рукой. */
     const val PREF_UPDATE_DISMISSED_VERSION = "pref_update_dismissed_version"
 
+    /**
+     * Номер сборки, которую человек уже видел запущенной.
+     *
+     * По нему после обновления показывается окно с изменениями. Ноль означает
+     * первый запуск после установки - показывать там нечего.
+     */
+    const val PREF_LAST_RUN_VERSION_CODE = "pref_last_run_version_code"
+
     /** Отчёт о сбое, о котором уже сообщили: плашка про него больше не всплывает. */
     const val PREF_CRASH_SEEN_REPORT = "pref_crash_seen_report"
     const val PREF_GEO_FILES_SOURCES = "pref_geo_files_sources"

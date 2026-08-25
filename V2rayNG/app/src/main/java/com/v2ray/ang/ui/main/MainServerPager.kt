@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -306,6 +307,8 @@ fun ProfileCard(
     pinnedGuids: Set<String>,
     expanded: Boolean = true,
     onToggleExpanded: () -> Unit = {},
+    canMoveUp: Boolean = false,
+    canMoveDown: Boolean = false,
     onAction: (MainAction) -> Unit,
     onPingProfile: (String) -> Unit,
     onUpdateSubscription: (String) -> Unit,
@@ -316,6 +319,7 @@ fun ProfileCard(
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     var showMenu by remember { mutableStateOf(false) }
+    val shareMethods = stringArrayResource(R.array.share_sub_method).toList()
 
     val sub = subscription.subscription
 
@@ -488,6 +492,45 @@ fun ProfileCard(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                                 thickness = 1.dp
                             )
+                            // Перестановка групп: раньше их таскали в разделе «Группы»,
+                            // а на главном карточки стоят в списке с прокруткой - тащить
+                            // там значит спорить с самой прокруткой. Двумя пунктами проще
+                            if (canMoveUp) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.main_group_move_up), color = MaterialTheme.colorScheme.onSurface) },
+                                    onClick = {
+                                        showMenu = false
+                                        onAction(MainAction.MoveSubscription(subscription.guid, up = true))
+                                    }
+                                )
+                            }
+                            if (canMoveDown) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.main_group_move_down), color = MaterialTheme.colorScheme.onSurface) },
+                                    onClick = {
+                                        showMenu = false
+                                        onAction(MainAction.MoveSubscription(subscription.guid, up = false))
+                                    }
+                                )
+                            }
+                            // Ссылку на подписку отдаём кодом или строкой. Без ссылки
+                            // отдавать нечего: группа набрана вручную
+                            if (!sub.url.isNullOrEmpty()) {
+                                DropdownMenuItem(
+                                    text = { Text(shareMethods.getOrElse(0) { "QR" }, color = MaterialTheme.colorScheme.onSurface) },
+                                    onClick = {
+                                        showMenu = false
+                                        onAction(MainAction.ShareSubscriptionQRCode(subscription.guid))
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(shareMethods.getOrElse(1) { "" }, color = MaterialTheme.colorScheme.onSurface) },
+                                    onClick = {
+                                        showMenu = false
+                                        onAction(MainAction.ShareSubscriptionClipboard(subscription.guid))
+                                    }
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.action_edit), color = MaterialTheme.colorScheme.onSurface) },
                                 onClick = {

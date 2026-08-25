@@ -487,10 +487,12 @@ fun MainScreen(
                                         collapsedGuids + subCache.guid
                                     }
                                 },
+                                canMoveUp = index > 0,
+                                canMoveDown = index < subscriptions.lastIndex,
                                 onAction = onAction,
-                                onPingProfile = { guid -> 
+                                onPingProfile = { guid ->
                                     onAction(MainAction.SelectGroup(guid))
-                                    onAction(MainAction.TestProfilePing(guid)) 
+                                    onAction(MainAction.TestProfilePing(guid))
                                 },
                                 onUpdateSubscription = { subId -> 
                                     mainViewModel.updateSubscription(subId)

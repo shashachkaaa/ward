@@ -228,6 +228,8 @@
     <string name="main_group_sort_ping">Сортировать по пингу</string>
     <string name="main_group_remove_duplicates">Удалить дубликаты</string>
     <string name="main_group_remove_invalid">Удалить нерабочие</string>
+    <string name="main_group_move_up">Переместить выше</string>
+    <string name="main_group_move_down">Переместить ниже</string>
     <string name="main_removed_count">Удалено: %1$d</string>
     <string name="main_removed_nothing">Нечего удалять</string>
     <string name="server_section_basic">Основное</string>

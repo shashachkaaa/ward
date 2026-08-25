@@ -227,4 +227,18 @@ class MainRepository(
     override fun removeSubscription(subId: String) {
     	SettingsManager.removeSubscriptionWithDefault(subId)
     }
+
+    override fun subscriptionUrl(subId: String): String? =
+        MmkvManager.decodeSubscription(subId)?.url?.takeIf { it.isNotEmpty() }
+
+    override fun swapSubscriptions(first: String, second: String): Boolean {
+        val order = MmkvManager.decodeSubsList()
+        val from = order.indexOf(first)
+        val to = order.indexOf(second)
+        if (from < 0 || to < 0) return false
+
+        order[from] = order[to].also { order[to] = order[from] }
+        MmkvManager.encodeSubsList(order)
+        return true
+    }
 }

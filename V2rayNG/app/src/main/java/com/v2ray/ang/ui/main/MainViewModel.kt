@@ -25,6 +25,7 @@ import com.v2ray.ang.handler.TrafficSpeedState
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.ui.base.BaseViewModel
 import com.v2ray.ang.util.LogUtil
+import com.v2ray.ang.util.QRCodeDecoder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
@@ -394,6 +395,40 @@ class MainViewModel(
         }
     }
 
+    /**
+     * Код QR со ссылкой на подписку - чтобы передать её на другое устройство.
+     *
+     * Окно то же, что и у ссылки на сервер: битмап кладётся в то же поле состояния,
+     * и рисует его тот же диалог на экране.
+     */
+    private fun shareSubscriptionQRCode(subId: String) {
+        viewModelScope.launch(ioDispatcher) {
+            val url = dataSource.subscriptionUrl(subId) ?: return@launch
+            val bitmap = QRCodeDecoder.createQRCode(url)
+            _uiState.update { it.copy(shareQRCodeBitmap = bitmap) }
+        }
+    }
+
+    /**
+     * Перестановка подписки: меняется местами с соседней карточкой.
+     *
+     * Соседа ищем в том же списке, что видит человек. В хранимом порядке рядом
+     * может лежать служебная группа, которой на экране нет, - обмен с ней выглядел
+     * бы как «нажал, и ничего не произошло».
+     */
+    private fun moveSubscription(subId: String, up: Boolean) {
+        viewModelScope.launch(ioDispatcher) {
+            val shown = _subscriptions.value
+            val from = shown.indexOfFirst { it.guid == subId }
+            val to = if (up) from - 1 else from + 1
+            if (from < 0 || to !in shown.indices) return@launch
+
+            if (dataSource.swapSubscriptions(subId, shown[to].guid)) {
+                setupGroupTab(forceRefresh = true)
+            }
+        }
+    }
+
     fun removeSubscription(subId: String) {
         viewModelScope.launch(ioDispatcher) {
             try {
@@ -429,6 +464,8 @@ class MainViewModel(
             MainAction.DismissQRCodeDialog -> {
                 _uiState.update { it.copy(shareQRCodeBitmap = null) }
             }
+            is MainAction.ShareSubscriptionQRCode -> shareSubscriptionQRCode(action.subId)
+            is MainAction.MoveSubscription -> moveSubscription(action.subId, action.up)
             MainAction.ToggleService,
             MainAction.TestCurrentServer,
             MainAction.ImportQRcode,
@@ -439,6 +476,7 @@ class MainViewModel(
             MainAction.LocateSelectedServer,
             is MainAction.EditServer,
             is MainAction.ShareClipboard,
+            is MainAction.ShareSubscriptionClipboard,
             is MainAction.ShareFullContent -> {}
         }
     }

@@ -67,4 +67,18 @@ interface MainDataSource : Closeable {
     fun syncSubscriptions()
     fun initAssets()
     fun removeSubscription(subId: String)
+
+    /** Ссылка на подписку. Пустой её быть незачем - подписка без ссылки не обновляется. */
+    fun subscriptionUrl(subId: String): String?
+
+    /**
+     * Меняет две подписки местами в сохранённом порядке.
+     *
+     * Кто кому сосед, решает вызывающий: в хранимом порядке лежат и служебные
+     * группы, которых на экране нет, и сосед по списку на экране может оказаться
+     * не соседом по хранилищу.
+     *
+     * @return Нашлись ли обе в порядке.
+     */
+    fun swapSubscriptions(first: String, second: String): Boolean
 }

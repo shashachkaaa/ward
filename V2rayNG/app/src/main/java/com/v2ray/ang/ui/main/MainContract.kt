@@ -63,6 +63,18 @@ sealed interface MainAction {
     data class ShareFullContent(val guid: String) : MainAction
     data object DismissQRCodeDialog : MainAction
 
+    /** Ссылка на подписку кодом QR - тем же окном, что и ссылка на сервер. */
+    data class ShareSubscriptionQRCode(val subId: String) : MainAction
+
+    /** Ссылка на подписку в буфер обмена. */
+    data class ShareSubscriptionClipboard(val subId: String) : MainAction
+
+    /**
+     * Подписка меняется местами с соседней. Порядок задаёт вид главного экрана,
+     * и раньше его меняли перетаскиванием в разделе «Группы» - раздела больше нет.
+     */
+    data class MoveSubscription(val subId: String, val up: Boolean) : MainAction
+
     data class ImportBatchConfig(val configText: String) : MainAction
 
     data class LocateHandled(val target: LocateTarget) : MainAction

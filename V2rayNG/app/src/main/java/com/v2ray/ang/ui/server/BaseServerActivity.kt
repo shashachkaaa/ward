@@ -14,8 +14,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,7 +39,8 @@ import com.v2ray.ang.handler.AngConfigManager
 import com.v2ray.ang.handler.CertificateFingerprintManager
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.ui.base.BaseComponentActivity
-import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.AppScreenScaffold
+import com.v2ray.ang.ui.compose.BottomBlurHeight
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.FormDropdownField
 import com.v2ray.ang.ui.compose.FormSection
@@ -435,29 +434,27 @@ abstract class BaseServerActivity : BaseComponentActivity() {
     ) {
         var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
         val scrollState = rememberScrollState()
-        Scaffold(
-            contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
-            topBar = {
-                AppTopBar(
-                    title = title,
-                    onBackClick = { finish() },
-                    actions = {
-                        if (editGuid.isNotEmpty() && !isRunning) {
-                            IconButton(onClick = { showDeleteDialog = true }) {
-                                Icon(
-                                    painterResource(R.drawable.ic_delete_24dp),
-                                    stringResource(R.string.menu_item_del_config)
-                                )
-                            }
-                        }
-                        IconButton(onClick = onSaveClick) {
-                            Icon(
-                                painterResource(R.drawable.ic_fab_check),
-                                stringResource(R.string.menu_item_save_config)
-                            )
-                        }
+        // Общий каркас приложения: живой фон, стекло, полоса затухания снизу. Через
+        // этот же метод проходят все редакторы серверов - vless, trojan, wireguard и
+        // прочие, - так что одна правка приводит в общий вид сразу дюжину экранов
+        AppScreenScaffold(
+            title = title,
+            onBackClick = { finish() },
+            actions = {
+                if (editGuid.isNotEmpty() && !isRunning) {
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(
+                            painterResource(R.drawable.ic_delete_24dp),
+                            stringResource(R.string.menu_item_del_config)
+                        )
                     }
-                )
+                }
+                IconButton(onClick = onSaveClick) {
+                    Icon(
+                        painterResource(R.drawable.ic_fab_check),
+                        stringResource(R.string.menu_item_save_config)
+                    )
+                }
             }
         ) { innerPadding ->
             Column(
@@ -467,7 +464,9 @@ abstract class BaseServerActivity : BaseComponentActivity() {
                     .consumeWindowInsets(innerPadding)
                     .imePadding()
                     .verticalScroll(scrollState)
-                    .padding(bottom = 36.dp),
+                    // Последнее поле не должно замереть внутри полосы
+                    // затухания снизу - иначе оно так и стоит размытым
+                    .padding(bottom = BottomBlurHeight),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 content = content
             )

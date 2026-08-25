@@ -71,16 +71,23 @@ fun FormSection(
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 8.dp)
         )
-        Column(
+        // Та же карточка, что у групп настроек: раньше здесь была своя заливка, и на
+        // живом фоне раздел читался вставкой из старого приложения
+        ContentCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f))
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            content = content
-        )
+                .padding(horizontal = 12.dp),
+            shape = RoundedCornerShape(24.dp),
+            refracts = false
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                content = content
+            )
+        }
     }
 }
 

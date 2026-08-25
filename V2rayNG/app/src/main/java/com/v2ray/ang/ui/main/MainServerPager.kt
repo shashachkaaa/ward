@@ -961,7 +961,7 @@ private fun ServerRow(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp)
+            .padding(vertical = 2.dp)
             .scale(cardScale)
             .combinedClickable(
                 interactionSource = interactionSource,
@@ -978,7 +978,7 @@ private fun ServerRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(IntrinsicSize.Min)
-                .padding(vertical = 10.dp, horizontal = 8.dp)
+                .padding(vertical = 6.dp, horizontal = 8.dp)
         ) {
             Box(
                 modifier = Modifier
@@ -1005,7 +1005,7 @@ private fun ServerRow(
 
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(34.dp)
                     .then(
                         // Под флагом подложка не нужна: он занимает всю плитку сам
                         if (flag != null) Modifier else Modifier.background(
@@ -1024,8 +1024,8 @@ private fun ServerRow(
                         text = flag,
                         // Размер в dp, а не в sp: плитка фиксированная, и от крупного
                         // системного шрифта флаг из неё вылезал бы
-                        fontSize = with(LocalDensity.current) { 30.dp.toSp() },
-                        lineHeight = with(LocalDensity.current) { 34.dp.toSp() },
+                        fontSize = with(LocalDensity.current) { 26.dp.toSp() },
+                        lineHeight = with(LocalDensity.current) { 30.dp.toSp() },
                         textAlign = TextAlign.Center
                     )
                 } else {
@@ -1035,12 +1035,12 @@ private fun ServerRow(
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(19.dp)
                     )
                 }
             }
 
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(10.dp))
 
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1057,15 +1057,20 @@ private fun ServerRow(
                         text = label.title.ifEmpty { stringResource(R.string.main_untitled) },
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 16.sp,
+                        // Межстрочный задан явно и плотнее обычного. Строка одна, и
+                        // запас под вторую тут забирал высоту у всего списка; ниже
+                        // 20 опускать нельзя - начнёт срезать хвосты у «р» и «у»
+                        lineHeight = 20.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(1.dp))
                 Text(
                     text = finalDesc,
                     fontSize = 10.sp,
+                    lineHeight = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.6.sp,

@@ -304,10 +304,6 @@
         <activity
             android:name=".ui.backup.BackupActivity"
             android:exported="false" />
-        <activity
-            android:name=".ui.AboutActivity"
-            android:exported="false" />
-
         <service
             android:name=".service.CoreVpnService"
             android:enabled="true"

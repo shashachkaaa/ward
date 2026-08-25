@@ -3,6 +3,7 @@ package com.v2ray.ang.ui.settings
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.webkit.WebView
 import androidx.activity.compose.BackHandler
 import androidx.activity.viewModels
 import androidx.annotation.StringRes
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -35,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -54,7 +57,9 @@ import android.graphics.Canvas
 import androidx.core.graphics.createBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.v2ray.ang.AppConfig
@@ -94,6 +99,7 @@ import com.v2ray.ang.ui.compose.SettingsSliderItem
 import com.v2ray.ang.ui.compose.SettingsFileItem
 import com.v2ray.ang.ui.compose.SettingsGroupCard
 import com.v2ray.ang.ui.compose.SettingsInfoItem
+import com.v2ray.ang.ui.compose.GlassAlertDialog
 import com.v2ray.ang.ui.compose.GlassQuality
 import com.v2ray.ang.ui.compose.SettingsListItem
 import com.v2ray.ang.ui.compose.SettingsMenuItem
@@ -1091,6 +1097,33 @@ private fun InfoSettings(modifier: Modifier) {
 
     var taps by remember { mutableIntStateOf(0) }
     val tapSource = remember { MutableInteractionSource() }
+    var showOssDialog by remember { mutableStateOf(false) }
+
+    // Лицензии зависимостей лежат готовой страницей в ассетах - её и показываем
+    if (showOssDialog) {
+        GlassAlertDialog(
+            onDismissRequest = { showOssDialog = false },
+            title = { Text(stringResource(R.string.title_oss_license)) },
+            text = {
+                AndroidView(
+                    factory = { ctx ->
+                        WebView(ctx).apply {
+                            loadUrl("file:///android_asset/open_source_licenses.html")
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 300.dp)
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showOssDialog = false }) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            },
+            modifier = Modifier.padding(bottom = 60.dp)
+        )
+    }
 
     SettingsColumn(modifier, grouped = false) {
         appIcon?.let {
@@ -1201,6 +1234,39 @@ private fun InfoSettings(modifier: Modifier) {
                 title = "v2rayng://install-sub?url=<url>",
                 summary = stringResource(R.string.summary_info_scheme_legacy),
                 onClick = { copy("v2rayng://install-sub", "v2rayng://install-sub?url=") }
+            )
+        }
+
+        // Эти пять ссылок жили на отдельном экране «О программе». Экран был в
+        // манифесте, но открыть его было неоткуда: ни одна кнопка на него не вела.
+        // Ссылки настоящие - исходники, лицензии, канал, политика, - поэтому они
+        // здесь, а экран снят
+        PreferenceGroupHeader(title = stringResource(R.string.title_info_links))
+        SettingsGroupCard {
+            SettingsMenuItem(
+                icon = painterResource(R.drawable.ic_source_code_24dp),
+                title = stringResource(R.string.title_source_code),
+                onClick = { Utils.openUri(context, AppConfig.APP_URL) }
+            )
+            SettingsMenuItem(
+                icon = painterResource(R.drawable.license_24px),
+                title = stringResource(R.string.title_oss_license),
+                onClick = { showOssDialog = true }
+            )
+            SettingsMenuItem(
+                icon = painterResource(R.drawable.ic_feedback_24dp),
+                title = stringResource(R.string.title_pref_feedback),
+                onClick = { Utils.openUri(context, AppConfig.APP_ISSUES_URL) }
+            )
+            SettingsMenuItem(
+                icon = painterResource(R.drawable.ic_telegram_24dp),
+                title = stringResource(R.string.title_tg_channel),
+                onClick = { Utils.openUri(context, AppConfig.TG_CHANNEL_URL) }
+            )
+            SettingsMenuItem(
+                icon = painterResource(R.drawable.ic_privacy_24dp),
+                title = stringResource(R.string.title_privacy_policy),
+                onClick = { Utils.openUri(context, AppConfig.APP_PRIVACY_POLICY) }
             )
         }
 

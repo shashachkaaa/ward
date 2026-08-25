@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,8 +18,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,7 +38,8 @@ import androidx.lifecycle.lifecycleScope
 import com.v2ray.ang.R
 import com.v2ray.ang.extension.toast
 import com.v2ray.ang.ui.base.BaseComponentActivity
-import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.AppScreenScaffold
+import com.v2ray.ang.ui.compose.BottomBlurHeight
 import com.v2ray.ang.ui.compose.ItemDivider
 import com.v2ray.ang.ui.compose.ResumePauseEffect
 import kotlinx.coroutines.Dispatchers
@@ -172,8 +172,10 @@ fun LogFileScreen(
         onPause = { viewModel.stopWatching() }
     )
 
-    Scaffold(
-        contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
+    AppScreenScaffold(
+        title = title,
+        onBackClick = onBackClick,
+        isLoading = isLoading,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
@@ -201,32 +203,25 @@ fun LogFileScreen(
                 )
             }
         },
-        topBar = {
-            AppTopBar(
-                title = title,
-                onBackClick = onBackClick,
-                isLoading = isLoading,
-                actions = {
-                    IconButton(onClick = { viewModel.copyToClipboard() }) {
-                        Icon(
-                            painterResource(R.drawable.ic_copy),
-                            contentDescription = stringResource(R.string.logcat_copy)
-                        )
-                    }
-                    IconButton(onClick = onShareClick) {
-                        Icon(
-                            painterResource(R.drawable.ic_share_24dp),
-                            contentDescription = stringResource(R.string.logcat_share)
-                        )
-                    }
-                    IconButton(onClick = onDeleteClick) {
-                        Icon(
-                            painterResource(R.drawable.ic_delete_24dp),
-                            contentDescription = stringResource(R.string.logcat_clear)
-                        )
-                    }
-                }
-            )
+        actions = {
+            IconButton(onClick = { viewModel.copyToClipboard() }) {
+                Icon(
+                    painterResource(R.drawable.ic_copy),
+                    contentDescription = stringResource(R.string.logcat_copy)
+                )
+            }
+            IconButton(onClick = onShareClick) {
+                Icon(
+                    painterResource(R.drawable.ic_share_24dp),
+                    contentDescription = stringResource(R.string.logcat_share)
+                )
+            }
+            IconButton(onClick = onDeleteClick) {
+                Icon(
+                    painterResource(R.drawable.ic_delete_24dp),
+                    contentDescription = stringResource(R.string.logcat_clear)
+                )
+            }
         }
     ) { innerPadding ->
         Column(
@@ -248,8 +243,9 @@ fun LogFileScreen(
             } else {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier
-                        .fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    // Последняя строка не должна замереть внутри полосы затухания снизу
+                    contentPadding = PaddingValues(bottom = BottomBlurHeight)
                 ) {
                     itemsIndexed(items = lines, key = { index, _ -> index }) { _, line ->
                         Text(

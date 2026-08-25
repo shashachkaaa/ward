@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,8 +26,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -54,7 +53,8 @@ import com.v2ray.ang.extension.toastSuccess
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.ui.base.HelperBaseComponentActivity
-import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.AppScreenScaffold
+import com.v2ray.ang.ui.compose.BottomBlurHeight
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.ItemDivider
 import com.v2ray.ang.ui.compose.SettingsListItem
@@ -267,54 +267,51 @@ fun UserAssetScreen(
     var deleteTargetGuid by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
 
-    Scaffold(
-        contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
-        topBar = {
-            AppTopBar(
-                title = stringResource(R.string.title_user_asset_setting),
-                onBackClick = onBackClick,
-                isLoading = isLoading,
-                actions = {
-                    Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
-                        IconButton(onClick = { showAddMenu = true }) {
-                            Icon(painterResource(R.drawable.ic_add_24dp), contentDescription = stringResource(R.string.menu_item_add_asset))
-                        }
-                        DropdownMenu(
-                            expanded = showAddMenu,
-                            onDismissRequest = { showAddMenu = false },
-                            containerColor = Color.Transparent,
-                            shadowElevation = 0.dp,
-                            offset = DpOffset(x = 0.dp, y = 0.dp),
-                            modifier = Modifier
-                                .wrapContentWidth(Alignment.End)
-                                .glassPanel(GlassMenuShape)
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.menu_item_add_file)) },
-                                onClick = { showAddMenu = false; onAddFileClick() }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.menu_item_add_url)) },
-                                onClick = { showAddMenu = false; onAddUrlClick() }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.menu_item_scan_qrcode)) },
-                                onClick = { showAddMenu = false; onAddQrcodeClick() }
-                            )
-                        }
-                    }
-                    IconButton(onClick = onDownloadClick) {
-                        Icon(painterResource(R.drawable.ic_cloud_download_24dp), contentDescription = stringResource(R.string.menu_item_download_file))
-                    }
+    AppScreenScaffold(
+        title = stringResource(R.string.title_user_asset_setting),
+        onBackClick = onBackClick,
+        isLoading = isLoading,
+        actions = {
+            Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
+                IconButton(onClick = { showAddMenu = true }) {
+                    Icon(painterResource(R.drawable.ic_add_24dp), contentDescription = stringResource(R.string.menu_item_add_asset))
                 }
-            )
+                DropdownMenu(
+                    expanded = showAddMenu,
+                    onDismissRequest = { showAddMenu = false },
+                    containerColor = Color.Transparent,
+                    shadowElevation = 0.dp,
+                    offset = DpOffset(x = 0.dp, y = 0.dp),
+                    modifier = Modifier
+                        .wrapContentWidth(Alignment.End)
+                        .glassPanel(GlassMenuShape)
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.menu_item_add_file)) },
+                        onClick = { showAddMenu = false; onAddFileClick() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.menu_item_add_url)) },
+                        onClick = { showAddMenu = false; onAddUrlClick() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.menu_item_scan_qrcode)) },
+                        onClick = { showAddMenu = false; onAddQrcodeClick() }
+                    )
+                }
+            }
+            IconButton(onClick = onDownloadClick) {
+                Icon(painterResource(R.drawable.ic_cloud_download_24dp), contentDescription = stringResource(R.string.menu_item_download_file))
+            }
         }
     ) { innerPadding ->
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(innerPadding),
+            // Последняя строка не должна замереть внутри полосы затухания снизу
+            contentPadding = PaddingValues(bottom = BottomBlurHeight)
         ) {
             item(key = "geo_source_$trigger") {
                 SettingsListItem(

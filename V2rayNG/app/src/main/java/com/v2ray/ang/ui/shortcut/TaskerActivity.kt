@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.text.TextUtils
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,8 +19,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -33,7 +32,8 @@ import com.v2ray.ang.AppConfig
 import com.v2ray.ang.R
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.ui.base.BaseComponentActivity
-import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.AppScreenScaffold
+import com.v2ray.ang.ui.compose.BottomBlurHeight
 import com.v2ray.ang.ui.compose.SettingsSwitchItem
 import com.v2ray.ang.util.LogUtil
 
@@ -126,18 +126,13 @@ fun TaskerScreen(
     onSave: () -> Unit
 ) {
     val listState = rememberLazyListState()
-    Scaffold(
-        contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
-        topBar = {
-            AppTopBar(
-                title = "",
-                onBackClick = onBackClick,
-                actions = {
-                    IconButton(onClick = onSave) {
-                        Icon(painterResource(R.drawable.ic_fab_check), contentDescription = stringResource(R.string.menu_item_save_config))
-                    }
-                }
-            )
+    AppScreenScaffold(
+        title = "",
+        onBackClick = onBackClick,
+        actions = {
+            IconButton(onClick = onSave) {
+                Icon(painterResource(R.drawable.ic_fab_check), contentDescription = stringResource(R.string.menu_item_save_config))
+            }
         }
     ) { innerPadding ->
         Column(
@@ -152,8 +147,9 @@ fun TaskerScreen(
             )
             LazyColumn(
                 state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                // Последняя строка не должна замереть внутри полосы затухания снизу
+                contentPadding = PaddingValues(bottom = BottomBlurHeight)
             ) {
                 itemsIndexed(items) { index, remarks ->
                     Row(

@@ -23,8 +23,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -62,7 +60,7 @@ import com.v2ray.ang.fmt.CustomFmt
 import com.v2ray.ang.handler.AngConfigManager
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.ui.base.BaseComponentActivity
-import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.AppScreenScaffold
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.FormTextField
 import com.v2ray.ang.util.LogUtil
@@ -276,30 +274,28 @@ fun ServerCustomConfigScreen(
         }
     }
 
-    Scaffold(
-        contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
-        topBar = {
-            AppTopBar(
-                title = EConfigType.CUSTOM.toString(),
-                onBackClick = onBackClick,
-                actions = {
-                    if (showDelete) {
-                        IconButton(onClick = { showDeleteConfirm = true }) {
-                            Icon(
-                                painterResource(R.drawable.ic_delete_24dp),
-                                contentDescription = stringResource(R.string.menu_item_del_config)
-                            )
-                        }
-                    }
-                    IconButton(onClick = { onSave(remarks, textFieldState.text.toString()) }) {
-                        Icon(
-                            painterResource(R.drawable.ic_fab_check),
-                            contentDescription = stringResource(R.string.menu_item_save_config)
-                        )
-                    }
+    // Полоса затухания снизу здесь выключена: под ней оказался бы конец конфига,
+    // и последние строки пришлось бы править вслепую
+    AppScreenScaffold(
+        title = EConfigType.CUSTOM.toString(),
+        onBackClick = onBackClick,
+        bottomFade = false,
+        actions = {
+            if (showDelete) {
+                IconButton(onClick = { showDeleteConfirm = true }) {
+                    Icon(
+                        painterResource(R.drawable.ic_delete_24dp),
+                        contentDescription = stringResource(R.string.menu_item_del_config)
+                    )
                 }
-            )
-        },
+            }
+            IconButton(onClick = { onSave(remarks, textFieldState.text.toString()) }) {
+                Icon(
+                    painterResource(R.drawable.ic_fab_check),
+                    contentDescription = stringResource(R.string.menu_item_save_config)
+                )
+            }
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier

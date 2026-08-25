@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -32,7 +34,18 @@ import androidx.compose.ui.unit.dp
  * @param title Заголовок в шапке.
  * @param onBackClick Возврат назад.
  * @param isLoading Показывать ли полоску занятости в шапке.
+ * @param isSearchActive Заменён ли заголовок строкой поиска.
+ * @param searchQuery Что набрано в строке поиска.
+ * @param onSearchQueryChange Набор в строке поиска.
+ * @param onSearchClose Закрытие строки поиска.
+ * @param searchPlaceholder Подсказка в пустой строке поиска.
  * @param actions Кнопки справа в шапке.
+ * @param floatingActionButton Кнопка у нижнего края. Стоит поверх полосы затухания,
+ *   а не под ней: полоса размывает всё, что под неё попало, и кнопка внутри неё
+ *   расплылась бы вместе со списком.
+ * @param bottomFade Растворять ли содержимое у нижнего края. Списку это идёт,
+ *   а редактору текста нет: полоса размоет последние строки, и править их придётся
+ *   вслепую.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +54,14 @@ fun AppScreenScaffold(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
+    isSearchActive: Boolean = false,
+    searchQuery: String = "",
+    onSearchQueryChange: (String) -> Unit = {},
+    onSearchClose: () -> Unit = {},
+    searchPlaceholder: String? = null,
     actions: @Composable RowScope.() -> Unit = {},
+    floatingActionButton: @Composable () -> Unit = {},
+    bottomFade: Boolean = true,
     content: @Composable (PaddingValues) -> Unit
 ) {
     val backdrop = rememberGlassBackdrop()
@@ -64,6 +84,11 @@ fun AppScreenScaffold(
                         title = title,
                         onBackClick = onBackClick,
                         isLoading = isLoading,
+                        isSearchActive = isSearchActive,
+                        searchQuery = searchQuery,
+                        onSearchQueryChange = onSearchQueryChange,
+                        onSearchClose = onSearchClose,
+                        searchPlaceholder = searchPlaceholder,
                         actions = actions
                     )
                 },
@@ -72,10 +97,21 @@ fun AppScreenScaffold(
         }
 
         // Список растворяется у нижнего края, а не обрывается о него
-        BottomBlurScrim(
-            backdrop = backdrop,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
+        if (bottomFade) {
+            BottomBlurScrim(
+                backdrop = backdrop,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
+                .padding(end = 16.dp, bottom = 16.dp)
+        ) {
+            floatingActionButton()
+        }
     }
 }
 

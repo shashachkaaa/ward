@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,7 +34,8 @@ import com.v2ray.ang.extension.toastError
 import com.v2ray.ang.extension.toastSuccess
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.ui.base.HelperBaseComponentActivity
-import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.AppScreenScaffold
+import com.v2ray.ang.ui.compose.BottomBlurHeight
 import com.v2ray.ang.ui.compose.InputDialog
 import com.v2ray.ang.ui.compose.InputField
 import com.v2ray.ang.ui.compose.SelectListDialog
@@ -199,21 +198,18 @@ fun BackupScreen(
 
     val webDavSummary = currentWebDavConfig?.baseUrl
 
-    Scaffold(
-        contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
-        topBar = {
-            AppTopBar(
-                title = stringResource(R.string.title_configuration_backup_restore),
-                onBackClick = onBackClick,
-                isLoading = isLoading
-            )
-        }
+    AppScreenScaffold(
+        title = stringResource(R.string.title_configuration_backup_restore),
+        onBackClick = onBackClick,
+        isLoading = isLoading
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
+                // Последняя строка не должна замереть внутри полосы затухания снизу
+                .padding(bottom = BottomBlurHeight)
         ) {
             SettingsMenuItem(
                 icon = painterResource(R.drawable.ic_backup_24dp),

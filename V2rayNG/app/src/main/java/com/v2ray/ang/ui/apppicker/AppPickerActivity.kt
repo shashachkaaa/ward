@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,8 +16,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,7 +32,8 @@ import com.v2ray.ang.R
 import com.v2ray.ang.dto.AppInfo
 import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.compose.AppListItem
-import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.AppScreenScaffold
+import com.v2ray.ang.ui.compose.BottomBlurHeight
 import com.v2ray.ang.ui.compose.ItemDivider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -125,65 +125,62 @@ fun AppPickerScreen(
         onSearch(searchQuery)
     }
 
-    Scaffold(
-        contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
-        topBar = {
-            AppTopBar(
-                title = title,
-                onBackClick = onBackClick,
-                isLoading = isLoading,
-                isSearchActive = showSearch,
-                searchQuery = searchQuery,
-                onSearchQueryChange = { query ->
-                    searchQuery = query
-                },
-                onSearchClose = {
-                    searchQuery = ""
-                    showSearch = false
-                },
-                searchPlaceholder = stringResource(R.string.menu_item_search),
-                actions = {
-                    if (!showSearch) {
-                        IconButton(onClick = { showSearch = true }) {
-                            Icon(
-                                painterResource(R.drawable.ic_search_24dp),
-                                contentDescription = stringResource(R.string.menu_item_search)
-                            )
-                        }
-                    }
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(
-                                painterResource(R.drawable.ic_more_vert_24dp),
-                                contentDescription = null
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false },
-                            containerColor = Color.Transparent,
-                            shadowElevation = 0.dp,
-                            modifier = Modifier.glassPanel(GlassMenuShape)
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.menu_item_select_all)) },
-                                onClick = { showMenu = false; onSelectAll() }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.menu_item_invert_selection)) },
-                                onClick = { showMenu = false; onInvertSelection() }
-                            )
-                        }
-                    }
+    AppScreenScaffold(
+        title = title,
+        onBackClick = onBackClick,
+        isLoading = isLoading,
+        isSearchActive = showSearch,
+        searchQuery = searchQuery,
+        onSearchQueryChange = { query ->
+            searchQuery = query
+        },
+        onSearchClose = {
+            searchQuery = ""
+            showSearch = false
+        },
+        searchPlaceholder = stringResource(R.string.menu_item_search),
+        actions = {
+            if (!showSearch) {
+                IconButton(onClick = { showSearch = true }) {
+                    Icon(
+                        painterResource(R.drawable.ic_search_24dp),
+                        contentDescription = stringResource(R.string.menu_item_search)
+                    )
                 }
-            )
+            }
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        painterResource(R.drawable.ic_more_vert_24dp),
+                        contentDescription = null
+                    )
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    containerColor = Color.Transparent,
+                    shadowElevation = 0.dp,
+                    modifier = Modifier.glassPanel(GlassMenuShape)
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.menu_item_select_all)) },
+                        onClick = { showMenu = false; onSelectAll() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.menu_item_invert_selection)) },
+                        onClick = { showMenu = false; onInvertSelection() }
+                    )
+                }
+            }
         }
     ) { innerPadding ->
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(innerPadding),
+            // Последнее приложение не должно замереть внутри полосы затухания снизу
+            contentPadding = PaddingValues(bottom = BottomBlurHeight)
         ) {
             items(items = apps, key = { it.packageName }) { app ->
                 val checked = selectedPackages.contains(app.packageName)

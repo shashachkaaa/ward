@@ -11,8 +11,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,7 +34,8 @@ import com.v2ray.ang.handler.SettingsChangeManager
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.handler.SubscriptionUpdater
 import com.v2ray.ang.ui.base.BaseComponentActivity
-import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.AppScreenScaffold
+import com.v2ray.ang.ui.compose.BottomBlurHeight
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.FormDropdownField
 import com.v2ray.ang.ui.compose.FormSection
@@ -162,25 +161,20 @@ fun SubEditScreen(
         return subItem
     }
 
-    Scaffold(
-        contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
-        topBar = {
-            AppTopBar(
-                title = stringResource(R.string.title_sub_setting),
-                onBackClick = onBackClick,
-                actions = {
-                    if (editSubId.isNotEmpty()) {
-                        IconButton(onClick = {
-                            if (confirmRemove) showDeleteConfirm = true else onDelete()
-                        }) {
-                            Icon(painterResource(R.drawable.ic_delete_24dp), contentDescription = stringResource(R.string.menu_item_del_config))
-                        }
-                    }
-                    IconButton(onClick = { buildSubItem()?.let { onSave(it) } }) {
-                        Icon(painterResource(R.drawable.ic_fab_check), contentDescription = stringResource(R.string.menu_item_save_config))
-                    }
+    AppScreenScaffold(
+        title = stringResource(R.string.title_sub_setting),
+        onBackClick = onBackClick,
+        actions = {
+            if (editSubId.isNotEmpty()) {
+                IconButton(onClick = {
+                    if (confirmRemove) showDeleteConfirm = true else onDelete()
+                }) {
+                    Icon(painterResource(R.drawable.ic_delete_24dp), contentDescription = stringResource(R.string.menu_item_del_config))
                 }
-            )
+            }
+            IconButton(onClick = { buildSubItem()?.let { onSave(it) } }) {
+                Icon(painterResource(R.drawable.ic_fab_check), contentDescription = stringResource(R.string.menu_item_save_config))
+            }
         }
     ) { innerPadding ->
         Column(
@@ -190,8 +184,9 @@ fun SubEditScreen(
                 .consumeWindowInsets(innerPadding)
                 .imePadding()
                 .verticalScroll(scrollState)
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-                .padding(bottom = 36.dp)
+                .padding(horizontal = 12.dp)
+                // Последнее поле не должно замереть внутри полосы затухания снизу
+                .padding(top = 8.dp, bottom = BottomBlurHeight)
         ) {
             FormSection(title = stringResource(R.string.sub_section_basic)) {
                 FormTextField(stringResource(R.string.sub_setting_remarks), remarks, { remarks = it })

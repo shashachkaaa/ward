@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,7 +23,7 @@ import com.v2ray.ang.extension.toast
 import com.v2ray.ang.extension.toastSuccess
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.ui.base.BaseComponentActivity
-import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.AppScreenScaffold
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.FormTextField
 import com.v2ray.ang.util.LogUtil
@@ -141,29 +139,24 @@ fun UserAssetUrlScreen(
     var url by remember { mutableStateOf(initialUrl) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    Scaffold(
-        contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
-        topBar = {
-            AppTopBar(
-                title = stringResource(R.string.title_user_asset_add_url),
-                onBackClick = onBackClick,
-                actions = {
-                    if (editAssetId.isNotEmpty()) {
-                        IconButton(onClick = { showDeleteConfirm = true }) {
-                            Icon(
-                                painterResource(R.drawable.ic_delete_24dp),
-                                contentDescription = stringResource(R.string.menu_item_del_config)
-                            )
-                        }
-                    }
-                    IconButton(onClick = { onSave(remarks, url) }) {
-                        Icon(
-                            painterResource(R.drawable.ic_fab_check),
-                            contentDescription = stringResource(R.string.menu_item_save_config)
-                        )
-                    }
+    AppScreenScaffold(
+        title = stringResource(R.string.title_user_asset_add_url),
+        onBackClick = onBackClick,
+        actions = {
+            if (editAssetId.isNotEmpty()) {
+                IconButton(onClick = { showDeleteConfirm = true }) {
+                    Icon(
+                        painterResource(R.drawable.ic_delete_24dp),
+                        contentDescription = stringResource(R.string.menu_item_del_config)
+                    )
                 }
-            )
+            }
+            IconButton(onClick = { onSave(remarks, url) }) {
+                Icon(
+                    painterResource(R.drawable.ic_fab_check),
+                    contentDescription = stringResource(R.string.menu_item_save_config)
+                )
+            }
         }
     ) { innerPadding ->
         Column(

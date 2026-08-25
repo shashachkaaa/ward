@@ -7,6 +7,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,8 +21,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,7 +43,8 @@ import com.v2ray.ang.R
 import com.v2ray.ang.extension.toast
 import com.v2ray.ang.handler.LogFileManager
 import com.v2ray.ang.ui.base.BaseComponentActivity
-import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.AppScreenScaffold
+import com.v2ray.ang.ui.compose.BottomBlurHeight
 import com.v2ray.ang.ui.compose.ItemDivider
 import com.v2ray.ang.ui.compose.ResumePauseEffect
 import com.v2ray.ang.util.Utils
@@ -162,66 +162,61 @@ fun LogcatScreen(
         onPause = { viewModel.onScreenPaused() }
     )
 
-    Scaffold(
-        contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
-        topBar = {
-            AppTopBar(
-                title = stringResource(R.string.title_logcat),
-                onBackClick = onBackClick,
-                isLoading = isLoading,
-                isSearchActive = showSearch,
-                searchQuery = searchQuery,
-                onSearchQueryChange = {
-                    searchQuery = it
-                    viewModel.filter(it)
-                },
-                onSearchClose = {
-                    searchQuery = ""
-                    viewModel.filter("")
-                    showSearch = false
-                },
-                searchPlaceholder = stringResource(R.string.menu_item_search),
-                actions = {
-                    if (!showSearch) {
-                        IconButton(onClick = { showSearch = true }) {
-                            Icon(
-                                painterResource(R.drawable.ic_search_24dp),
-                                contentDescription = "filter"
-                            )
-                        }
-                    }
-                    IconButton(onClick = { viewModel.toggleStreaming() }) {
-                        Icon(
-                            painterResource(
-                                if (isStreaming) R.drawable.ic_stop_24dp else R.drawable.ic_play_24dp
-                            ),
-                            contentDescription = stringResource(
-                                if (isStreaming) R.string.logcat_pause else R.string.logcat_resume
-                            )
-                        )
-                    }
-                    IconButton(onClick = { viewModel.copyLogcat() }) {
-                        Icon(
-                            painterResource(R.drawable.ic_copy),
-                            contentDescription = stringResource(R.string.logcat_copy)
-                        )
-                    }
-                    IconButton(onClick = { onShareLogcat() }) {
-                        Icon(
-                            painterResource(R.drawable.ic_share_24dp),
-                            contentDescription = stringResource(R.string.logcat_share)
-                        )
-                    }
-                    IconButton(onClick = {
-                        scope.launch(Dispatchers.IO) { viewModel.clearLogcat() }
-                    }) {
-                        Icon(
-                            painterResource(R.drawable.ic_delete_24dp),
-                            contentDescription = stringResource(R.string.logcat_clear)
-                        )
-                    }
+    AppScreenScaffold(
+        title = stringResource(R.string.title_logcat),
+        onBackClick = onBackClick,
+        isLoading = isLoading,
+        isSearchActive = showSearch,
+        searchQuery = searchQuery,
+        onSearchQueryChange = {
+            searchQuery = it
+            viewModel.filter(it)
+        },
+        onSearchClose = {
+            searchQuery = ""
+            viewModel.filter("")
+            showSearch = false
+        },
+        searchPlaceholder = stringResource(R.string.menu_item_search),
+        actions = {
+            if (!showSearch) {
+                IconButton(onClick = { showSearch = true }) {
+                    Icon(
+                        painterResource(R.drawable.ic_search_24dp),
+                        contentDescription = "filter"
+                    )
                 }
-            )
+            }
+            IconButton(onClick = { viewModel.toggleStreaming() }) {
+                Icon(
+                    painterResource(
+                        if (isStreaming) R.drawable.ic_stop_24dp else R.drawable.ic_play_24dp
+                    ),
+                    contentDescription = stringResource(
+                        if (isStreaming) R.string.logcat_pause else R.string.logcat_resume
+                    )
+                )
+            }
+            IconButton(onClick = { viewModel.copyLogcat() }) {
+                Icon(
+                    painterResource(R.drawable.ic_copy),
+                    contentDescription = stringResource(R.string.logcat_copy)
+                )
+            }
+            IconButton(onClick = { onShareLogcat() }) {
+                Icon(
+                    painterResource(R.drawable.ic_share_24dp),
+                    contentDescription = stringResource(R.string.logcat_share)
+                )
+            }
+            IconButton(onClick = {
+                scope.launch(Dispatchers.IO) { viewModel.clearLogcat() }
+            }) {
+                Icon(
+                    painterResource(R.drawable.ic_delete_24dp),
+                    contentDescription = stringResource(R.string.logcat_clear)
+                )
+            }
         },
         floatingActionButton = {
             // Кнопка всегда листает в конец и включает следование.
@@ -273,8 +268,9 @@ fun LogcatScreen(
 
             LazyColumn(
                 state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                // Последняя строка лога не должна замереть внутри полосы затухания снизу
+                contentPadding = PaddingValues(bottom = BottomBlurHeight)
             ) {
                 itemsIndexed(items = logs, key = { index, _ -> index }) { _, log ->
                     LogcatItem(log = log, onLongClick = { Utils.setClipboard(context, log) })

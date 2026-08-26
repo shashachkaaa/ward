@@ -35,14 +35,12 @@
     <string name="server_lab_mode_type">gRPC mode</string>
     <string name="server_lab_request_host_http">http host</string>
     <string name="server_lab_request_host_ws">ws host</string>
-    <string name="server_lab_request_host_quic">QUIC security</string>
     <string name="server_lab_request_host_grpc">gRPC Authority</string>
     <string name="server_lab_path">path</string>
     <string name="server_lab_path_ws">ws path</string>
     <string name="server_lab_path_httpupgrade">httpupgrade path</string>
     <string name="server_lab_path_xhttp">xhttp path</string>
     <string name="server_lab_path_h2">h2 path</string>
-    <string name="server_lab_path_quic">QUIC key</string>
     <string name="server_lab_path_kcp">kcp seed</string>
     <string name="server_lab_path_grpc">gRPC serviceName</string>
     <string name="server_lab_stream_security">TLS</string>
@@ -50,10 +48,7 @@
     <string name="server_lab_stream_alpn">Alpn</string>
     <string name="server_lab_allow_insecure">allowInsecure</string>
     <string name="server_lab_sni">SNI</string>
-    <string name="server_lab_address3">address</string>
-    <string name="server_lab_port3">port</string>
     <string name="server_lab_id3">password</string>
-    <string name="server_lab_security3">security</string>
     <string name="server_lab_id4">Password(Optional)</string>
     <string name="server_lab_security4">User(Optional)</string>
     <string name="server_lab_encryption">encryption</string>
@@ -71,18 +66,13 @@
     <string name="server_lab_kcp_tti">mKCP TTI (Optional, core default 50)</string>
     <string name="toast_success">Success</string>
     <string name="toast_failure">Failure</string>
-    <string name="toast_none_data">There is nothing</string>
     <string name="toast_incorrect_protocol">Incorrect protocol</string>
     <string name="toast_decoding_failed">Decoding failed</string>
     <string name="title_file_chooser">Select a config</string>
     <string name="toast_require_file_manager">Please install a File Manager.</string>
-    <string name="server_customize_config">Customize config</string>
     <string name="toast_config_file_invalid">Invalid config</string>
-    <string name="server_lab_content">Content</string>
-    <string name="toast_none_data_clipboard">There is no data in the clipboard</string>
     <string name="toast_invalid_url">Invalid URL</string>
     <string name="toast_insecure_url_protocol">Please do not use the insecure HTTP protocol subscription address</string>
-    <string name="server_lab_need_inbound">Ensure inbounds port is consistent with the settings</string>
     <string name="toast_malformed_josn">Config malformed</string>
     <string name="server_lab_request_host6">Host(SNI)(Optional)</string>
     <string name="toast_action_not_allowed">Action not allowed</string>
@@ -98,7 +88,6 @@
     <string name="server_lab_verify_peer_cert_by_name">Verify Peer Cert By Name</string>
     <string name="server_lab_pinned_ca256">Certificate fingerprint (SHA-256)</string>
     <string name="server_lab_browser_dialer">Enable Browser Dialer</string>
-    <string name="server_lab_browser_dialer_tip">Only supports xhttp (packet-up) and ws outbound; TLS-related settings may be ignored or conflict</string>
     <string name="toast_allow_insecure_deprecated">Current node uses an unencrypted connection. Your communication may be directly viewed by network intermediate facilities controlled by authoritarian governments.\nFor security reasons, such nodes cannot be connected via Xray core version 26.2.6+.\nIf it is a self-built node, please enable security encryption such as TLS, or pin the certificate pinnedCA256.\nIf it is a provider node, please contact the service provider to complete the technical upgrade. If the service provider refuses to cooperate, it is recommended to switch to a provider that pays more attention to user security.\nFor more information, please visit https://github.com/2dust/v2rayN/discussions/9460</string>
     <string name="pinned_ca256_action_fetch">Fetch and fill certificate fingerprint</string>
     <string name="toast_fetch_cert_sha256_success">Certificate fingerprint fetched successfully</string>
@@ -136,11 +125,9 @@
     <string name="asset_geo_files_sources">Geo files source (optional)</string>
 
     <!-- PerAppProxyActivity -->
-    <string name="msg_dialog_progress">Loading</string>
     <string name="menu_item_search">Search</string>
     <string name="menu_item_select_all">Select all</string>
     <string name="menu_item_invert_selection">Invert selection</string>
-    <string name="msg_enter_keywords">Enter keywords</string>
     <string name="switch_bypass_apps_mode">Bypass Mode</string>
     <string name="menu_item_select_proxy_app">Auto select proxy app</string>
     <string name="msg_downloading_content">Downloading content</string>
@@ -166,7 +153,6 @@
     <string name="main_share_link">Share link</string>
     <string name="main_share_qr">QR code</string>
     <string name="main_menu">Menu</string>
-    <string name="main_nav_home">Home</string>
     <string name="main_nav_settings">Settings</string>
     <string name="main_nav_add">Add</string>
     <string name="main_expires">Expires: %1$s</string>
@@ -289,7 +275,6 @@
     <string name="title_advanced">Advanced Settings</string>
     <string name="title_core_settings">Core Settings</string>
     <string name="title_vpn_settings">VPN Settings</string>
-    <string name="title_pref_per_app_proxy">Per-app proxy</string>
     <string name="summary_pref_per_app_proxy">General: Checked apps use proxy, unchecked apps connect directly; \nBypass mode: checked apps connect directly, unchecked apps use proxy. \nThe option to automatically select proxy applications is in the menu</string>
     <string name="title_pref_is_booted">Auto connect at startup</string>
     <string name="summary_pref_is_booted">Automatically connects to the selected server at startup, which may be unsuccessful</string>
@@ -337,7 +322,6 @@
     <string name="summary_pref_prefer_ipv6">Prefer IPv6 addresses when resolving domain names</string>
 
     <string name="title_pref_remote_dns">Remote DNS (udp/tcp/https/quic)(Optional)</string>
-    <string name="summary_pref_remote_dns">DNS</string>
 
     <string name="title_pref_vpn_dns">VPN DNS (only IPv4/v6)</string>
     <string name="title_pref_vpn_bypass_lan">Does VPN bypass LAN</string>
@@ -348,17 +332,13 @@
 
 
     <string name="title_pref_domestic_dns">Domestic DNS (Optional)</string>
-    <string name="summary_pref_domestic_dns">DNS</string>
 
     <string name="title_pref_dns_hosts">DNS hosts (Format: domain:address,…)</string>
-    <string name="summary_pref_dns_hosts">domain:address,…</string>
 
     <string name="title_pref_delay_test_url">True delay test url </string>
-    <string name="summary_pref_delay_test_url">Url</string>
     <string name="title_pref_real_ping_concurrency">True delay test concurrency</string>
 
     <string name="title_pref_ip_api_url">Current connection info test url</string>
-    <string name="summary_pref_ip_api_url">Url</string>
 
     <string name="title_pref_proxy_sharing_enabled">Allow connections from the LAN</string>
     <string name="summary_pref_proxy_sharing_enabled">Other devices can connect to proxy by your IP address through local proxy. Only enable in trusted networks to avoid unauthorized connections</string>
@@ -369,16 +349,11 @@
     <string name="summary_pref_enable_local_proxy">When disabled, no SOCKS proxy is available, so subscription updates and similar actions cannot use the proxy</string>
     <string name="title_pref_socks_enable_udp">SOCKS5 UDP</string>
     <string name="summary_pref_socks_enable_udp">SOCKS5 authentication is not fully secure when using UDP.</string>
-    <string name="summary_pref_socks_port">Local proxy port</string>
     <string name="title_pref_dynamic_socks_port">Enable dynamic local proxy port</string>
     <string name="summary_pref_dynamic_socks_port">Generate a random local proxy port each time the inbound is created</string>
     <string name="title_pref_socks_username">Local proxy username (optional)</string>
-    <string name="summary_pref_socks_username">Username</string>
     <string name="title_pref_socks_password">Local proxy password (optional)</string>
-    <string name="summary_pref_socks_password">Password</string>
 
-    <string name="title_pref_local_dns_port">Local DNS port</string>
-    <string name="summary_pref_local_dns_port">Local DNS port</string>
 
     <string name="title_pref_confirm_remove">Delete config confirmation</string>
     <string name="summary_pref_confirm_remove">Whether deleting a config requires a second confirmation by the user</string>
@@ -387,28 +362,18 @@
     <string name="title_pref_append_http_proxy">Append HTTP Proxy to VPN</string>
     <string name="summary_pref_append_http_proxy">HTTP proxy will be used directly from (browser/ some supported apps), without going through the virtual NIC device (Android 10+)</string>
 
-    <string name="title_pref_double_column_display">Enable double column display</string>
-    <string name="summary_pref_double_column_display">The profile list is displayed in double columns, allowing more content to be displayed on the screen.</string>
 
-    <string name="title_pref_group_all_display">Enable show all groups</string>
-    <string name="summary_pref_group_all_display">Add an extra "All Tabs" page</string>
 
     <!-- AboutActivity -->
     <string name="title_pref_feedback">Feedback</string>
-    <string name="summary_pref_feedback">Feedback enhancements or bugs to GitHub</string>
-    <string name="summary_pref_tg_group">Join Telegram Group</string>
-    <string name="toast_tg_app_not_found">Telegram app not found</string>
     <string name="title_privacy_policy">Privacy policy</string>
     <string name="title_qr_code">QR code</string>
-    <string name="title_about">About</string>
     <string name="title_source_code">Source code</string>
     <string name="title_oss_license">Open Source licenses</string>
     <string name="title_tg_channel">Telegram channel</string>
 
-    <string name="title_pref_promotion">Promotion</string>
 
     <string name="title_pref_auto_update_subscription">Automatic update subscriptions</string>
-    <string name="summary_pref_auto_update_subscription">Update your subscriptions automatically at set intervals in the background. Depending on the device, this feature may not always work</string>
     <string name="title_pref_auto_update_interval">Auto Update Interval (Minutes, Min value 15)</string>
 
     <string name="title_core_loglevel">Log Level</string>
@@ -439,10 +404,7 @@
     <string name="logcat_pause">Pause</string>
     <string name="logcat_resume">Resume</string>
     <string name="title_service_restart">Service restart</string>
-    <string name="title_del_all_config">Delete config</string>
-    <string name="title_del_duplicate_config">Delete duplicate config</string>
     <string name="title_del_invalid_config">Delete invalid config</string>
-    <string name="title_export_all">Export configs to clipboard</string>
     <string name="title_sub_setting">Subscription</string>
     <string name="sub_setting_remarks">remarks</string>
     <string name="sub_setting_url">Optional URL</string>
@@ -457,37 +419,22 @@
     <string name="sub_setting_pre_profile_tip">The config remarks exist and are unique</string>
     <string name="toast_invalid_update_interval">Invalid update interval. Minimum is 15 minutes.</string>
     <string name="title_sub_update">Update subscription</string>
-    <string name="title_ping_all_server">Tcping config</string>
     <string name="title_real_ping_all_server">Real delay config</string>
     <string name="title_user_asset_setting">Asset files</string>
     <string name="title_sort_by_test_results">Sorting by test results</string>
-    <string name="title_filter_config">Filter config</string>
     <string name="filter_config_all">All</string>
     <string name="summary_scan_qrcode">Click screen open the camera scan</string>
-    <string name="title_del_duplicate_config_count">Delete %d duplicate configs</string>
-    <string name="title_del_config_count">Delete %d configs</string>
-    <string name="title_import_config_count">Import %d configs</string>
-    <string name="title_export_config_count">Export %d configs</string>
     <string name="title_update_config_count">Update %d configs</string>
-    <string name="title_update_subscription_result">Updated %1$d configs (%2$d success, %3$d failed, %4$d skipped)</string>
-    <string name="title_update_subscription_no_subscription">No subscriptions</string>
-    <string name="toast_server_not_found_in_group">Selected server not found in current group</string>
-    <string name="toast_fragment_not_available">Unable to locate current view</string>
-    <string name="title_locate_selected_config">Locate the selected config</string>
 
     <string name="tasker_start_service">Start Service</string>
-    <string name="tasker_setting_confirm">Confirm</string>
 
     <!-- RoutingSettingActivity -->
     <string name="routing_settings_domain_strategy">Domain strategy</string>
     <string name="routing_settings_title">Routing Settings</string>
     <string name="routing_settings_tips">Separated by commas(,), \nchoose domain or ip or process</string>
-    <string name="routing_settings_save">Save</string>
-    <string name="routing_settings_delete">Clear</string>
     <string name="routing_settings_rule_title">Routing Rule Settings</string>
     <string name="routing_settings_add_rule">Add rule</string>
     <string name="routing_settings_import_predefined_rulesets">Import predefined rulesets</string>
-    <string name="routing_settings_import_rulesets_tip">Existing rulesets will be deleted, are you sure to continue?</string>
     <string name="routing_settings_import_rulesets_from_clipboard">Import ruleset from clipboard</string>
     <string name="routing_settings_import_rulesets_from_qrcode">Import ruleset from QRcode</string>
     <string name="routing_settings_export_rulesets_to_clipboard">Export ruleset to clipboard</string>
@@ -500,20 +447,15 @@
     <string name="routing_settings_protocol">protocol</string>
     <string name="routing_settings_protocol_tip">[http,tls,bittorrent]</string>
     <string name="routing_settings_network">network</string>
-    <string name="routing_settings_outbound_tag_hint" translatable="false">proxy / direct / block / &lt;remarks&gt;</string>
     <string name="routing_settings_outbound_tag">outboundTag</string>
 
-    <string name="connection_test_pending">Check Connectivity</string>
     <string name="connection_test_testing">Testing…</string>
-    <string name="connection_test_testing_count">Testing %d configs…</string>
     <string name="connection_test_available">Success: Connection took %dms</string>
     <string name="connection_test_error">Fail to detect internet connection: %s</string>
     <string name="connection_test_timeout">the server did not answer in time</string>
     <string name="connection_test_refused">the connection was refused</string>
     <string name="connection_test_dns">the address could not be resolved</string>
     <string name="connection_test_unknown">reason unknown</string>
-    <string name="connection_test_fail">Internet Unavailable</string>
-    <string name="connection_test_error_status_code">Error code: #%d</string>
     <string name="connection_connected">Connected, tap to check connection</string>
     <string name="connection_not_connected">Not connected</string>
     <string name="connection_runing_task_left">Number of running test tasks: %s</string>
@@ -560,7 +502,6 @@
     <string name="title_policy_group_fallback">Fallback outbound (optional)</string>
 
     <string name="server_proxy_chain_members">Proxy chain members</string>
-    <string name="server_proxy_chain_pick_members">Tap here to pick member</string>
     <string name="server_proxy_chain_member_unselected">Select a member</string>
     <string name="server_proxy_chain_members_unselected">Please select member for each chain row</string>
     <string name="server_proxy_chain_members_insufficient">Insufficient members</string>
@@ -578,9 +519,6 @@
     <string name="title_webdav_pass">Password</string>
     <string name="title_webdav_remote_path">Remote directory (optional)</string>
 
-    <string name="share_method_qrcode">QRcode</string>
-    <string name="share_method_clipboard">Export to clipboard</string>
-    <string name="share_method_full_content">Export full config to clipboard</string>
     <string name="action_edit">Edit</string>
     <string name="action_delete">Delete</string>
     <string name="action_close">Close</string>

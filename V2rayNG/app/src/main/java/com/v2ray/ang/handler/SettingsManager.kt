@@ -411,14 +411,7 @@ object SettingsManager {
         return when (language) {
             Language.AUTO -> Utils.getSysLocale()
             Language.ENGLISH -> Locale.ENGLISH
-            Language.CHINA -> Locale.CHINA
-            Language.TRADITIONAL_CHINESE -> Locale.TRADITIONAL_CHINESE
-            Language.VIETNAMESE -> Locale.forLanguageTag("vi")
             Language.RUSSIAN -> Locale.forLanguageTag("ru")
-            Language.PERSIAN -> Locale.forLanguageTag("fa")
-            Language.ARABIC -> Locale.forLanguageTag("ar")
-            Language.BANGLA -> Locale.forLanguageTag("bn")
-            Language.BAKHTIARI -> Locale.forLanguageTag("bqi-IR")
         }
     }
 

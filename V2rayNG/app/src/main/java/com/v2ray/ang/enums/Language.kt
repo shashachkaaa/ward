@@ -1,16 +1,16 @@
 package com.v2ray.ang.enums
 
+/**
+ * Языки, на которых говорит приложение.
+ *
+ * Их два. Остальные достались от v2rayNG и не поддерживались: половина строк там
+ * оставалась английской, а приложение при этом обещало человеку его язык. Выбранный
+ * когда-то и убранный отсюда код читается как AUTO - язык берётся системный.
+ */
 enum class Language(val code: String) {
     AUTO("auto"),
     ENGLISH("en"),
-    CHINA("zh-rCN"),
-    TRADITIONAL_CHINESE("zh-rTW"),
-    VIETNAMESE("vi"),
-    RUSSIAN("ru"),
-    PERSIAN("fa"),
-    ARABIC("ar"),
-    BANGLA("bn"),
-    BAKHTIARI("bqi-rIR");
+    RUSSIAN("ru");
 
     companion object {
         fun fromCode(code: String): Language {

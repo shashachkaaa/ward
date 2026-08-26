@@ -6,7 +6,6 @@ import com.v2ray.ang.root.RootManager.refresh
 import com.v2ray.ang.util.LogUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.concurrent.TimeUnit
 
 /**
  * Detects whether the device grants root (`su`) access.
@@ -16,6 +15,9 @@ import java.util.concurrent.TimeUnit
  * code; [isRootAvailable] may block and must not be called on the main thread the first time.
  */
 object RootManager {
+
+    /** Сколько ждём ответа от su: не ответил - значит root недоступен. */
+    private const val PROBE_TIMEOUT_MS = 10_000L
 
     @Volatile
     private var cached: Boolean? = null
@@ -47,7 +49,7 @@ object RootManager {
                 .redirectErrorStream(true)
                 .start()
             val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
-            val finished = process.waitFor(10, TimeUnit.SECONDS)
+            val finished = process.awaitFor(PROBE_TIMEOUT_MS)
             if (!finished) {
                 process.destroy()
                 LogUtil.w(AppConfig.TAG, "RootManager: su probe timed out")

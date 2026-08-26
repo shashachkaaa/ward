@@ -192,14 +192,17 @@ object NotificationManager {
      * Cancels the notification.
      */
     fun cancelNotification() {
-        val service = getService() ?: return
-        service.stopForeground(Service.STOP_FOREGROUND_REMOVE)
-
+        // Сначала отпускаем своё, потом снимаем уведомление. Раньше было наоборот, и
+        // при потерянной ссылке на службу выход происходил до уборки: заготовка
+        // уведомления держит контекст, и этот контекст оставался висеть навсегда
         mBuilder = null
         speedNotificationJob?.cancel()
         speedNotificationJob = null
         mNotificationManager = null
         TrafficSpeedState.reset()
+
+        val service = getService() ?: return
+        service.stopForeground(Service.STOP_FOREGROUND_REMOVE)
     }
 
     /**

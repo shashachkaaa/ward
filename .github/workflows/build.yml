@@ -96,6 +96,42 @@ jobs:
         distribution: 'temurin'
         java-version: '21'
 
+    # Тесты держат сборку: не прошли - APK не собирается. До этого они лежали в
+    # репозитории и не запускались, и один из них успел протухнуть незамеченным -
+    # он проверял меню, удалённое за полгода до того
+    - name: Run unit tests
+      run: |
+        cd ${{ github.workspace }}/V2rayNG
+        echo "sdk.dir=${ANDROID_HOME}" > local.properties
+        chmod 755 gradlew
+        ./gradlew testGithubDebugUnitTest
+
+    - name: Upload test report
+      uses: actions/upload-artifact@v7
+      if: ${{ failure() }}
+      with:
+        name: test-report
+        path: ${{ github.workspace }}/V2rayNG/app/build/reports/tests/
+
+    # Проверка кода отчётом, а не запретом. Фатальные находки и так держат сборку:
+    # их ловит lintVital внутри релизной сборки - именно он в своё время не пустил
+    # картинку, лежавшую только в ночной теме. Остальное копилось годами, и обрушить
+    # на это красный CI значит просто перестать его читать. Отчёт лежит в артефактах;
+    # разберём накопленное - переведём в запрет
+    - name: Run lint
+      continue-on-error: true
+      run: |
+        cd ${{ github.workspace }}/V2rayNG
+        ./gradlew lintGithubRelease
+
+    - name: Upload lint report
+      uses: actions/upload-artifact@v7
+      if: ${{ always() }}
+      with:
+        name: lint-report
+        path: ${{ github.workspace }}/V2rayNG/app/build/reports/lint-results-*.html
+        if-no-files-found: ignore
+
     - name: Restore signing keystore
       env:
         KEYSTORE_BASE64: ${{ secrets.WARD_KEYSTORE_BASE64 }}

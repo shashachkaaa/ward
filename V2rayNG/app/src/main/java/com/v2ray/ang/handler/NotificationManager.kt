@@ -1,5 +1,6 @@
 package com.v2ray.ang.handler
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -38,6 +39,17 @@ object NotificationManager {
     private const val QUERY_INTERVAL_MS = 3000L
 
     private var lastQueryTime = 0L
+    /**
+     * Заготовка уведомления живёт весь сеанс: она накапливает состояние - значок по
+     * трафику, строку скорости, просьбу о живой плашке - и на каждом обновлении из неё
+     * собирается готовое уведомление. Пересобирать её каждую секунду значило бы терять
+     * это состояние.
+     *
+     * Контекст внутри неё - служба, и держать его статически действительно нельзя было
+     * бы дольше её жизни. Поле обнуляется первым делом при снятии уведомления, до
+     * любых ранних выходов; проверка кода этого не видит и ругается на объявление.
+     */
+    @SuppressLint("StaticFieldLeak")
     private var mBuilder: NotificationCompat.Builder? = null
     private var speedNotificationJob: Job? = null
     private var mNotificationManager: NotificationManager? = null

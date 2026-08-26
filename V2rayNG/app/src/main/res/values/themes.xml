@@ -2,13 +2,20 @@
     <color name="window_background_light">#FFFFFFFF</color>
     <color name="window_background_dark">#FF1C1B1F</color>
 
-    <style name="AppThemeBase" parent="@android:style/Theme.Material.Light.NoActionBar">
+    <!--
+      Общие пункты вынесены отдельным именем, чтобы не повторять их в наборе для
+      API 27. Там переопределяется только AppThemeBase: квалификатор подменяет стиль
+      целиком, а не дописывает к нему, и без этого пришлось бы держать две копии
+      всего списка и следить, чтобы они не разошлись.
+    -->
+    <style name="AppThemeCommon" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowLightNavigationBar">true</item>
         <item name="android:windowBackground">@color/window_background_light</item>
     </style>
+
+    <style name="AppThemeBase" parent="AppThemeCommon" />
 
     <style name="AppThemeDayNight" parent="AppThemeBase" />
 

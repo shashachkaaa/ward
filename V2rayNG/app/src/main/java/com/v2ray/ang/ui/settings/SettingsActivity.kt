@@ -534,13 +534,15 @@ private fun LiveNotificationStatusItem(enabled: Boolean) {
         else R.string.live_notification_not_promotable
     )
 
+    val failureText = stringResource(R.string.toast_failure)
+
     SettingsInfoItem(
         title = stringResource(R.string.title_live_notification_status),
         summary = "$permission\n$ours",
         onClick = if (!current.allowed) {
             {
                 runCatching { context.startActivity(LiveNotificationStatus.settingsIntent(context)) }
-                    .onFailure { AppSnackbarManager.show(context.getString(R.string.toast_failure)) }
+                    .onFailure { AppSnackbarManager.show(failureText) }
             }
         } else null
     )

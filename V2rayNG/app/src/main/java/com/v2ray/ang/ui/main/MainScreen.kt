@@ -199,16 +199,21 @@ fun MainScreen(
     val context = LocalContext.current
 
     // Установка запрещена системой - ведём в настройки, где её разрешают
+    // Строки берём в самой композиции, а не из контекста внутри эффекта: так они
+    // следуют за языком приложения, а не за тем, каким он был при запуске экрана
+    val needsPermissionText = stringResource(R.string.update_needs_permission)
+    val updateFailedText = stringResource(R.string.update_failed)
+
     LaunchedEffect(installState) {
         when (installState) {
             is UpdateInstallState.NeedsPermission -> {
-                AppSnackbarManager.show(context.getString(R.string.update_needs_permission))
+                AppSnackbarManager.show(needsPermissionText)
                 runCatching { context.startActivity(AppUpdateInstaller.permissionIntent(context)) }
                 AppUpdateInstaller.reset()
             }
 
             is UpdateInstallState.Failed -> {
-                AppSnackbarManager.show(context.getString(R.string.update_failed))
+                AppSnackbarManager.show(updateFailedText)
                 AppUpdateInstaller.reset()
             }
 

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Светлые значки на панели навигации появились в API 27. Ниже система про этот
+      атрибут не знает и просто его игнорирует, но в общем наборе он остаётся
+      находкой проверки кода - а её мы хотим держать чистой, чтобы она ловила
+      настоящие вызовы новых методов на старых версиях.
+    -->
+    <style name="AppThemeBase" parent="AppThemeCommon">
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

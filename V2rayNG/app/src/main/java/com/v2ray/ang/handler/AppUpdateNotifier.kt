@@ -1,5 +1,6 @@
 package com.v2ray.ang.handler
 
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -63,6 +64,9 @@ object AppUpdateNotifier {
      * Показывает уведомление о версии. По нажатию открывается файл сборки под
      * архитектуру устройства - его подобрал сам механизм проверки.
      */
+    // Разрешение проверяется строкой ниже, а отказ вдобавок ловится вокруг самой
+    // отправки. Проверка кода не видит этого сквозь runCatching и всё равно ругается
+    @SuppressLint("MissingPermission")
     fun notifyUpdate(context: Context, version: String, downloadUrl: String?) {
         if (MmkvManager.decodeSettingsString(AppConfig.PREF_UPDATE_NOTIFIED_VERSION) == version) {
             return

@@ -80,18 +80,22 @@ fun CheckUpdateScreen(
     // ошибке уходило за него, и снаружи это выглядело как «нажал, и ничего»
     var installError by remember { mutableStateOf<String?>(null) }
 
+    // Строки берём в самой композиции, а не из контекста внутри эффекта: так они
+    // следуют за языком приложения, а не за тем, каким он был при запуске экрана
+    val needsPermissionText = stringResource(R.string.update_needs_permission)
+    val failedText = stringResource(R.string.update_failed)
+
     // Установка запрещена системой - ведём в настройки, где её разрешают
     LaunchedEffect(installState) {
         when (val state = installState) {
             is UpdateInstallState.NeedsPermission -> {
-                installError = context.getString(R.string.update_needs_permission)
+                installError = needsPermissionText
                 runCatching { context.startActivity(AppUpdateInstaller.permissionIntent(context)) }
                 AppUpdateInstaller.reset()
             }
 
             is UpdateInstallState.Failed -> {
-                installError = state.message?.let { "${context.getString(R.string.update_failed)}: $it" }
-                    ?: context.getString(R.string.update_failed)
+                installError = state.message?.let { "$failedText: $it" } ?: failedText
                 AppUpdateInstaller.reset()
             }
 

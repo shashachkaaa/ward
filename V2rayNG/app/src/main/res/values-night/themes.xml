@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Night theme: override window background and status bar flags for dark mode -->
-    <style name="AppThemeBase" parent="@android:style/Theme.Material.NoActionBar">
+    <!-- Ночная тема: свой фон окна и свои флаги системных полос -->
+    <style name="AppThemeCommon" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
         <item name="android:windowBackground">@android:color/black</item>
     </style>
+
+    <style name="AppThemeBase" parent="AppThemeCommon" />
 
     <style name="AppThemeDayNight" parent="AppThemeBase" />
 

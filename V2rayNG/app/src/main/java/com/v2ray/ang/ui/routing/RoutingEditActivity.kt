@@ -231,6 +231,9 @@ fun RoutingEditScreen(
                 enabled = canUseProcess
             )
             if (canUseProcess) {
+                // Заголовок берём в композиции: из контекста внутри обработчика он
+                // взялся бы на языке, каким тот был при запуске экрана
+                val pickerTitle = stringResource(R.string.routing_settings_process_select)
                 TextButton(
                     onClick = {
                         val current = processText
@@ -242,7 +245,7 @@ fun RoutingEditScreen(
                             AppPickerActivity.createIntent(
                                 context = context,
                                 selectedPackages = current,
-                                title = context.getString(R.string.routing_settings_process_select)
+                                title = pickerTitle
                             )
                         )
                     },

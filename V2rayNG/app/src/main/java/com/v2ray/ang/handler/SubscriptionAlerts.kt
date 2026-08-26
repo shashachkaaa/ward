@@ -1,5 +1,6 @@
 package com.v2ray.ang.handler
 
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -100,6 +101,9 @@ object SubscriptionAlerts {
         return null
     }
 
+    // Разрешение проверяется первой же строкой, а отказ вдобавок ловится вокруг
+    // самой отправки. Проверка кода не видит этого сквозь runCatching
+    @SuppressLint("MissingPermission")
     private fun notify(guid: String, subscription: SubscriptionItem, text: String) {
         val context: Context = AngApplication.application
         val manager = NotificationManagerCompat.from(context)

@@ -3,45 +3,20 @@
     <string name="app_widget_name">Переключить</string>
     <string name="app_tile_name">Переключить</string>
     <string name="app_tile_first_use">Первое использование этой функции, пожалуйста, используйте приложение, чтобы добавить профиль</string>
-    <string name="navigation_drawer_open">Открыть панель навигации</string>
-    <string name="navigation_drawer_close">Закрыть панель навигации</string>
-    <string name="migration_success">Успешный перенос данных!</string>
-    <string name="action_stop_service">Остановить службу</string>
-    <string name="migration_fail">Перенос данных не выполнен!</string>
-    <string name="pull_down_to_refresh">Потяните вниз для обновления!</string>
 
     <!-- Notifications -->
     <string name="notification_action_stop_v2ray">Остановить</string>
     <string name="toast_permission_denied">Разрешение не получено</string>
-    <string name="toast_permission_denied_notification">Разрешение на отображение уведомлений не получено</string>
-    <string name="notification_action_more">Ещё…</string>
     <string name="toast_services_start">Запуск служб</string>
     <string name="toast_services_stop">Остановка служб</string>
     <string name="toast_services_success">Службы успешно запущены</string>
     <string name="toast_services_failure">Сбой при запуске служб</string>
 
     <!--ServerActivity-->
-    <string name="title_server">Профиль</string>
-    <string name="menu_item_add_config">Добавить профиль</string>
     <string name="menu_item_save_config">Сохранить профиль</string>
     <string name="menu_item_edit_config">Изменить профиль</string>
     <string name="menu_item_del_config">Удалить профиль</string>
     <string name="menu_item_import_config_qrcode">Импорт из QR-кода</string>
-    <string name="menu_item_import_config_clipboard">Импорт из буфера обмена</string>
-    <string name="menu_item_import_config_local">Импорт из файла</string>
-    <string name="menu_item_import_config_policy_group">Добавить политику группы</string>
-    <string name="menu_item_import_config_proxy_chain">Добавить цепочку прокси</string>
-    <string name="menu_item_import_config_manually_vmess">Добавить VMess</string>
-    <string name="menu_item_import_config_manually_vless">Добавить VLESS</string>
-    <string name="menu_item_import_config_manually_ss">Добавить Shadowsocks</string>
-    <string name="menu_item_import_config_manually_socks">Добавить SOCKS</string>
-    <string name="menu_item_import_config_manually_http">Добавить HTTP</string>
-    <string name="menu_item_import_config_manually_trojan">Добавить Trojan</string>
-    <string name="menu_item_import_config_manually_wireguard">Добавить WireGuard</string>
-    <string name="menu_item_import_config_manually_hysteria2">Добавить Hysteria2</string>
-    <string name="confirm_delete_visible_profiles">Вы уверены, что хотите удалить все отображаемые профили?</string>
-    <string name="confirm_delete_duplicate_profiles">Вы уверены, что хотите удалить все отображаемые дубликаты профилей?</string>
-    <string name="confirm_delete_invalid_profiles">Сначала проверьте профили. Вы уверены, что хотите удалить все отображаемые недействительные профили?</string>
     <string name="confirm_delete_profile">Вы уверены, что хотите удалить этот профиль?</string>
     <string name="confirm_delete_policy_group">Вы уверены, что хотите удалить эту группу политик?</string>
     <string name="confirm_delete_proxy_chain_member">Вы уверены, что хотите удалить этот элемент цепочки прокси?</string>
@@ -53,18 +28,12 @@
     <string name="server_lab_address">Адрес</string>
     <string name="server_lab_port">Порт</string>
     <string name="server_lab_id">ID</string>
-    <string name="server_lab_alterid">Альтернативный ID</string>
     <string name="server_lab_security">Безопасность</string>
     <string name="server_lab_network">Сеть</string>
-    <string name="server_lab_more_function">Транспорт</string>
     <string name="server_lab_head_type">Тип заголовка</string>
     <string name="server_lab_mode_type">Режим gRPC</string>
-    <string name="server_lab_request_host">Узел</string>
     <string name="server_lab_request_host_http">Узел HTTP</string>
     <string name="server_lab_request_host_ws">Узел WS</string>
-    <string name="server_lab_request_host_httpupgrade">Узел HTTPUpgrade</string>
-    <string name="server_lab_request_host_xhttp">Узел XHTTP</string>
-    <string name="server_lab_request_host_h2">Узел H2</string>
     <string name="server_lab_request_host_quic">Шифрование QUIC</string>
     <string name="server_lab_request_host_grpc">Полномочия gRPC</string>
     <string name="server_lab_path">Путь</string>

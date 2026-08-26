@@ -4,45 +4,20 @@
     <string name="app_widget_name">Switch</string>
     <string name="app_tile_name">Switch</string>
     <string name="app_tile_first_use">First use of this feature, please use the app to add server</string>
-    <string name="navigation_drawer_open">Open navigation drawer</string>
-    <string name="navigation_drawer_close">Close navigation drawer</string>
-    <string name="migration_success">Data migration success!</string>
-    <string name="action_stop_service">Stop service</string>
-    <string name="migration_fail">Data migration failed!</string>
-    <string name="pull_down_to_refresh">Please pull down to refresh!</string>
 
     <!-- Notifications -->
     <string name="notification_action_stop_v2ray">Stop</string>
     <string name="toast_permission_denied">Unable to obtain the permission</string>
-    <string name="toast_permission_denied_notification">Unable to obtain the notification permission</string>
-    <string name="notification_action_more">Click for more</string>
     <string name="toast_services_start">Start Services</string>
     <string name="toast_services_stop">Stop Services</string>
     <string name="toast_services_success">Start Services Success</string>
     <string name="toast_services_failure">Start Services Failure</string>
 
     <!--ServerActivity-->
-    <string name="title_server">Config</string>
-    <string name="menu_item_add_config">Add config</string>
     <string name="menu_item_save_config">Save config</string>
     <string name="menu_item_edit_config">Edit config</string>
     <string name="menu_item_del_config">Delete config</string>
     <string name="menu_item_import_config_qrcode">Import from QRcode</string>
-    <string name="menu_item_import_config_clipboard">Import from Clipboard</string>
-    <string name="menu_item_import_config_local">Import from locally</string>
-    <string name="menu_item_import_config_policy_group">Add [Policy group]</string>
-    <string name="menu_item_import_config_proxy_chain">Add [Proxy chain]</string>
-    <string name="menu_item_import_config_manually_vmess">Add [VMess]</string>
-    <string name="menu_item_import_config_manually_vless">Add [VLESS]</string>
-    <string name="menu_item_import_config_manually_ss">Add [Shadowsocks]</string>
-    <string name="menu_item_import_config_manually_socks">Add [SOCKS]</string>
-    <string name="menu_item_import_config_manually_http">Add [HTTP]</string>
-    <string name="menu_item_import_config_manually_trojan">Add [Trojan]</string>
-    <string name="menu_item_import_config_manually_wireguard">Add [Wireguard]</string>
-    <string name="menu_item_import_config_manually_hysteria2">Add [Hysteria2]</string>
-    <string name="confirm_delete_visible_profiles">Are you sure you want to delete all profiles currently shown?</string>
-    <string name="confirm_delete_duplicate_profiles">Are you sure you want to delete all duplicate profiles currently shown?</string>
-    <string name="confirm_delete_invalid_profiles">Please test the profiles first. Are you sure you want to delete all invalid profiles currently shown?</string>
     <string name="confirm_delete_profile">Are you sure you want to delete this profile?</string>
     <string name="confirm_delete_policy_group">Are you sure you want to delete this policy group?</string>
     <string name="confirm_delete_proxy_chain_member">Are you sure you want to delete this chain member?</string>
@@ -54,18 +29,12 @@
     <string name="server_lab_address">address</string>
     <string name="server_lab_port">port</string>
     <string name="server_lab_id">id</string>
-    <string name="server_lab_alterid">alterId</string>
     <string name="server_lab_security">security</string>
     <string name="server_lab_network">Network</string>
-    <string name="server_lab_more_function">Transport</string>
     <string name="server_lab_head_type">head type</string>
     <string name="server_lab_mode_type">gRPC mode</string>
-    <string name="server_lab_request_host">host</string>
     <string name="server_lab_request_host_http">http host</string>
     <string name="server_lab_request_host_ws">ws host</string>
-    <string name="server_lab_request_host_httpupgrade">httpupgrade host</string>
-    <string name="server_lab_request_host_xhttp">xhttp host</string>
-    <string name="server_lab_request_host_h2">h2 host</string>
     <string name="server_lab_request_host_quic">QUIC security</string>
     <string name="server_lab_request_host_grpc">gRPC Authority</string>
     <string name="server_lab_path">path</string>

@@ -27,7 +27,7 @@ object LogUtil {
 
     @Suppress("unused")
     fun refreshLogLevel() {
-        cachedMinPriority = parsePriority(MmkvManager.decodeSettingsString(AppConfig.PREF_LOGLEVEL, DEFAULT_LEVEL))
+        cachedMinPriority = parsePriority(storedLevel())
     }
 
     private fun minPriority(): Int {
@@ -41,12 +41,24 @@ object LogUtil {
             if (current != CACHE_UNSET) {
                 current
             } else {
-                parsePriority(MmkvManager.decodeSettingsString(AppConfig.PREF_LOGLEVEL, DEFAULT_LEVEL)).also {
-                    cachedMinPriority = it
-                }
+                parsePriority(storedLevel()).also { cachedMinPriority = it }
             }
         }
     }
+
+    /**
+     * Уровень из настроек - или ничего, если спросить не у кого.
+     *
+     * Хранилище настроек к этому времени может быть не готово: запись в журнал
+     * случается и до его открытия, и в тестах, где его нет вовсе. Запись в журнал -
+     * не то, ради чего стоит ронять вызвавшего, поэтому здесь берётся уровень по
+     * умолчанию, а не исключение. Дальше он ещё и запомнится: спрашивать снова,
+     * зная, что спросить не у кого, незачем.
+     */
+    private fun storedLevel(): String? =
+        runCatching {
+            MmkvManager.decodeSettingsString(AppConfig.PREF_LOGLEVEL, DEFAULT_LEVEL)
+        }.getOrNull()
 
     private fun isEnabled(priority: Int): Boolean {
         return priority >= minPriority()

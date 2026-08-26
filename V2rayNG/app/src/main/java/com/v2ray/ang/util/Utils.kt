@@ -30,6 +30,13 @@ object Utils {
 
     private val IPV4_REGEX =
         Regex("^([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\\.([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\\.([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\\.([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])$")
+    /**
+     * Адрес в квадратных скобках, за которыми может стоять порт: `[::1]`, `[::1]:80`.
+     * В таком виде IPv6 записывают везде, где рядом бывает порт, - иначе двоеточие
+     * порта не отличить от двоеточий самого адреса.
+     */
+    private val BRACKETED_HOST_REGEX = Regex("""^\[(.+)](?::\d+)?$""")
+
     private val IPV6_REGEX = Regex("^((?:[0-9A-Fa-f]{1,4}))?((?::[0-9A-Fa-f]{1,4}))*::((?:[0-9A-Fa-f]{1,4}))?((?::[0-9A-Fa-f]{1,4}))*|((?:[0-9A-Fa-f]{1,4}))((?::[0-9A-Fa-f]{1,4})){7}$")
 
     /**
@@ -148,11 +155,14 @@ object Utils {
                 }
             }
 
-            // Handle IPv4-mapped IPv6 addresses
+            // Скобки снимаем первыми: «[::1]:80» иначе не разбирался вовсе - до
+            // проверки доходила строка со скобкой и портом, а под неё не подходит
+            // ни одно выражение
+            BRACKETED_HOST_REGEX.matchEntire(addr)?.let { addr = it.groupValues[1] }
+
+            // IPv4 внутри IPv6: «::ffff:192.168.0.1» - это тот же IPv4
             if (addr.startsWith("::ffff:") && '.' in addr) {
                 addr = addr.drop(7)
-            } else if (addr.startsWith("[::ffff:") && '.' in addr) {
-                addr = addr.drop(8).replace("]", "")
             }
 
             val octets = addr.split('.')
@@ -486,9 +496,14 @@ object Utils {
         try {
             if (!isIpAddress(ip)) return false
 
-            // Parse CIDR (e.g., "192.168.1.0/24")
-            val (cidrIp, prefixLen) = cidr.split("/")
-            val prefixLength = prefixLen.toInt()
+            // Разбор маски: «192.168.1.0/24». Испорченная маска - обычный ответ
+            // «нет», а не поломка: сюда приходят и строки, набранные руками.
+            // Раньше на них разваливалось разрушающее присваивание, и ответ
+            // приходил из обработчика исключения вместе с записью в журнал
+            val parts = cidr.split("/")
+            if (parts.size != 2) return false
+            val cidrIp = parts[0]
+            val prefixLength = parts[1].toIntOrNull()?.takeIf { it in 0..32 } ?: return false
 
             // Convert IP and CIDR's IP portion to Long
             val ipLong = inetAddressToLong(InetAddress.getByName(ip))

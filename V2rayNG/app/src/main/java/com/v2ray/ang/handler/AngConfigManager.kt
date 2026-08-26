@@ -669,103 +669,13 @@ object AngConfigManager {
                 return SubscriptionUpdateResult(failureCount = 1)
             }
 
-            // --- ОБРАБОТКА ЗАГОЛОВКА profile-title ---
-            val profileTitleRaw = responseHeaders["profile-title"]
-            if (!profileTitleRaw.isNullOrEmpty()) {
-                var parsedTitle = profileTitleRaw
-                if (profileTitleRaw.startsWith("base64:")) {
-                    try {
-                        val base64Str = profileTitleRaw.substringAfter("base64:")
-                        parsedTitle = String(android.util.Base64.decode(base64Str, android.util.Base64.DEFAULT), Charsets.UTF_8)
-                    } catch (e: Exception) {
-                        LogUtil.e(AppConfig.TAG, "Failed to decode base64 profile-title", e)
-                    }
-                }
-                
-                // Обновляем имя, только если его не задавал пользователь,
-                // иначе своё название подписки слетало бы при каждом обновлении
-                if (!parsedTitle.isNullOrBlank() && isGeneratedRemarks(it.subscription)) {
-                    it.subscription.remarks = parsedTitle
-                }
-            }
-            // ------------------------------------------
-            
-            // --- ОБРАБОТКА ЗАГОЛОВКА announce ---
-            val announceRaw = responseHeaders["announce"]
-            if (!announceRaw.isNullOrEmpty()) {
-                var parsedAnnounce = announceRaw
-                if (announceRaw.startsWith("base64:")) {
-                    try {
-                        val base64Str = announceRaw.substringAfter("base64:")
-                        parsedAnnounce = String(android.util.Base64.decode(base64Str, android.util.Base64.DEFAULT), Charsets.UTF_8)
-                    } catch (e: Exception) {
-                        LogUtil.e(AppConfig.TAG, "Failed to decode base64 announce", e)
-                    }
-                }
-                // Записываем полученный анонс в данные подписки
-                it.subscription.announce = parsedAnnounce
-            } else {
-                // ВАЖНО: Очищаем поле, если сервер не прислал announce!
-                // Это предотвратит баг с "перетеканием" текста из прошлой подписки.
-                it.subscription.announce = ""
-            }
-            // ------------------------------------------
-
-            // --- ОБРАБОТКА support-url ---
-            val supportUrlRaw = responseHeaders["support-url"]
-            it.subscription.supportUrl = supportUrlRaw ?: ""
-
-            // --- ОБРАБОТКА profile-icon ---
-            // Значок сервиса: ссылка или сама картинка в base64. Храним как пришло -
-            // разбирает и проверяет это тот, кто рисует. Пустой заголовок стирает
-            // прежний значок: иначе он остался бы от старой подписки
-            it.subscription.icon = responseHeaders["profile-icon"]?.trim().orEmpty()
-
-            // --- ОБРАБОТКА profile-update-interval ---
-            // Сервер присылает интервал в часах ("1"), а храним мы его в минутах.
-            // Дробные значения тоже встречаются, поэтому читаем как число с плавающей точкой
-            var intervalChanged = false
-            val updateIntervalRaw = responseHeaders["profile-update-interval"]
-            if (!updateIntervalRaw.isNullOrBlank()) {
-                val hours = updateIntervalRaw.trim().toDoubleOrNull()
-                if (hours != null && hours > 0) {
-                    val minutes = (hours * 60).toLong().coerceAtLeast(1L)
-                    if (minutes != it.subscription.updateInterval) {
-                        it.subscription.updateInterval = minutes
-                        intervalChanged = true
-                        LogUtil.i(AppConfig.TAG, "Subscription update interval from header: $hours h")
-                    }
-                } else {
-                    LogUtil.w(AppConfig.TAG, "Bad profile-update-interval header: $updateIntervalRaw")
-                }
-            }
-
-            // --- ОБРАБОТКА subscription-userinfo (Трафик и дата) ---
-            val userInfoRaw = responseHeaders["subscription-userinfo"]
-            if (!userInfoRaw.isNullOrEmpty()) {
-                // Сервер отдает строку вида: upload=0; download=61431672324; total=0; expire=1786915378
-                val parts = userInfoRaw.split(";")
-                for (part in parts) {
-                    val kv = part.trim().split("=")
-                    if (kv.size == 2) {
-                        val key = kv[0].trim().lowercase()
-                        val value = kv[1].trim().toLongOrNull() ?: 0L
-                        when (key) {
-                            "upload" -> it.subscription.trafficUpload = value
-                            "download" -> it.subscription.trafficDownload = value
-                            "total" -> it.subscription.trafficTotal = value
-                            "expire" -> it.subscription.trafficExpire = value
-                        }
-                    }
-                }
-            } else {
-                // Если сервер не отдал стату, очищаем старые данные
-                it.subscription.trafficUpload = 0L
-                it.subscription.trafficDownload = 0L
-                it.subscription.trafficTotal = 0L
-                it.subscription.trafficExpire = 0L
-            }
-            // --------------------------------------------------------
+            // Заголовки разбираются отдельно и без сети - их формат задаёт панель,
+            // а не мы, и меняется он не спрашивая
+            val intervalChanged = SubscriptionHeaders.apply(
+                headers = responseHeaders,
+                subscription = it.subscription,
+                remarksIsGenerated = isGeneratedRemarks(it.subscription)
+            )
 
             var count = parseConfigViaSub(configText, it.guid, false)
 

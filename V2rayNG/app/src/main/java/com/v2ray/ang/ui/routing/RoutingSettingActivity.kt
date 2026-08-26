@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.v2ray.ang.ui.compose.GlassDropdownMenu
 import com.v2ray.ang.ui.compose.LiquidSwitch
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -68,9 +69,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
-import androidx.compose.ui.graphics.Color
-import com.v2ray.ang.ui.compose.GlassMenuShape
-import com.v2ray.ang.ui.compose.glassPanel
 
 class RoutingSettingActivity : HelperBaseComponentActivity() {
     private val viewModel: RoutingSettingsViewModel by viewModels()
@@ -222,13 +220,9 @@ fun RoutingSettingScreen(
                         contentDescription = null
                     )
                 }
-                DropdownMenu(
+                GlassDropdownMenu(
                     expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    shape = GlassMenuShape,
-                    containerColor = Color.Transparent,
-                    shadowElevation = 0.dp,
-                    modifier = Modifier.glassPanel(GlassMenuShape)
+                    onDismissRequest = { showMenu = false }
                 ) {
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.routing_settings_import_predefined_rulesets)) },

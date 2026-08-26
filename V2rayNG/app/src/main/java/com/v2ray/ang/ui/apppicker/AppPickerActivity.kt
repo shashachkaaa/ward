@@ -31,14 +31,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.AppInfo
 import com.v2ray.ang.ui.base.BaseComponentActivity
+import com.v2ray.ang.ui.compose.GlassDropdownMenu
 import com.v2ray.ang.ui.compose.AppListItem
 import com.v2ray.ang.ui.compose.AppScreenScaffold
 import com.v2ray.ang.ui.compose.BottomBlurHeight
 import com.v2ray.ang.ui.compose.ItemDivider
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.v2ray.ang.ui.compose.GlassMenuShape
-import com.v2ray.ang.ui.compose.glassPanel
 
 class AppPickerActivity : BaseComponentActivity() {
 
@@ -155,12 +153,9 @@ fun AppPickerScreen(
                         contentDescription = null
                     )
                 }
-                DropdownMenu(
+                GlassDropdownMenu(
                     expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    containerColor = Color.Transparent,
-                    shadowElevation = 0.dp,
-                    modifier = Modifier.glassPanel(GlassMenuShape)
+                    onDismissRequest = { showMenu = false }
                 ) {
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.menu_item_select_all)) },

@@ -56,14 +56,13 @@ import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.dto.entities.ServersCache
 import com.v2ray.ang.dto.entities.SubscriptionCache
 import com.v2ray.ang.handler.SubscriptionIconLoader
+import com.v2ray.ang.ui.compose.GlassDropdownMenu
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.colorPingSlow
-import com.v2ray.ang.ui.compose.GlassMenuShape
 import com.v2ray.ang.ui.compose.GlassSurface
 import com.v2ray.ang.ui.compose.LocalDarkTheme
 import com.v2ray.ang.ui.compose.LiquidGlassButton
 import com.v2ray.ang.ui.compose.LocalContentBackdrop
-import com.v2ray.ang.ui.compose.glassPanel
 import com.v2ray.ang.ui.subscription.SubEditActivity
 import com.v2ray.ang.util.CustomConfigUtil
 import org.json.JSONObject
@@ -475,13 +474,9 @@ fun ProfileCard(
                             Icon(painterResource(id = R.drawable.ic_more_vert_24dp), contentDescription = stringResource(R.string.main_menu), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         // Меню - отдельное окно, оно уже вне записи слоя, поэтому размытие настоящее
-                        DropdownMenu(
+                        GlassDropdownMenu(
                             expanded = showMenu,
-                            onDismissRequest = { showMenu = false },
-                            shape = GlassMenuShape,
-                            containerColor = Color.Transparent,
-                            shadowElevation = 0.dp,
-                            modifier = Modifier.glassPanel(GlassMenuShape)
+                            onDismissRequest = { showMenu = false }
                         ) {
                             GroupHousekeepingItems(
                                 groupId = subscription.guid,
@@ -788,13 +783,9 @@ fun PlainServersCard(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        DropdownMenu(
+                        GlassDropdownMenu(
                             expanded = showMenu,
-                            onDismissRequest = { showMenu = false },
-                            shape = GlassMenuShape,
-                            containerColor = Color.Transparent,
-                            shadowElevation = 0.dp,
-                            modifier = Modifier.glassPanel(GlassMenuShape)
+                            onDismissRequest = { showMenu = false }
                         ) {
                             GroupHousekeepingItems(
                                 groupId = groupId,
@@ -1115,13 +1106,9 @@ private fun ServerRow(
         }
     }
 
-    DropdownMenu(
+    GlassDropdownMenu(
         expanded = showServerMenu,
-        onDismissRequest = { showServerMenu = false },
-        shape = GlassMenuShape,
-        containerColor = Color.Transparent,
-        shadowElevation = 0.dp,
-        modifier = Modifier.glassPanel(GlassMenuShape)
+        onDismissRequest = { showServerMenu = false }
     ) {
         DropdownMenuItem(
             text = {

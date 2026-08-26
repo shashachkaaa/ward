@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -38,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -53,6 +51,7 @@ import com.v2ray.ang.extension.toastSuccess
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.ui.base.HelperBaseComponentActivity
+import com.v2ray.ang.ui.compose.GlassDropdownMenu
 import com.v2ray.ang.ui.compose.AppScreenScaffold
 import com.v2ray.ang.ui.compose.BottomBlurHeight
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
@@ -67,9 +66,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.DateFormat
 import java.util.Date
-import androidx.compose.ui.graphics.Color
-import com.v2ray.ang.ui.compose.GlassMenuShape
-import com.v2ray.ang.ui.compose.glassPanel
 
 class UserAssetActivity : HelperBaseComponentActivity() {
 
@@ -276,15 +272,9 @@ fun UserAssetScreen(
                 IconButton(onClick = { showAddMenu = true }) {
                     Icon(painterResource(R.drawable.ic_add_24dp), contentDescription = stringResource(R.string.menu_item_add_asset))
                 }
-                DropdownMenu(
+                GlassDropdownMenu(
                     expanded = showAddMenu,
-                    onDismissRequest = { showAddMenu = false },
-                    containerColor = Color.Transparent,
-                    shadowElevation = 0.dp,
-                    offset = DpOffset(x = 0.dp, y = 0.dp),
-                    modifier = Modifier
-                        .wrapContentWidth(Alignment.End)
-                        .glassPanel(GlassMenuShape)
+                    onDismissRequest = { showAddMenu = false }
                 ) {
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.menu_item_add_file)) },

@@ -14,12 +14,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
@@ -38,7 +43,6 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.highlight.Highlight
-import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 
 /**
@@ -161,6 +165,8 @@ fun Modifier.glassBackdropSource(
  * @param surfaceTint Свой цвет поверх стекла. Кладётся здесь, а не фоном содержимого:
  *   фон содержимого формой стекла не обрезается и лёг бы поверх него прямоугольником.
  * @param fallbackColor Подложка, когда слоя нет.
+ * @param innerGlow Отсвет цвета внутрь от краёв - им карточка подписки показывает цвет
+ *   сервиса. Ровно со всех сторон: это не тень предмета, а свет на стекле.
  */
 @Composable
 fun Modifier.glassBackground(
@@ -204,7 +210,9 @@ fun Modifier.glassBackground(
             startY = 0f,
             endY = with(LocalDensity.current) { 56.dp.toPx() }
         )
-        return background(solid, shape).border(1.dp, rim, shape)
+        return background(solid, shape)
+            .border(1.dp, rim, shape)
+            .innerGlowIfNeeded(innerGlow, shape)
     }
 
     val tint = glassSurfaceColor(isDark, scheme.surface, opaqueness)
@@ -234,17 +242,64 @@ fun Modifier.glassBackground(
         },
         highlight = { Highlight.Ambient },
         shadow = { Shadow(radius = 8f.dp, color = Color.Black.copy(alpha = 0.08f)) },
-        // Свечение внутрь от краёв. Без смещения - значит ровно со всех сторон, а не
-        // тенью с одной: это не тень предмета, а отсвет цвета сервиса на стекле
-        innerShadow = innerGlow?.let { glow -> { InnerShadow(radius = 20f.dp, color = glow) } },
         onDrawSurface = {
             drawRect(tint)
             // Библиотека обрезает эту заливку формой стекла, поэтому цвет ложится
             // капсулой или скруглённым прямоугольником, а не квадратом
             if (surfaceTint != null) drawRect(surfaceTint)
         }
-    )
+    ).innerGlowIfNeeded(innerGlow, shape)
 }
+
+/** Насколько далеко от края внутрь заходит отсвет. */
+private val InnerGlowDepth = 20.dp
+
+private fun Modifier.innerGlowIfNeeded(color: Color?, shape: Shape): Modifier =
+    if (color != null) innerGlow(color, shape) else this
+
+/**
+ * Отсвет цвета внутрь от краёв поверхности: у кромки цвет виден, к середине сходит на нет.
+ *
+ * Рисуется четырьмя заливками по сторонам, а не готовой внутренней тенью библиотеки.
+ * У той тень по смыслу именно тень - она падает с одной стороны (смещение по умолчанию
+ * равно радиусу), и нужного нам ровного отсвета со всех сторон из неё не выходит.
+ * Хуже другое: она держит свой слой видеоядра и запомненный радиус размытия, а слой при
+ * переиспользовании строки списка создаётся заново - радиус же остаётся прежним, и
+ * размытие новому слою уже не назначается. После прокрутки списка вниз и обратно мягкий
+ * отсвет превращался в резкую полосу поперёк карточки.
+ *
+ * Здесь слоя нет вовсе: четыре градиента и обрезка по форме. Переиспользовать тут нечего,
+ * поэтому и портиться нечему. По углам заливки складываются, и угол светится ярче -
+ * так и надо: край, где сходятся две стороны, ловит больше света.
+ */
+private fun Modifier.innerGlow(color: Color, shape: Shape): Modifier =
+    drawWithCache {
+        val depth = InnerGlowDepth.toPx().coerceAtMost(size.minDimension / 2f)
+        if (depth <= 0f) return@drawWithCache onDrawBehind {}
+
+        val outline = shape.createOutline(size, layoutDirection, this)
+        val clip = Path().apply { addOutline(outline) }
+
+        // Прозрачность берётся у самого цвета, а не у Color.Transparent: тот прозрачно
+        // чёрный, и градиент к нему уходил бы через грязно-серое, а не просто гас
+        val faded = color.copy(alpha = 0f)
+        val top = Brush.verticalGradient(listOf(color, faded), 0f, depth)
+        val bottom = Brush.verticalGradient(listOf(faded, color), size.height - depth, size.height)
+        val left = Brush.horizontalGradient(listOf(color, faded), 0f, depth)
+        val right = Brush.horizontalGradient(listOf(faded, color), size.width - depth, size.width)
+
+        val horizontal = Size(size.width, depth)
+        val vertical = Size(depth, size.height)
+
+        onDrawBehind {
+            clipPath(clip) {
+                drawRect(top, size = horizontal)
+                drawRect(bottom, topLeft = Offset(0f, size.height - depth), size = horizontal)
+                drawRect(left, size = vertical)
+                drawRect(right, topLeft = Offset(size.width - depth, 0f), size = vertical)
+            }
+        }
+    }
 
 /**
  * Стекло для окон поверх экрана - диалогов, меню, шторок, снекбара. Слой берётся из

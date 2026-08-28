@@ -65,6 +65,9 @@ object AppConfig {
     const val PREF_DYNAMIC_COLOR = "pref_dynamic_color"
     const val PREF_ACCENT_COLOR = "pref_accent_color"
 
+    /** Красить ли карточки в фирменные цвета сервисов. */
+    const val PREF_SERVICE_COLORS = "pref_service_colors"
+
     /**
      * Насколько тяжёлым делать стекло. Размытие и преломление упираются в отрисовку,
      * и на слабых видеоядрах это чувствуется прокруткой.

@@ -154,6 +154,21 @@ object ThemeManager {
     /** Выбранный акцент из [AccentPalette]. */
     val accentColor: StateFlow<String> = _accentColor.asStateFlow()
 
+    private val _serviceColors = MutableStateFlow(
+        MmkvManager.decodeSettingsBool(AppConfig.PREF_SERVICE_COLORS, true)
+    )
+
+    /**
+     * Красить ли карточки в фирменные цвета сервисов. По умолчанию да: иначе
+     * владельцы поставят заголовок, ничего не увидят и перестанут его слать.
+     */
+    val serviceColors: StateFlow<Boolean> = _serviceColors.asStateFlow()
+
+    fun setServiceColors(enabled: Boolean) {
+        MmkvManager.encodeSettings(AppConfig.PREF_SERVICE_COLORS, enabled)
+        _serviceColors.value = enabled
+    }
+
     fun setThemeMode(mode: String) {
         MmkvManager.encodeSettings(AppConfig.PREF_UI_MODE_NIGHT, mode)
         _themeMode.value = mode
@@ -198,6 +213,9 @@ fun resolveDarkTheme(): Boolean {
 
 val LocalDarkTheme = compositionLocalOf { false }
 
+/** Разрешено ли красить карточки в фирменные цвета сервисов. */
+val LocalServiceColors = compositionLocalOf { true }
+
 @Composable
 fun AppTheme(
     darkTheme: Boolean = resolveDarkTheme(),
@@ -228,6 +246,7 @@ fun AppTheme(
         else -> LightColor.withAccent(accent, dark = false)
     }
     val glassQuality by ThemeManager.glassQuality.collectAsState()
+    val serviceColors by ThemeManager.serviceColors.collectAsState()
     val snackbarController = rememberAppSnackbarController()
 
     val view = LocalView.current
@@ -250,7 +269,8 @@ fun AppTheme(
         LocalDarkTheme provides darkTheme,
         LocalAppSnackbar provides snackbarController,
         LocalGlassBackdrop provides backdrop.takeIf { recordBackdrop },
-        LocalGlassQuality provides glassQuality
+        LocalGlassQuality provides glassQuality,
+        LocalServiceColors provides serviceColors
     ) {
         MaterialTheme(
             colorScheme = colorScheme

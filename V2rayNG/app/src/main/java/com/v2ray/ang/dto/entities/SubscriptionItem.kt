@@ -26,6 +26,11 @@ data class SubscriptionItem(
      * Пусто - кнопки продления не будет, вести некуда.
      */
     var webPageUrl: String = "",
+    /**
+     * Фирменный цвет сервиса из заголовка `profile-color`, как пришёл. Приводится
+     * к палитре при отрисовке: владельцу достаётся тон, светлота остаётся нашей.
+     */
+    var color: String = "",
     var trafficUpload: Long = 0L,
     var trafficDownload: Long = 0L,
     var trafficTotal: Long = 0L,

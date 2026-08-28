@@ -15,6 +15,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -62,6 +63,8 @@ import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.colorPingSlow
 import com.v2ray.ang.ui.compose.GlassSurface
 import com.v2ray.ang.ui.compose.LocalDarkTheme
+import com.v2ray.ang.ui.compose.LocalServiceColors
+import com.v2ray.ang.ui.compose.serviceColor
 import com.v2ray.ang.ui.compose.LiquidGlassButton
 import com.v2ray.ang.ui.compose.LocalContentBackdrop
 import com.v2ray.ang.ui.subscription.SubEditActivity
@@ -348,6 +351,16 @@ fun ProfileCard(
     val renewUrl = sub.webPageUrl ?: ""
     val showRenew = renewUrl.isNotBlank() && SubscriptionAlerts.needsRenewal(sub)
 
+    // Фирменный цвет сервиса. Красит только то, что принадлежит сервису - кромку
+    // карточки и оправу значка. Всё, что нажимается и работает во всём приложении,
+    // остаётся в акценте пользователя: это его телефон, и его выбор не должен
+    // проигрывать чужому на своём же экране
+    val serviceTint = if (LocalServiceColors.current) {
+        serviceColor(sub.color.orEmpty(), LocalDarkTheme.current)
+    } else {
+        null
+    }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         // Карточка из стекла: преломляет фон экрана, а не соседние карточки - для
         // этого фон и пишется в свой отдельный слой.
@@ -366,7 +379,10 @@ fun ProfileCard(
             surfaceTint = MaterialTheme.colorScheme.surfaceContainerHigh
                 .copy(alpha = if (LocalDarkTheme.current) 0.52f else 0.58f),
             dispersion = false,
-            fallbackColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f)
+            fallbackColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f),
+            // Обводка, а не подмешивание в подложку: на тёмной теме подложка почти
+            // чёрная, оттенку в ней взяться неоткуда, а по кромке цвет читается
+            border = serviceTint?.copy(alpha = 0.55f)
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp, horizontal = 14.dp)) {
                 
@@ -409,6 +425,12 @@ fun ProfileCard(
                                 modifier = Modifier
                                     .size(34.dp)
                                     .clip(RoundedCornerShape(10.dp))
+                                    // Оправа в цвете сервиса, если он его прислал
+                                    .then(
+                                        serviceTint?.let {
+                                            Modifier.border(1.dp, it.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
+                                        } ?: Modifier
+                                    )
                             )
                         } else {
                             ChevronDown(

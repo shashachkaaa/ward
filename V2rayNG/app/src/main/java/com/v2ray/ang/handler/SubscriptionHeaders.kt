@@ -52,6 +52,8 @@ object SubscriptionHeaders {
         subscription.icon = values["profile-icon"]?.trim().orEmpty()
         // Личный кабинет: туда ведёт кнопка продления, когда лимит на исходе
         subscription.webPageUrl = values["profile-web-page-url"]?.trim().orEmpty()
+        // Цвет храним как пришёл: разбирает и обезвреживает его тот, кто рисует
+        subscription.color = values["profile-color"]?.trim().orEmpty()
 
         applyUserInfo(values["subscription-userinfo"], subscription)
         return applyUpdateInterval(values["profile-update-interval"], subscription)

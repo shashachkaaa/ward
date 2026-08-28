@@ -275,10 +275,13 @@ fun GlassSurface(
     surfaceTint: Color? = null,
     dispersion: Boolean = true,
     fallbackColor: Color? = null,
+    border: Color? = null,
     content: @Composable BoxScope.() -> Unit = {}
 ) {
     Box(
-        modifier = modifier.glassBackground(
+        modifier = modifier
+            .then(if (border != null) Modifier.border(1.dp, border, shape) else Modifier)
+            .glassBackground(
             shape = shape,
             backdrop = backdrop,
             blurRadius = blurRadius,

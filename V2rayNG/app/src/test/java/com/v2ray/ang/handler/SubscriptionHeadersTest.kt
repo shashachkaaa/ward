@@ -140,6 +140,20 @@ class SubscriptionHeadersTest {
     }
 
     @Test
+    fun `фирменный цвет переносится как есть`() {
+        val sub = subscription()
+        SubscriptionHeaders.apply(mapOf("profile-color" to " #10B981 "), sub, true)
+        assertEquals("#10B981", sub.color)
+    }
+
+    @Test
+    fun `без заголовка фирменный цвет стирается`() {
+        val sub = subscription().apply { color = "#FF0000" }
+        SubscriptionHeaders.apply(emptyMap(), sub, true)
+        assertEquals("", sub.color)
+    }
+
+    @Test
     fun `ссылка на поддержку переносится как есть`() {
         val sub = subscription()
         SubscriptionHeaders.apply(mapOf("support-url" to "https://t.me/support"), sub, true)

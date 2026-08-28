@@ -575,6 +575,14 @@ private fun UiSettings(modifier: Modifier) {
             )
         }
         AccentColorSetting(enabled = !(dynamicAvailable && dynamicColor))
+        // Цвет сервиса красит только кромку карточки и оправу значка. Всё, что
+        // нажимается, остаётся в акценте, выбранном здесь же: это телефон человека
+        SettingsSwitchItem(
+            title = stringResource(R.string.title_pref_service_colors),
+            summary = stringResource(R.string.summary_pref_service_colors),
+            checked = ThemeManager.serviceColors.collectAsStateWithLifecycle().value,
+            onCheckedChange = { ThemeManager.setServiceColors(it) }
+        )
         GlassQualitySetting()
         AppIconSetting()
         SettingsSwitchItem(

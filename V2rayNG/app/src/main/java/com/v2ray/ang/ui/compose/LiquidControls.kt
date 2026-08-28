@@ -54,6 +54,7 @@ fun LiquidGlassButton(
     surfaceColor: Color = Color.Unspecified,
     applyDefaultHeight: Boolean = true,
     contentPaddingHorizontal: Dp = 16.dp,
+    isInteractive: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
     val backdrop = remember { emptyBackdrop() }
@@ -85,6 +86,7 @@ fun LiquidGlassButton(
         surfaceColor = surfaceColor,
         applyDefaultHeight = applyDefaultHeight,
         contentPaddingHorizontal = contentPaddingHorizontal,
+        isInteractive = isInteractive,
         // Блик по наклону, как у кнопки подключения. Блендинг обычный: складывающийся
         // (он у этого стиля по умолчанию) зависит от того, как собирается кадр, а
         // внутри списка кадр на прокрутке пересобирается каждый раз - блик с него

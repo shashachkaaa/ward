@@ -98,7 +98,17 @@ fun LiquidButton(
                         val height = size.height
 
                         val progress = interactiveHighlight.pressProgress
-                        val scale = lerp(1f, 1f + 4f.dp.toPx() / size.height, progress)
+
+                        // Прирост считается по каждой стороне отдельно. В оригинале
+                        // множитель брался от высоты и применялся к обеим сторонам: у
+                        // таблетки 30 на 40 точек это давало те же четыре точки и по
+                        // ширине, а у кнопки во всю ширину экрана - уже под сорок, и
+                        // она вылезала за карточку. Постоянная тут - длина, а не доля,
+                        // значит и расти кнопка должна на четыре точки в любую сторону,
+                        // какой бы она ни была
+                        val growth = 4f.dp.toPx()
+                        val growX = growth / width
+                        val growY = growth / height
 
                         val maxOffset = size.minDimension
                         val initialDerivative = 0.05f
@@ -106,15 +116,14 @@ fun LiquidButton(
                         translationX = maxOffset * tanh(initialDerivative * offset.x / maxOffset)
                         translationY = maxOffset * tanh(initialDerivative * offset.y / maxOffset)
 
-                        val maxDragScale = 4f.dp.toPx() / size.height
                         val offsetAngle = atan2(offset.y, offset.x)
                         scaleX =
-                            scale +
-                                    maxDragScale * abs(cos(offsetAngle) * offset.x / size.maxDimension) *
+                            lerp(1f, 1f + growX, progress) +
+                                    growX * abs(cos(offsetAngle) * offset.x / size.maxDimension) *
                                     (width / height).fastCoerceAtMost(1f)
                         scaleY =
-                            scale +
-                                    maxDragScale * abs(sin(offsetAngle) * offset.y / size.maxDimension) *
+                            lerp(1f, 1f + growY, progress) +
+                                    growY * abs(sin(offsetAngle) * offset.y / size.maxDimension) *
                                     (height / width).fastCoerceAtMost(1f)
                     }
                 } else {

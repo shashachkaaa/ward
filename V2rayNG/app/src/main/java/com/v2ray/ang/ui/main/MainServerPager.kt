@@ -673,7 +673,11 @@ fun ProfileCard(
                             .fillMaxWidth()
                             .height(SubActionPillHeight),
                         surfaceColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                        applyDefaultHeight = false
+                        applyDefaultHeight = false,
+                        // Полоса во всю ширину за пальцем не ездит. Слежение за
+                        // нажатием придумано для мелких таблеток: их приятно
+                        // подталкивать, а полоса от этого просто выезжает за карточку
+                        isInteractive = false
                     ) {
                         Text(
                             text = stringResource(R.string.main_sub_renew),

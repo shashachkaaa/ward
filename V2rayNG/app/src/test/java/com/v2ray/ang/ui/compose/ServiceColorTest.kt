@@ -3,11 +3,17 @@ package com.v2ray.ang.ui.compose
 import androidx.compose.ui.graphics.Color
 import androidx.core.graphics.ColorUtils
 import androidx.compose.ui.graphics.toArgb
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
+import org.mockito.MockedStatic
+import org.mockito.Mockito
+import org.mockito.Mockito.mockStatic
+import android.graphics.Color as AndroidColor
 
 /**
  * Приведение фирменного цвета сервиса к нашей палитре.
@@ -19,6 +25,37 @@ import org.junit.Test
  * на светлой теме, и заметили бы мы это по жалобе.
  */
 class ServiceColorTest {
+
+    /**
+     * Разбор цвета идёт через ColorUtils, а тот внутри зовёт android.graphics.Color -
+     * класс системы, которого в обычном тесте нет: вместо работы он бросает заглушку.
+     * Методы там простейшие, сдвиги по битам, поэтому подставляем их сами.
+     */
+    private lateinit var mockColor: MockedStatic<AndroidColor>
+
+    @Before
+    fun setUp() {
+        mockColor = mockStatic(AndroidColor::class.java)
+        mockColor.`when`<Int> { AndroidColor.red(Mockito.anyInt()) }
+            .thenAnswer { (it.arguments[0] as Int) shr 16 and 0xFF }
+        mockColor.`when`<Int> { AndroidColor.green(Mockito.anyInt()) }
+            .thenAnswer { (it.arguments[0] as Int) shr 8 and 0xFF }
+        mockColor.`when`<Int> { AndroidColor.blue(Mockito.anyInt()) }
+            .thenAnswer { (it.arguments[0] as Int) and 0xFF }
+        mockColor.`when`<Int> {
+            AndroidColor.rgb(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt())
+        }.thenAnswer {
+            val r = it.arguments[0] as Int
+            val g = it.arguments[1] as Int
+            val b = it.arguments[2] as Int
+            (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+        }
+    }
+
+    @After
+    fun tearDown() {
+        mockColor.close()
+    }
 
     private fun lightnessOf(color: Color): Float {
         val hsl = FloatArray(3)

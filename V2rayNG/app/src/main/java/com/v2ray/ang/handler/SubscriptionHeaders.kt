@@ -50,6 +50,8 @@ object SubscriptionHeaders {
         // Значок храним как пришёл - ссылкой или картинкой. Разбирает и проверяет
         // его тот, кто рисует
         subscription.icon = values["profile-icon"]?.trim().orEmpty()
+        // Личный кабинет: туда ведёт кнопка продления, когда лимит на исходе
+        subscription.webPageUrl = values["profile-web-page-url"]?.trim().orEmpty()
 
         applyUserInfo(values["subscription-userinfo"], subscription)
         return applyUpdateInterval(values["profile-update-interval"], subscription)

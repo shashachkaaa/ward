@@ -219,6 +219,7 @@
     <string name="title_info_commit">Build commit</string>
     <string name="title_info_url_schemes">URL schemes</string>
     <string name="title_info_links">Links</string>
+    <string name="main_sub_renew">Renew</string>
     <string name="whats_new_title">What’s new in %s</string>
     <string name="summary_info_scheme_add">Adds a subscription or a server key. The link has to be percent-encoded</string>
     <string name="summary_info_scheme_add_param">The same, with the link passed as a parameter</string>

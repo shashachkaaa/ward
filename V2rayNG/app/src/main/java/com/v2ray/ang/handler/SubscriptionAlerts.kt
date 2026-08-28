@@ -57,17 +57,47 @@ object SubscriptionAlerts {
 
     private class Alert(val tag: String, val text: String)
 
-    private fun buildAlert(subscription: SubscriptionItem): Alert? {
-        val context = AngApplication.application
-
-        val expireMillis = subscription.trafficExpire.let {
+    /**
+     * Срок действия в миллисекундах, 0 - бессрочно.
+     *
+     * Сервер отдаёт его в секундах, но встречается и в миллисекундах, поэтому
+     * различаем по величине: секунд столько не бывает.
+     */
+    private fun expireMillisOf(subscription: SubscriptionItem): Long =
+        subscription.trafficExpire.let {
             when {
                 it <= 0L -> 0L
-                // Сервер отдаёт срок в секундах, но встречается и в миллисекундах
                 it > 9999999999L -> it
                 else -> it * 1000
             }
         }
+
+    /**
+     * Пора ли продлевать подписку.
+     *
+     * Тот же порог, по которому уходит предупреждение, и намеренно одна функция на
+     * двоих: кнопка на карточке и уведомление должны говорить одно и то же. Разойдись
+     * они - человек получал бы «осталось 8%» в шторке и карточку без кнопки.
+     */
+    fun needsRenewal(subscription: SubscriptionItem): Boolean {
+        val expireMillis = expireMillisOf(subscription)
+        if (expireMillis > 0L) {
+            val daysLeft = TimeUnit.MILLISECONDS.toDays(expireMillis - System.currentTimeMillis())
+            if (daysLeft <= EXPIRE_SOON_DAYS) return true
+        }
+
+        val total = subscription.trafficTotal
+        if (total > 0L) {
+            val used = subscription.trafficUpload + subscription.trafficDownload
+            if (used.toDouble() / total >= TRAFFIC_THRESHOLD) return true
+        }
+        return false
+    }
+
+    private fun buildAlert(subscription: SubscriptionItem): Alert? {
+        val context = AngApplication.application
+
+        val expireMillis = expireMillisOf(subscription)
         if (expireMillis > 0L) {
             val left = expireMillis - System.currentTimeMillis()
             val daysLeft = TimeUnit.MILLISECONDS.toDays(left)

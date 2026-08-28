@@ -223,6 +223,7 @@
     <string name="title_info_commit">Коммит сборки</string>
     <string name="title_info_url_schemes">URL-схемы</string>
     <string name="title_info_links">Ссылки</string>
+    <string name="main_sub_renew">Продлить</string>
     <string name="whats_new_title">Что нового в %s</string>
     <string name="summary_info_scheme_add">Добавляет подписку или ключ сервера. Ссылку нужно кодировать процентами</string>
     <string name="summary_info_scheme_add_param">То же самое, ссылка передаётся параметром</string>

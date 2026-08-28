@@ -55,6 +55,7 @@ import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.dto.entities.ServersCache
 import com.v2ray.ang.dto.entities.SubscriptionCache
+import com.v2ray.ang.handler.SubscriptionAlerts
 import com.v2ray.ang.handler.SubscriptionIconLoader
 import com.v2ray.ang.ui.compose.GlassDropdownMenu
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
@@ -342,6 +343,11 @@ fun ProfileCard(
     val announceText = sub.announce ?: ""
     val supportUrl = sub.supportUrl ?: ""
 
+    // Кнопка продления: только когда есть куда вести и когда пора. Порог тот же, по
+    // которому уходит предупреждение - решает одна функция на двоих
+    val renewUrl = sub.webPageUrl ?: ""
+    val showRenew = renewUrl.isNotBlank() && SubscriptionAlerts.needsRenewal(sub)
+
     Column(modifier = Modifier.fillMaxWidth()) {
         // Карточка из стекла: преломляет фон экрана, а не соседние карточки - для
         // этого фон и пишется в свой отдельный слой.
@@ -627,6 +633,31 @@ fun ProfileCard(
                                 .fillMaxHeight()
                                 .clip(CircleShape)
                                 .background(barTint)
+                        )
+                    }
+                }
+
+                if (showRenew) {
+                    Spacer(Modifier.height(10.dp))
+                    LiquidGlassButton(
+                        onClick = {
+                            try {
+                                uriHandler.openUri(renewUrl)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, R.string.main_link_unavailable, Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(SubActionPillHeight),
+                        surfaceColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                        applyDefaultHeight = false
+                    ) {
+                        Text(
+                            text = stringResource(R.string.main_sub_renew),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }

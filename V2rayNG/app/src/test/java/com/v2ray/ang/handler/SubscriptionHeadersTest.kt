@@ -126,6 +126,20 @@ class SubscriptionHeadersTest {
     }
 
     @Test
+    fun `личный кабинет переносится и обрезается по краям`() {
+        val sub = subscription()
+        SubscriptionHeaders.apply(mapOf("profile-web-page-url" to " https://vpn.example/cab "), sub, true)
+        assertEquals("https://vpn.example/cab", sub.webPageUrl)
+    }
+
+    @Test
+    fun `без заголовка личный кабинет стирается`() {
+        val sub = subscription().apply { webPageUrl = "https://old.example" }
+        SubscriptionHeaders.apply(emptyMap(), sub, true)
+        assertEquals("", sub.webPageUrl)
+    }
+
+    @Test
     fun `ссылка на поддержку переносится как есть`() {
         val sub = subscription()
         SubscriptionHeaders.apply(mapOf("support-url" to "https://t.me/support"), sub, true)

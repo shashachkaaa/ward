@@ -21,6 +21,11 @@ data class SubscriptionItem(
      * картинкой. Хранится как пришло - разбирается при отрисовке.
      */
     var icon: String = "",
+    /**
+     * Личный кабинет из заголовка `profile-web-page-url`: там продлевают подписку.
+     * Пусто - кнопки продления не будет, вести некуда.
+     */
+    var webPageUrl: String = "",
     var trafficUpload: Long = 0L,
     var trafficDownload: Long = 0L,
     var trafficTotal: Long = 0L,

@@ -382,7 +382,11 @@ fun ProfileCard(
             fallbackColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f),
             // Обводка, а не подмешивание в подложку: на тёмной теме подложка почти
             // чёрная, оттенку в ней взяться неоткуда, а по кромке цвет читается
-            border = serviceTint?.copy(alpha = 0.55f)
+            border = serviceTint?.copy(alpha = 0.55f),
+            // Отсвет внутрь от краёв - тот же цвет, но мягко и вглубь карточки.
+            // Кромка очерчивает, отсвет окрашивает; вместе это читается фирменным
+            // стилем, а по отдельности - линейкой или пятном
+            innerGlow = serviceTint?.copy(alpha = 0.22f)
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp, horizontal = 14.dp)) {
                 
@@ -674,10 +678,13 @@ fun ProfileCard(
                             .height(SubActionPillHeight),
                         surfaceColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
                         applyDefaultHeight = false,
-                        // Полоса во всю ширину за пальцем не ездит. Слежение за
-                        // нажатием придумано для мелких таблеток: их приятно
-                        // подталкивать, а полоса от этого просто выезжает за карточку
-                        isInteractive = false
+                        // Прибавка под пальцем есть, но вдвое меньше обычной: у полосы
+                        // во всю ширину даже четыре точки читаются размашисто.
+                        // За пальцем полоса не ездит - это придумано для мелких
+                        // таблеток, их приятно подталкивать, а полоса от такого
+                        // слежения просто выезжает за карточку
+                        pressGrowth = 2.dp,
+                        followsTouch = false
                     ) {
                         Text(
                             text = stringResource(R.string.main_sub_renew),

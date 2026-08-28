@@ -38,6 +38,7 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 
 /**
@@ -169,7 +170,8 @@ fun Modifier.glassBackground(
     opaqueness: Float = 1f,
     surfaceTint: Color? = null,
     dispersion: Boolean = true,
-    fallbackColor: Color? = null
+    fallbackColor: Color? = null,
+    innerGlow: Color? = null
 ): Modifier {
     val scheme = MaterialTheme.colorScheme
     val isDark = LocalDarkTheme.current
@@ -232,6 +234,9 @@ fun Modifier.glassBackground(
         },
         highlight = { Highlight.Ambient },
         shadow = { Shadow(radius = 8f.dp, color = Color.Black.copy(alpha = 0.08f)) },
+        // Свечение внутрь от краёв. Без смещения - значит ровно со всех сторон, а не
+        // тенью с одной: это не тень предмета, а отсвет цвета сервиса на стекле
+        innerShadow = innerGlow?.let { glow -> { InnerShadow(radius = 20f.dp, color = glow) } },
         onDrawSurface = {
             drawRect(tint)
             // Библиотека обрезает эту заливку формой стекла, поэтому цвет ложится
@@ -276,6 +281,7 @@ fun GlassSurface(
     dispersion: Boolean = true,
     fallbackColor: Color? = null,
     border: Color? = null,
+    innerGlow: Color? = null,
     content: @Composable BoxScope.() -> Unit = {}
 ) {
     Box(
@@ -288,7 +294,8 @@ fun GlassSurface(
             opaqueness = opaqueness,
             surfaceTint = surfaceTint,
             dispersion = dispersion,
-            fallbackColor = fallbackColor
+            fallbackColor = fallbackColor,
+            innerGlow = innerGlow
         ),
         content = content
     )

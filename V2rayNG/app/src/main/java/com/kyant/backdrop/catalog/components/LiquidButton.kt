@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceAtMost
@@ -60,6 +61,12 @@ fun LiquidButton(
     backdrop: Backdrop,
     modifier: Modifier = Modifier,
     isInteractive: Boolean = true,
+    // Насколько кнопка прибавляет под пальцем и ездит за ним. Разведено, потому что
+    // это разные вещи: прибавка идёт кнопке любой формы, а слежение придумано для
+    // мелких таблеток - их приятно подталкивать. Полоса во всю ширину от слежения
+    // просто выезжает за карточку
+    pressGrowth: Dp = 4f.dp,
+    followsTouch: Boolean = true,
     tint: Color = Color.Unspecified,
     surfaceColor: Color = Color.Unspecified,
     // Высота и поля у оригинала зашиты под крупную кнопку. Референс добавил себе
@@ -106,15 +113,17 @@ fun LiquidButton(
                         // она вылезала за карточку. Постоянная тут - длина, а не доля,
                         // значит и расти кнопка должна на четыре точки в любую сторону,
                         // какой бы она ни была
-                        val growth = 4f.dp.toPx()
+                        val growth = pressGrowth.toPx()
                         val growX = growth / width
                         val growY = growth / height
 
-                        val maxOffset = size.minDimension
-                        val initialDerivative = 0.05f
-                        val offset = interactiveHighlight.offset
-                        translationX = maxOffset * tanh(initialDerivative * offset.x / maxOffset)
-                        translationY = maxOffset * tanh(initialDerivative * offset.y / maxOffset)
+                        val offset = if (followsTouch) interactiveHighlight.offset else Offset.Zero
+                        if (followsTouch) {
+                            val maxOffset = size.minDimension
+                            val initialDerivative = 0.05f
+                            translationX = maxOffset * tanh(initialDerivative * offset.x / maxOffset)
+                            translationY = maxOffset * tanh(initialDerivative * offset.y / maxOffset)
+                        }
 
                         val offsetAngle = atan2(offset.y, offset.x)
                         scaleX =

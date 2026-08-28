@@ -83,7 +83,10 @@ abstract class BaseServerActivity : BaseComponentActivity() {
             streamSecurityOptions = stringArrayResource(R.array.streamsecurityxs).toList(),
             uTlsOptions = stringArrayResource(R.array.streamsecurity_utls).toList(),
             alpnOptions = stringArrayResource(R.array.streamsecurity_alpn).toList(),
-            browserDialerOptions = stringArrayResource(R.array.browser_dialer_mode_value).toList()
+            browserDialerOptions = stringArrayResource(R.array.browser_dialer_mode_value).toList(),
+            // В профиль уходит значение, а человеку показывается подпись: она
+            // переведена, а значение - часть настроек и переводу не подлежит
+            browserDialerLabels = stringArrayResource(R.array.browser_dialer_mode).toList()
         )
 
     data class FieldOptions(
@@ -95,7 +98,8 @@ abstract class BaseServerActivity : BaseComponentActivity() {
         val streamSecurityOptions: List<String>,
         val uTlsOptions: List<String>,
         val alpnOptions: List<String>,
-        val browserDialerOptions: List<String>
+        val browserDialerOptions: List<String>,
+        val browserDialerLabels: List<String>
     )
 
     @Composable
@@ -224,7 +228,8 @@ abstract class BaseServerActivity : BaseComponentActivity() {
                     stringResource(R.string.server_lab_browser_dialer),
                     state.browserDialerMode,
                     options.browserDialerOptions,
-                    { state.browserDialerMode = it }
+                    { state.browserDialerMode = it },
+                    optionLabels = options.browserDialerLabels
                 )
             }
         }

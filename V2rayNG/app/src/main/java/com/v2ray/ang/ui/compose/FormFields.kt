@@ -173,7 +173,20 @@ fun FormDropdownField(
     editable: Boolean = false,
     enabled: Boolean = true,
     placeholder: String? = null,
+    optionLabels: List<String>? = null,
 ) {
+    // Подпись пункта может отличаться от того, что хранится: «Отключено» на экране
+    // против «Disable» в настройках профиля. Наружу поле всегда отдаёт значение, а
+    // не подпись, иначе в конфиг попал бы перевод. В поле с ручным вводом подписи
+    // ни к чему: там человек пишет своё
+    val labelFor: (Int, String) -> String = { index, option ->
+        if (editable) option else optionLabels?.getOrNull(index) ?: option
+    }
+    val shownValue = if (editable) {
+        value
+    } else {
+        options.indexOf(value).takeIf { it >= 0 }?.let { labelFor(it, value) } ?: value
+    }
     var expanded by rememberSaveable { mutableStateOf(false) }
     val menuScrollState = rememberScrollState()
     val focusManager = LocalFocusManager.current
@@ -231,7 +244,7 @@ fun FormDropdownField(
                         )
                     } else {
                         Text(
-                            text = value.ifBlank { placeholder.orEmpty() },
+                            text = shownValue.ifBlank { placeholder.orEmpty() },
                             color = if (value.isBlank()) {
                                 MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                             } else {
@@ -262,9 +275,9 @@ fun FormDropdownField(
             containerColor = Color.Transparent,
             shadowElevation = 0.dp
         ) {
-            options.forEach { option ->
+            options.forEachIndexed { index, option ->
                 DropdownMenuItem(
-                    text = { Text(option, color = MaterialTheme.colorScheme.onSurface) },
+                    text = { Text(labelFor(index, option), color = MaterialTheme.colorScheme.onSurface) },
                     onClick = {
                         onValueChange(option)
                         expanded = false

@@ -1,5 +1,5 @@
 [versions]
-agp = "9.3.1"
+agp = "9.3.2"
 desugarJdkLibs = "2.1.5"
 gradleLicensePlugin = "0.9.9"
 kotlin = "2.4.10"
@@ -8,15 +8,22 @@ junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
 activity = "1.13.0"
+# Хранилище всех настроек и профилей. Второй major вышел, но переход туда - это не
+# смена цифры: меняется формат на диске, а в нём лежат подписки и сервера живых
+# пользователей. Отдельная работа с проверкой обновления поверх старых данных,
+# поэтому замечание проверки кода здесь оставлено намеренно - пусть напоминает
 mmkvStatic = "1.3.16"
 gson = "2.14.0"
-okhttp = "5.4.0"
+okhttp = "5.5.0"
 kotlinxCoroutines = "1.11.0"
 core = "3.5.4"
 workRuntimeKtx = "2.11.2"
 lifecycleViewmodelKtx = "2.11.0"
 mockitoMockitoInline = "5.2.0"
-camerax = "1.6.1"
+mockitoKotlin = "6.3.0"
+backdrop = "2.0.1"
+kyantShapes = "1.2.1"
+camerax = "1.6.2"
 composeBom = "2026.06.01"
 reorderable = "3.1.0"
 [libraries]
@@ -37,8 +44,10 @@ work-multiprocess = { module = "androidx.work:work-multiprocess", version.ref = 
 lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycleViewmodelKtx" }
 lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycleViewmodelKtx" }
 org-mockito-mockito-inline = { module = "org.mockito:mockito-inline", version.ref = "mockitoMockitoInline" }
-mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version.ref = "mockitoMockitoInline" }
+mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version.ref = "mockitoKotlin" }
 reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
+backdrop-android = { module = "io.github.kyant0:backdrop-android", version.ref = "backdrop" }
+kyant-shapes-android = { module = "io.github.kyant0:shapes-android", version.ref = "kyantShapes" }
 
 # CameraX
 camerax-core = { module = "androidx.camera:camera-core", version.ref = "camerax" }

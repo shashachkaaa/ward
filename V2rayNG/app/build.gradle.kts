@@ -221,11 +221,11 @@ dependencies {
     // Жидкое стекло: линза, блики и тени под неё. Apache 2.0, условия в
     // THIRD_PARTY.md. Высокоуровневых компонентов библиотека не публикует - они
     // лежат в её каталоге примеров и перенесены к нам в com.kyant.backdrop.catalog
-    implementation("io.github.kyant0:backdrop-android:2.0.0")
+    implementation(libs.backdrop.android)
     // Формы (Capsule) для перенесённых компонентов. Backdrop объявляет их со
     // scope runtime, на компиляцию такая зависимость не попадает - отсюда и нужно
     // прописать её отдельно
-    implementation("io.github.kyant0:shapes-android:1.2.0")
+    implementation(libs.kyant.shapes.android)
     implementation(libs.lifecycle.runtime.compose)
 
     debugImplementation(libs.androidx.compose.ui.tooling)

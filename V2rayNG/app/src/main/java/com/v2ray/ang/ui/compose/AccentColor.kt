@@ -89,10 +89,13 @@ object AccentPalette {
  *
  * @param lightness Светлота в HSL, от 0 (чёрный) до 1 (белый).
  * @param saturation Множитель насыщенности: приглушает крикливые оттенки.
+ * @param hueShift Поворот тона по кругу, в градусах. Нужен одному месту -
+ *   второму пятну фона, которому положено быть соседним цветом, а не тем же.
  */
-private fun Color.tone(lightness: Float, saturation: Float = 1f): Color {
+private fun Color.tone(lightness: Float, saturation: Float = 1f, hueShift: Float = 0f): Color {
     val hsl = FloatArray(3)
     ColorUtils.colorToHSL(toArgb(), hsl)
+    hsl[0] = (hsl[0] + hueShift).mod(360f)
     hsl[1] = (hsl[1] * saturation).coerceIn(0f, 1f)
     hsl[2] = lightness.coerceIn(0f, 1f)
     return Color(ColorUtils.HSLToColor(hsl))
@@ -136,6 +139,15 @@ fun serviceColor(raw: String, dark: Boolean): Color? {
 private const val SurfaceTintStrength = 0.14f
 
 /**
+ * На сколько градусов второе пятно фона отходит от акцента.
+ *
+ * Соседний тон, а не противоположный: фону положено быть не одноцветным, но и в
+ * два цвета спорить он не должен. На сером повороту нечего поворачивать - серый
+ * остаётся серым, и фон становится ровным, каким ему при сером и полагается.
+ */
+private const val SecondToneShift = 40f
+
+/**
  * Пересобирает семейства primary и secondary вокруг выбранного цвета.
  *
  * На светлой теме заодно пересобираются подложки карточек. Они были зашиты
@@ -151,7 +163,11 @@ private const val SurfaceTintStrength = 0.14f
  * взяться неоткуда, да и ради чёрного на AMOLED всё и затевалось.
  *
  * Семантические цвета (пинг, ошибки) не трогаются: красный «сервер не отвечает»
- * от акцента не зависит.
+ * от акцента не зависит. А вот tertiary трогается, хоть он и не из семейства
+ * акцента: во всём приложении он ровно в одном месте - второе пятно фона. Оно
+ * было зашито зелёным, и на любом акценте фон оставался с зелёным боком. Пока
+ * акцент был цветным, это читалось вторым тоном; на сером зелёное пятно стало
+ * единственным цветом на экране.
  */
 fun ColorScheme.withAccent(option: AccentOption, dark: Boolean): ColorScheme {
     if (option.id == AccentPalette.DEFAULT_ID) return this
@@ -168,7 +184,8 @@ fun ColorScheme.withAccent(option: AccentOption, dark: Boolean): ColorScheme {
             secondary = seed.tone(0.68f, 0.6f),
             onSecondary = seed.tone(0.14f, 0.6f),
             secondaryContainer = seed.tone(0.3f, 0.5f),
-            onSecondaryContainer = seed.tone(0.9f, 0.6f)
+            onSecondaryContainer = seed.tone(0.9f, 0.6f),
+            tertiary = seed.tone(0.68f, 0.7f, SecondToneShift)
         )
     } else {
         copy(
@@ -182,6 +199,7 @@ fun ColorScheme.withAccent(option: AccentOption, dark: Boolean): ColorScheme {
             onSecondary = Color.White,
             secondaryContainer = seed.tone(0.9f, 0.6f),
             onSecondaryContainer = seed.tone(0.2f, 0.7f),
+            tertiary = seed.tone(0.30f, 1f, SecondToneShift),
             // Подложки карточек: светлота как была, оттенок от акцента и совсем
             // немного - иначе карточка перестанет быть подложкой и станет пятном
             background = seed.tone(0.97f, SurfaceTintStrength),

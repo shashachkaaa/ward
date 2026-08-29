@@ -55,15 +55,8 @@ object TrafficSpeedState {
         ) to values[6] / 1000.0
     }
 
-    /** Сколько замеров держим для графика: при опросе раз в 3 секунды это около двух минут. */
-    const val HISTORY_SIZE = 40
-
     private val _speed = MutableStateFlow(TrafficSpeed())
     val speed: StateFlow<TrafficSpeed> = _speed.asStateFlow()
-
-    /** История суммарной скорости для графика: от старых замеров к свежим. */
-    private val _history = MutableStateFlow<List<TrafficSpeed>>(emptyList())
-    val history: StateFlow<List<TrafficSpeed>> = _history.asStateFlow()
 
     private val _session = MutableStateFlow(SessionTraffic())
     val session: StateFlow<SessionTraffic> = _session.asStateFlow()
@@ -74,7 +67,6 @@ object TrafficSpeedState {
      */
     fun publish(value: TrafficSpeed, intervalSeconds: Double) {
         _speed.value = value
-        _history.value = (_history.value + value).takeLast(HISTORY_SIZE)
 
         if (intervalSeconds > 0) {
             val current = _session.value
@@ -85,10 +77,9 @@ object TrafficSpeedState {
         }
     }
 
-    /** Обнуляет и мгновенные значения, и историю: соединения больше нет. */
+    /** Обнуляет счётчики: соединения больше нет. */
     fun reset() {
         _speed.value = TrafficSpeed()
-        _history.value = emptyList()
         _session.value = SessionTraffic()
     }
 }

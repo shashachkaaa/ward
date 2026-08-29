@@ -26,9 +26,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -161,7 +159,6 @@ fun MainScreen(
 
     // Скорость считает служба - тем же замером, что кормит уведомление
     val speed by TrafficSpeedState.speed.collectAsStateWithLifecycle()
-    val speedHistory by TrafficSpeedState.history.collectAsStateWithLifecycle()
     val session by TrafficSpeedState.session.collectAsStateWithLifecycle()
 
     // Пузырёк капсулы. Капля у каждого экрана своя, и кроссфейд просто подменяет
@@ -296,7 +293,6 @@ fun MainScreen(
                 SpeedRow(
                     visible = uiState.isRunning,
                     speed = speed,
-                    history = speedHistory,
                     session = session
                 )
 
@@ -925,13 +921,12 @@ private fun SearchField(
 
 /**
  * Скорость под кнопкой: приходит из того же замера, что и уведомление.
- * Под цифрами - график за последние замеры и объём, набежавший за сеанс.
+ * Под цифрами - объём, набежавший за сеанс.
  */
 @Composable
 private fun SpeedRow(
     visible: Boolean,
     speed: TrafficSpeed,
-    history: List<TrafficSpeed>,
     session: SessionTraffic
 ) {
     AnimatedVisibility(
@@ -951,14 +946,6 @@ private fun SpeedRow(
                 SpeedValue(down = false, value = speed.totalUp)
             }
 
-            SpeedGraph(
-                history = history,
-                modifier = Modifier
-                    .padding(top = 8.dp)
-                    .fillMaxWidth(0.62f)
-                    .height(34.dp)
-            )
-
             Text(
                 text = stringResource(
                     R.string.main_session_traffic,
@@ -968,58 +955,9 @@ private fun SpeedRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(top = 6.dp)
+                modifier = Modifier.padding(top = 8.dp)
             )
         }
-    }
-}
-
-/**
- * График скорости: заливка под линией для загрузки, линия потоньше для отдачи.
- * Масштаб плавающий - по максимуму окна, иначе на медленном соединении был бы прочерк.
- */
-@Composable
-private fun SpeedGraph(history: List<TrafficSpeed>, modifier: Modifier = Modifier) {
-    val scheme = MaterialTheme.colorScheme
-    val downColor = scheme.primary
-    val upColor = scheme.onSurfaceVariant
-
-    Canvas(modifier = modifier) {
-        val points = history.takeLast(TrafficSpeedState.HISTORY_SIZE)
-        if (points.size < 2) return@Canvas
-
-        val peak = points.maxOf { maxOf(it.totalDown, it.totalUp) }.coerceAtLeast(1L).toFloat()
-        val stepX = size.width / (points.size - 1)
-
-        fun path(values: (TrafficSpeed) -> Long, close: Boolean): Path = Path().apply {
-            points.forEachIndexed { i, sample ->
-                val x = i * stepX
-                val y = size.height - (values(sample) / peak) * size.height
-                if (i == 0) moveTo(x, y) else lineTo(x, y)
-            }
-            if (close) {
-                lineTo(size.width, size.height)
-                lineTo(0f, size.height)
-                close()
-            }
-        }
-
-        drawPath(
-            path = path({ it.totalDown }, close = true),
-            brush = Brush.verticalGradient(
-                listOf(downColor.copy(alpha = 0.35f), downColor.copy(alpha = 0.02f))
-            )
-        )
-        drawPath(
-            path = path({ it.totalDown }, close = false),
-            color = downColor,
-            style = Stroke(width = 2.5f, cap = StrokeCap.Round)
-        )
-        drawPath(
-            path = path({ it.totalUp }, close = false),
-            color = upColor.copy(alpha = 0.7f),
-            style = Stroke(width = 1.8f, cap = StrokeCap.Round)
-        )
     }
 }
 

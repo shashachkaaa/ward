@@ -306,11 +306,11 @@ fun SettingsFileItem(
 
 @Composable
 fun SettingsEditItem(
-    icon: Painter? = null,
     title: String,
     value: String,
     onValueChanged: (String) -> Unit,
     modifier: Modifier = Modifier,
+    icon: Painter? = null,
     enabled: Boolean = true,
     isPassword: Boolean = false,
     keyboardNumber: Boolean = false
@@ -440,13 +440,13 @@ private fun Float.snapTo(step: Int): Int = (this / step).roundToInt() * step
 
 @Composable
 fun SettingsListItem(
-    icon: Painter? = null,
     title: String,
     entries: List<String>,
     values: List<String>,
     selectedValue: String,
     onSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
+    icon: Painter? = null,
     enabled: Boolean = true
 ) {
     var showDialog by remember { mutableStateOf(false) }
@@ -481,10 +481,10 @@ fun SettingsListItem(
 
 @Composable
 fun SettingsMenuItem(
-    icon: Painter? = null,
     title: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    icon: Painter? = null,
     subtitle: String? = null,
     enabled: Boolean = true
 ) {
@@ -500,12 +500,12 @@ fun SettingsMenuItem(
 
 @Composable
 fun SettingsSwitchItem(
-    icon: Painter? = null,
     title: String,
-    summary: String? = null,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    icon: Painter? = null,
+    summary: String? = null,
     enabled: Boolean = true
 ) {
     SettingsItemRow(

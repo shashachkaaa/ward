@@ -197,7 +197,12 @@
     <string name="sub_alert_channel">Предупреждения подписки</string>
     <string name="sub_alert_traffic_low">Осталось %1$d%% трафика</string>
     <string name="sub_alert_traffic_over">Лимит трафика исчерпан</string>
-    <string name="sub_alert_expires_soon">Заканчивается через %1$d дн.</string>
+    <plurals name="sub_alert_expires_soon">
+        <item quantity="one">Заканчивается через %1$d день</item>
+        <item quantity="few">Заканчивается через %1$d дня</item>
+        <item quantity="many">Заканчивается через %1$d дней</item>
+        <item quantity="other">Заканчивается через %1$d дня</item>
+    </plurals>
     <string name="sub_alert_expired">Срок подписки истёк</string>
     <string name="title_pref_dynamic_color">Цвета из обоев</string>
     <string name="summary_pref_dynamic_color">Брать акцент из обоев системы. Тёмная тема остаётся с чёрным фоном</string>
@@ -425,7 +430,12 @@
     <string name="title_sort_by_test_results">Сортировать по результатам теста</string>
     <string name="filter_config_all">Все</string>
     <string name="summary_scan_qrcode">Click screen open the camera scan</string>
-    <string name="title_update_config_count">Обновлено профилей: %d</string>
+    <plurals name="title_update_config_count">
+        <item quantity="one">Обновлён %d профиль</item>
+        <item quantity="few">Обновлено %d профиля</item>
+        <item quantity="many">Обновлено %d профилей</item>
+        <item quantity="other">Обновлено %d профиля</item>
+    </plurals>
 
     <string name="tasker_start_service">Запуск службы</string>
 

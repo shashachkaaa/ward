@@ -1,5 +1,6 @@
 package com.v2ray.ang.util
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.res.Configuration
@@ -12,10 +13,16 @@ open class MyContextWrapper(base: Context?) : ContextWrapper(base) {
         /**
          * Wraps the context with a new locale.
          *
+         * Проверка кода ждёт здесь вызовов Play Core: в App Bundle языки едут
+         * отдельными частями, и смена языка на лету требует сперва их скачать.
+         * Нас это не касается - приложение раздаётся готовым APK, где оба наших
+         * языка лежат внутри, и качать нечего.
+         *
          * @param context The original context.
          * @param newLocale The new locale to set.
          * @return A ContextWrapper with the new locale.
          */
+        @SuppressLint("AppBundleLocaleChanges")
         fun wrap(context: Context, newLocale: Locale?): ContextWrapper {
             var mContext = context
             val res: Resources = mContext.resources

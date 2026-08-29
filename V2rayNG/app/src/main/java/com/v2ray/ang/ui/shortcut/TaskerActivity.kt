@@ -21,7 +21,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +45,7 @@ class TaskerActivity : BaseComponentActivity() {
     private var lstGuid: ArrayList<String> = ArrayList()
 
     private val switchState = mutableStateOf(false)
-    private val selectedPosition = mutableStateOf(-1)
+    private val selectedPosition = mutableIntStateOf(-1)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,7 +86,7 @@ class TaskerActivity : BaseComponentActivity() {
                 switchState.value = switch
                 val pos = lstGuid.indexOf(guid.toString())
                 if (pos >= 0) {
-                    selectedPosition.value = pos
+                    selectedPosition.intValue = pos
                 }
             }
         } catch (e: Exception) {
@@ -93,7 +95,7 @@ class TaskerActivity : BaseComponentActivity() {
     }
 
     private fun confirmFinish() {
-        val position = selectedPosition.value
+        val position = selectedPosition.intValue
         if (position < 0) {
             return
         }
@@ -121,7 +123,7 @@ class TaskerActivity : BaseComponentActivity() {
 fun TaskerScreen(
     items: List<String>,
     switchState: MutableState<Boolean>,
-    selectedPosition: MutableState<Int>,
+    selectedPosition: MutableIntState,
     onBackClick: () -> Unit,
     onSave: () -> Unit
 ) {
@@ -155,13 +157,13 @@ fun TaskerScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { selectedPosition.value = index }
+                            .clickable { selectedPosition.intValue = index }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = selectedPosition.value == index,
-                            onClick = { selectedPosition.value = index }
+                            selected = selectedPosition.intValue == index,
+                            onClick = { selectedPosition.intValue = index }
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(text = remarks, style = MaterialTheme.typography.bodyLarge)

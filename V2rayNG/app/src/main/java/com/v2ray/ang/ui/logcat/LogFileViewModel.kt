@@ -86,6 +86,5 @@ class LogFileViewModel(application: Application) : BaseViewModel(application) {
 
     override fun onCleared() {
         stopWatching()
-        super.onCleared()
     }
 }

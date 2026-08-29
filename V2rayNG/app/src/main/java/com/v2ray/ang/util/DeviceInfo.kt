@@ -1,5 +1,6 @@
 package com.v2ray.ang.util
 
+import android.annotation.SuppressLint
 import android.os.Build
 import android.provider.Settings
 import com.v2ray.ang.AngApplication
@@ -15,7 +16,15 @@ object DeviceInfo {
 
     const val UNKNOWN_HWID = "unknown_hwid"
 
-    /** Идентификатор устройства для подписок (заголовок x-hwid). */
+    /**
+     * Идентификатор устройства для подписок (заголовок x-hwid).
+     *
+     * Проверка кода не советует опознавать устройство таким способом, и для рекламы
+     * с прослеживанием она права. Здесь другое: панель по этому значению считает
+     * устройства в подписке, и заменить его нечем - у своего идентификатора нет
+     * главного свойства, он не переживёт переустановку.
+     */
+    @SuppressLint("HardwareIds")
     fun hwid(): String = try {
         Settings.Secure.getString(
             AngApplication.application.contentResolver,

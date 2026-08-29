@@ -105,9 +105,16 @@ object SubscriptionAlerts {
                 return Alert("expired", context.getString(R.string.sub_alert_expired))
             }
             if (daysLeft <= EXPIRE_SOON_DAYS) {
+                // Число склоняется, а не подставляется в готовую строку: «через 1 день»
+                // и «через 2 дня» - разные формы, и в русском их четыре
+                val days = (daysLeft + 1).toInt()
                 return Alert(
                     "expire_$daysLeft",
-                    context.getString(R.string.sub_alert_expires_soon, daysLeft + 1)
+                    context.resources.getQuantityString(
+                        R.plurals.sub_alert_expires_soon,
+                        days,
+                        days
+                    )
                 )
             }
         }

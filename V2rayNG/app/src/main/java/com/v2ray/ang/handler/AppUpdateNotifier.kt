@@ -6,10 +6,10 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.net.toUri
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -90,7 +90,7 @@ object AppUpdateNotifier {
         val intent = PendingIntent.getActivity(
             context,
             NOTIFICATION_ID,
-            Intent(Intent.ACTION_VIEW, Uri.parse(target)),
+            Intent(Intent.ACTION_VIEW, target.toUri()),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 

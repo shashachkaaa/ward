@@ -1,5 +1,6 @@
 package com.v2ray.ang.ui.compose
 
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
@@ -62,6 +63,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.createBitmap
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -266,7 +268,7 @@ private fun createBitmapFromDrawable(drawable: Drawable): Bitmap {
     }
     val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: 96
     val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: 96
-    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val bitmap = createBitmap(width, height)
     val canvas = Canvas(bitmap)
     drawable.setBounds(0, 0, canvas.width, canvas.height)
     drawable.draw(canvas)
@@ -287,8 +289,8 @@ fun AppDivider(modifier: Modifier = Modifier) {
 @Composable
 fun VersionInfoBlock(
     versionText: String,
-    appIdText: String? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    appIdText: String? = null
 ) {
     Column(
         modifier = modifier
@@ -310,6 +312,15 @@ private fun reorderableElevation(isDragging: Boolean) = animateDpAsState(
     label = "ReorderableElevation"
 )
 
+/**
+ * Ручка перетаскивания строки списка.
+ *
+ * Правило про фабрики модификаторов здесь не выполнить: `longPressDraggableHandle`
+ * живёт в области перетаскиваемого элемента, и приёмник у функции уже занят ею.
+ * Второго приёмника у обычной функции не бывает, а ради одного замечания тащить
+ * в проект контекстные параметры - размен не в нашу пользу.
+ */
+@SuppressLint("ModifierFactoryExtensionFunction")
 @Composable
 fun ReorderableCollectionItemScope.reorderableDragHandle(): Modifier {
     val hapticFeedback = LocalHapticFeedback.current

@@ -1,5 +1,6 @@
 package com.v2ray.ang.handler
 
+import android.annotation.SuppressLint
 import android.app.NotificationManager as SystemNotificationManager
 import android.content.Context
 import android.content.Intent
@@ -65,7 +66,12 @@ data class LiveNotificationStatus(
          *
          * Есть он не везде: часть оболочек этого экрана не завела, и переход
          * приводит на обычную страницу уведомлений приложения.
+         *
+         * Действие из Android 16, и проверка кода видит его значение вписанным в наш
+         * код. Так и есть, но попасть сюда раньше нельзя: [of] ниже шестнадцатой
+         * версии отвечает null, и звать этот экран становится некому.
          */
+        @SuppressLint("InlinedApi")
         fun settingsIntent(context: Context): Intent =
             Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS)
                 .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)

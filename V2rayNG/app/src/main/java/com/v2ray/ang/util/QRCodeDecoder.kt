@@ -2,6 +2,7 @@ package com.v2ray.ang.util
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.core.graphics.createBitmap
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.DecodeHintType
@@ -33,7 +34,7 @@ object QRCodeDecoder {
             val pixels = IntArray(size * size) { i ->
                 if (bitMatrix.get(i % size, i / size)) 0xff000000.toInt() else 0xffffffff.toInt()
             }
-            Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).apply {
+            createBitmap(size, size).apply {
                 setPixels(pixels, 0, size, 0, 0, size, size)
             }
         }.getOrNull()

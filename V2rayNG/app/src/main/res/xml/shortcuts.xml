@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+<!--
+  Ярлыки появились в Android 7.1, а наш нижний порог - 7.0. Атрибуты внутри
+  проверка кода отмечает как неработающие на нижней версии, и это правда: там
+  система про меню ярлыков не знает и просто их не читает. Отдельного набора под
+  API 25 заводить не за чем - показывать в нём было бы ровно то же самое, - а
+  оставить находки значит приучить себя пролистывать их мимо.
+-->
+<shortcuts
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="UnusedAttribute">
     <shortcut
         android:enabled="true"
         android:icon="@drawable/ic_qu_switch_24dp"

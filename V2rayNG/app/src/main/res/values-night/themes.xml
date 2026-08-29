@@ -10,8 +10,6 @@
 
     <style name="AppThemeBase" parent="AppThemeCommon" />
 
-    <style name="AppThemeDayNight" parent="AppThemeBase" />
-
     <style name="AppThemeDayNight.NoActionBar" parent="AppThemeBase" />
 
     <style name="AppThemeDayNight.NoActionBar.Translucent" parent="AppThemeBase">

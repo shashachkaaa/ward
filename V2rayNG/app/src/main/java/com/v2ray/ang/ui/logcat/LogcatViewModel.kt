@@ -185,6 +185,5 @@ class LogcatViewModel(application: Application) : BaseViewModel(application) {
 
     override fun onCleared() {
         stopStreaming()
-        super.onCleared()
     }
 }

@@ -1,12 +1,13 @@
 package com.v2ray.ang.handler
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
-import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.core.net.toUri
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.dto.UrlContentRequest
 import com.v2ray.ang.receiver.UpdateInstallReceiver
@@ -49,10 +50,17 @@ object AppUpdateInstaller {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
                 context.packageManager.canRequestPackageInstalls()
 
-    /** Экран системных настроек, где это разрешение выдают. */
+    /**
+     * Экран системных настроек, где это разрешение выдают.
+     *
+     * Действие появилось в Android 8, и проверка кода видит его значение вписанным
+     * в наш код. Так и есть, но попасть сюда до восьмёрки нельзя: там разрешение
+     * общесистемное, [canInstall] всегда отвечает «да», и звать этот экран незачем.
+     */
+    @SuppressLint("InlinedApi")
     fun permissionIntent(context: Context): Intent =
         Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-            .setData(Uri.parse("package:${context.packageName}"))
+            .setData("package:${context.packageName}".toUri())
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     fun reset() {

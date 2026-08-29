@@ -1,5 +1,6 @@
 package com.v2ray.ang.handler
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import com.v2ray.ang.AppConfig
@@ -135,13 +136,19 @@ object CrashReportManager {
     /**
      * Имя процесса. До API 28 системного способа нет, поэтому читаем cmdline -
      * без него отчёты из разных процессов не отличить.
+     *
+     * Условие у trim не лишнее, что бы ни говорила проверка кода. Она предлагает
+     * убрать его как совпадающее с поведением по умолчанию, но trim() без условия
+     * режет по Character.isWhitespace, а cmdline заканчивается нулевым байтом, и
+     * пробельным тот не считается. Уберём условие - в имени процесса останется
+     * хвост из нуля, причём непустой, так что и проверка ниже его пропустит.
      */
+    @SuppressLint("TrimLambda")
     private fun processName(context: Context): String {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             return android.app.Application.getProcessName()
         }
         return runCatching {
-            // Строка заканчивается нулевым байтом, а он тоже отсекается по коду
             File("/proc/self/cmdline").readText().trim { it <= ' ' }
         }.getOrNull()?.takeIf { it.isNotEmpty() } ?: context.packageName
     }

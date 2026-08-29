@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.compose.runtime.Composable
+import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.R
@@ -120,7 +121,7 @@ class UrlSchemeActivity : BaseComponentActivity() {
     }
 
     private fun importAsync(payload: String, fragment: String?): Boolean {
-        val url = if (Uri.parse(payload).fragment.isNullOrEmpty() && !fragment.isNullOrEmpty()) {
+        val url = if (payload.toUri().fragment.isNullOrEmpty() && !fragment.isNullOrEmpty()) {
             "$payload#$fragment"
         } else {
             payload

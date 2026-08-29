@@ -222,6 +222,7 @@
     <string name="accent_red">Красный</string>
     <string name="accent_pink">Розовый</string>
     <string name="accent_purple">Фиолетовый</string>
+    <string name="accent_grey">Серый</string>
     <string name="main_test_needs_connection">Сначала подключитесь к серверу</string>
     <string name="main_stale_profile">Этого профиля больше нет, список обновлён</string>
     <!-- Preferences -->

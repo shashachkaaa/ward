@@ -71,7 +71,12 @@ object AccentPalette {
         AccentOption("orange", Color(0xFFF97316), R.string.accent_orange),
         AccentOption("red", Color(0xFFDC2626), R.string.accent_red),
         AccentOption("pink", Color(0xFFDB2777), R.string.accent_pink),
-        AccentOption("purple", Color(0xFF9333EA), R.string.accent_purple)
+        AccentOption("purple", Color(0xFF9333EA), R.string.accent_purple),
+        // Серый - вариант «без цвета»: насыщенность у зерна почти нулевая, поэтому
+        // после пересчёта серым выходит вся линейка, вплоть до подложек на светлой
+        // теме. Не чистый ноль намеренно: капля синевы читается сталью, а не пылью,
+        // и заодно даёт запас по разборчивости белых букв на кнопке
+        AccentOption("grey", Color(0xFF52525B), R.string.accent_grey)
     )
 
     fun find(id: String?): AccentOption =
@@ -239,7 +244,16 @@ private fun AccentColorDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.title_pref_accent_color)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Ряды выравниваются по центру: вариантов одиннадцать, и последний
+            // остаётся в ряду один. Прижатый к левому краю он выглядел бы забытым,
+            // по центру - отложенным нарочно, каким он и является.
+            //
+            // Центрует именно колонка, а не сам ряд шириной во всё окно: ширину
+            // диалога задаёт его содержимое, и растянутый ряд эту ширину бы менял
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 AccentPalette.options.chunked(5).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         row.forEach { option ->

@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -69,6 +70,7 @@ import com.v2ray.ang.ui.compose.liquidBackground
 import com.v2ray.ang.ui.compose.LocalContentBackdrop
 import com.v2ray.ang.ui.compose.LocalGlassBackdrop
 import com.v2ray.ang.ui.compose.BottomBlurScrim
+import com.v2ray.ang.ui.compose.LocalGlassQuality
 import com.v2ray.ang.ui.compose.glassBackdropSource
 import com.v2ray.ang.ui.compose.rememberGlassBackdrop
 
@@ -241,6 +243,11 @@ fun MainScreen(
     // общий слой такому стеклу недоступен, оно само в него пишется
     val contentBackdrop = rememberGlassBackdrop()
 
+    // Состояние списка нужно не для прокрутки, а чтобы знать, едет ли он: пока едет,
+    // стекло внутри него идёт упрощённым
+    val listState = rememberLazyListState()
+    val quality = LocalGlassQuality.current
+
     // Накал фона: в покое приглушён, на связи разгорается
     val backgroundActivity by animateFloatAsState(
         targetValue = if (uiState.isRunning) 1f else if (isConnecting) 0.5f else 0f,
@@ -384,7 +391,27 @@ fun MainScreen(
                         }
                     }
                 } else {
+                    // Пока список едет, стекло идёт упрощённым.
+                    //
+                    // Дорога у стекла не заливка, а преломление у края: на каждую
+                    // поверхность это отдельная программа для видеоядра, и считается
+                    // она каждый кадр заново, потому что при прокрутке у карточки
+                    // меняются координаты. Отсюда и обрывы: карточка подписки ростом
+                    // почти в экран, и на слабом железе одного такого преломления
+                    // хватает, чтобы не уложиться в кадр.
+                    //
+                    // Разглядеть преломление на летящем списке всё равно нельзя, а
+                    // остановился он - и оно возвращается. Ступень для этого уже есть,
+                    // отдельного пути рисования заводить не пришлось
+                    val listQuality = if (listState.isScrollInProgress) {
+                        quality.movingOrLess()
+                    } else {
+                        quality
+                    }
+
+                    CompositionLocalProvider(LocalGlassQuality provides listQuality) {
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                         contentPadding = PaddingValues(bottom = 110.dp)
@@ -514,6 +541,7 @@ fun MainScreen(
                             )
                             }
                         }
+                    }
                     }
                 }
             }

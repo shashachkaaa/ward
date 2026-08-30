@@ -70,6 +70,7 @@ import com.v2ray.ang.ui.compose.liquidBackground
 import com.v2ray.ang.ui.compose.LocalContentBackdrop
 import com.v2ray.ang.ui.compose.LocalGlassBackdrop
 import com.v2ray.ang.ui.compose.BottomBlurScrim
+import com.v2ray.ang.ui.compose.LocalGlassAdaptive
 import com.v2ray.ang.ui.compose.LocalGlassQuality
 import com.v2ray.ang.ui.compose.glassBackdropSource
 import com.v2ray.ang.ui.compose.rememberGlassBackdrop
@@ -247,6 +248,7 @@ fun MainScreen(
     // стекло внутри него идёт упрощённым
     val listState = rememberLazyListState()
     val quality = LocalGlassQuality.current
+    val adaptive = LocalGlassAdaptive.current
 
     // Накал фона: в покое приглушён, на связи разгорается
     val backgroundActivity by animateFloatAsState(
@@ -391,19 +393,20 @@ fun MainScreen(
                         }
                     }
                 } else {
-                    // Пока список едет, стекло идёт упрощённым.
+                    // На «авто» стекло убавляется, пока список едет.
                     //
                     // Дорога у стекла не заливка, а преломление у края: на каждую
                     // поверхность это отдельная программа для видеоядра, и считается
                     // она каждый кадр заново, потому что при прокрутке у карточки
-                    // меняются координаты. Отсюда и обрывы: карточка подписки ростом
-                    // почти в экран, и на слабом железе одного такого преломления
-                    // хватает, чтобы не уложиться в кадр.
+                    // меняются координаты. Карточка подписки ростом почти в экран, и
+                    // на слабом железе одного такого преломления хватает, чтобы не
+                    // уложиться в кадр. Разглядеть его на летящем списке всё равно
+                    // нельзя, а остановился он - и оно возвращается.
                     //
-                    // Разглядеть преломление на летящем списке всё равно нельзя, а
-                    // остановился он - и оно возвращается. Ступень для этого уже есть,
-                    // отдельного пути рисования заводить не пришлось
-                    val listQuality = if (listState.isScrollInProgress) {
+                    // Выбранные руками «полные» не убавляются никогда: человек
+                    // попросил вид, а не плавность, и подменять одно другим не наше
+                    // дело. Кому важнее плавность - для того и есть «авто»
+                    val listQuality = if (adaptive && listState.isScrollInProgress) {
                         quality.movingOrLess()
                     } else {
                         quality
@@ -499,12 +502,22 @@ fun MainScreen(
                                 label = "cardOffset"
                             )
 
+                            // Слой нужен только на время въезда. Раньше он висел на
+                            // карточке всегда - выезд занимает треть секунды один раз
+                            // за показ экрана, а отдельная поверхность видеоядра
+                            // оставалась под каждой карточкой навсегда, поверх её
+                            // собственного слоя стекла. Доехала - слой снимается
+                            val entering = itemAlpha < 1f || itemOffset > 0.dp
+
                             Box(
-                                modifier = Modifier
-                                    .graphicsLayer {
+                                modifier = if (entering) {
+                                    Modifier.graphicsLayer {
                                         alpha = itemAlpha
                                         translationY = itemOffset.toPx()
                                     }
+                                } else {
+                                    Modifier
+                                }
                             ) {
                             ProfileCard(
                                 subscription = subCache,

@@ -16,6 +16,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -246,6 +247,10 @@ fun AppTheme(
         else -> LightColor.withAccent(accent, dark = false)
     }
     val glassQuality by ThemeManager.glassQuality.collectAsState()
+
+    // «Авто» обращается в настоящий уровень один раз на устройство: остальное
+    // приложение работает с готовым ответом и про «авто» ничего не знает
+    val effectiveQuality = remember(context, glassQuality) { glassQuality.resolve(context) }
     val serviceColors by ThemeManager.serviceColors.collectAsState()
     val snackbarController = rememberAppSnackbarController()
 
@@ -269,7 +274,8 @@ fun AppTheme(
         LocalDarkTheme provides darkTheme,
         LocalAppSnackbar provides snackbarController,
         LocalGlassBackdrop provides backdrop.takeIf { recordBackdrop },
-        LocalGlassQuality provides glassQuality,
+        LocalGlassQuality provides effectiveQuality,
+        LocalGlassAdaptive provides glassQuality.isAdaptive,
         LocalServiceColors provides serviceColors
     ) {
         MaterialTheme(

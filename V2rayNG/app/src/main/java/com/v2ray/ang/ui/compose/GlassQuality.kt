@@ -1,6 +1,10 @@
 package com.v2ray.ang.ui.compose
 
+import android.app.ActivityManager
+import android.content.Context
+import android.os.Build
 import androidx.compose.runtime.compositionLocalOf
+import androidx.core.content.getSystemService
 
 /**
  * Насколько тяжёлым делать стекло.
@@ -14,10 +18,17 @@ import androidx.compose.runtime.compositionLocalOf
  * MediaTek - прокрутка начинает спотыкаться. Поэтому уровень выбирается, а не
  * навязывается: приложение не вправе решать за пользователя, что ему важнее -
  * внешний вид или плавность.
+ *
+ * Выбранный уровень исполняется буквально. [FULL] - это без оговорок: никаких
+ * «здесь всё-таки срежем, ему же лучше». Экономить приложению разрешено ровно
+ * в одном случае - когда человек сам попросил об этом, выбрав [AUTO].
  */
 enum class GlassQuality(val id: String) {
 
-    /** Всё как задумано: размытие, преломление, блики. */
+    /** Решает приложение, глядя на устройство. Заодно разрешает экономить на ходу. */
+    AUTO("auto"),
+
+    /** Всё как задумано: размытие, преломление, блики. Без оговорок. */
     FULL("full"),
 
     /** Без преломления: остаются размытие, тонировка и блик. Вдвое дешевле. */
@@ -33,6 +44,14 @@ enum class GlassQuality(val id: String) {
     val refracts: Boolean get() = this == FULL
 
     /**
+     * Позволено ли приложению убавлять на ходу.
+     *
+     * Только на [AUTO]. Выбрал человек «полные» - значит полные и во время прокрутки,
+     * даже если кадр от этого просядет: он попросил вид, а не плавность.
+     */
+    val isAdaptive: Boolean get() = this == AUTO
+
+    /**
      * Ступень для движения: пока список едет, преломление считать незачем.
      *
      * Дорога у стекла не заливка, а именно преломление - на каждую поверхность
@@ -40,17 +59,65 @@ enum class GlassQuality(val id: String) {
      * кадр, потому что координаты поверхности меняются. Разглядеть его на летящем
      * списке всё равно нельзя, а остановился он - и оно возвращается.
      *
-     * Выключенное стекло остаётся выключенным: понижать там нечего.
+     * Спрашивается только на [AUTO], уже после [resolve].
      */
     fun movingOrLess(): GlassQuality = if (this == FULL) LITE else this
 
+    /**
+     * Во что уровень обращается на этом устройстве.
+     *
+     * Всё, кроме [AUTO], возвращается как есть: выбор человека - не пожелание.
+     * Для [AUTO] решаем сами, и решаем по тому, что можно узнать наверняка.
+     *
+     * Порядок проверок - от невозможного к тяжёлому:
+     *  - до Android 12 размытия в слое нет вовсе, рисовать нечем;
+     *  - устройство, которое сама система считает малопамятным, стекло не потянет;
+     *  - до Android 13 нет программ для видеоядра, а без них не бывает ни
+     *    преломления, ни полосы затухания внизу - остаётся упрощённый уровень;
+     *  - меньше четырёх гигабайт памяти: не приговор видеоядру, но в этом ряду
+     *    оно обычно под стать памяти.
+     *
+     * Мерить настоящую частоту кадров было бы честнее, чем гадать по железу. Но
+     * такой замер шатается: попал в тяжёлый кадр - убавили, стало легче - прибавили,
+     * и стекло дышит на глазах. Поэтому решение принимается один раз и держится.
+     */
+    fun resolve(context: Context): GlassQuality {
+        if (this != AUTO) return this
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return OFF
+
+        val manager = context.getSystemService<ActivityManager>() ?: return LITE
+        if (manager.isLowRamDevice) return OFF
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return LITE
+
+        val memory = ActivityManager.MemoryInfo()
+        manager.getMemoryInfo(memory)
+        if (memory.totalMem in 1 until MODEST_MEMORY_BYTES) return LITE
+
+        return FULL
+    }
+
     companion object {
-        val Default: GlassQuality = FULL
+
+        /** Четыре гигабайта: ниже этого стекло уже заметно спотыкается. */
+        private const val MODEST_MEMORY_BYTES = 4L * 1024 * 1024 * 1024
+
+        val Default: GlassQuality = AUTO
 
         fun of(id: String?): GlassQuality =
             entries.firstOrNull { it.id == id } ?: Default
     }
 }
 
-/** Выбранный уровень. Тема кладёт его сюда, стекло читает. */
-val LocalGlassQuality = compositionLocalOf { GlassQuality.Default }
+/** Уровень стекла, уже приведённый к возможностям устройства. */
+val LocalGlassQuality = compositionLocalOf { GlassQuality.FULL }
+
+/**
+ * Разрешено ли убавлять стекло на ходу - например, пока едет список.
+ *
+ * Отдельно от [LocalGlassQuality] нарочно: тот несёт уже приведённый уровень, и по
+ * нему не отличить «приложение выбрало полные» от «человек выбрал полные». А
+ * разница ровно в этом: во втором случае убавлять нельзя.
+ */
+val LocalGlassAdaptive = compositionLocalOf { false }

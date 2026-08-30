@@ -102,6 +102,7 @@
     <string name="scanner_no_frames">Камера не передаёт изображение</string>
     <string name="scanner_found">Код найден</string>
     <string name="title_pref_glass_quality">Эффекты стекла</string>
+    <string name="glass_quality_auto">Автоматически</string>
     <string name="glass_quality_full">Полные</string>
     <string name="glass_quality_lite">Упрощённые · плавнее</string>
     <string name="glass_quality_off">Выключены · быстрее всего</string>

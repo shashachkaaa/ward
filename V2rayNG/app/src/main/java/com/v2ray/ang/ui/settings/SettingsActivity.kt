@@ -438,11 +438,17 @@ private fun SettingsCategoryList(
 private fun GlassQualitySetting() {
     val quality by ThemeManager.glassQuality.collectAsStateWithLifecycle()
     val entries = listOf(
+        stringResource(R.string.glass_quality_auto),
         stringResource(R.string.glass_quality_full),
         stringResource(R.string.glass_quality_lite),
         stringResource(R.string.glass_quality_off)
     )
-    val values = listOf(GlassQuality.FULL.id, GlassQuality.LITE.id, GlassQuality.OFF.id)
+    val values = listOf(
+        GlassQuality.AUTO.id,
+        GlassQuality.FULL.id,
+        GlassQuality.LITE.id,
+        GlassQuality.OFF.id
+    )
 
     SettingsListItem(
         title = stringResource(R.string.title_pref_glass_quality),

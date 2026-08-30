@@ -103,6 +103,7 @@
     <string name="scanner_no_frames">No image from the camera</string>
     <string name="scanner_found">Code found</string>
     <string name="title_pref_glass_quality">Glass effects</string>
+    <string name="glass_quality_auto">Automatic</string>
     <string name="glass_quality_full">Full</string>
     <string name="glass_quality_lite">Simplified · smoother</string>
     <string name="glass_quality_off">Off · fastest</string>

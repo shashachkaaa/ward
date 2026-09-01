@@ -248,3 +248,68 @@ fun Modifier.glassBackground(
 
 private fun Modifier.innerGlowIfNeeded(color: Color?, shape: Shape): Modifier =
     if (color != null) innerEdgeGlow(color, shape) else this
+
+/**
+ * Стекло для окон поверх экрана - диалогов, меню, шторок, снекбара. Слой берётся из
+ * темы, так что ставить его вручную не нужно.
+ */
+@Composable
+fun Modifier.glassPanel(
+    shape: Shape,
+    blurRadius: Dp = GlassBlurRadius,
+    opaqueness: Float = 0.7f,
+    fallbackColor: Color? = null
+): Modifier {
+    val dense = fallbackColor ?: MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.94f)
+    return glassBackground(
+        shape = shape,
+        backdrop = LocalGlassBackdrop.current,
+        blurRadius = blurRadius,
+        opaqueness = opaqueness,
+        fallbackColor = dense
+    )
+}
+
+/**
+ * Стеклянная поверхность с содержимым. Параметры - как у [glassBackground].
+ */
+@Composable
+fun GlassSurface(
+    modifier: Modifier = Modifier,
+    shape: Shape,
+    backdrop: GlassBackdrop? = null,
+    blurRadius: Dp = GlassBlurRadius,
+    opaqueness: Float = 1f,
+    surfaceTint: Color? = null,
+    dispersion: Boolean = true,
+    fallbackColor: Color? = null,
+    border: Color? = null,
+    innerGlow: Color? = null,
+    content: @Composable BoxScope.() -> Unit = {}
+) {
+    Box(
+        modifier = modifier
+            .then(if (border != null) Modifier.border(1.dp, border, shape) else Modifier)
+            .glassBackground(
+            shape = shape,
+            backdrop = backdrop,
+            blurRadius = blurRadius,
+            opaqueness = opaqueness,
+            surfaceTint = surfaceTint,
+            dispersion = dispersion,
+            fallbackColor = fallbackColor,
+            innerGlow = innerGlow
+        ),
+        content = content
+    )
+}
+
+/**
+ * Плёнка поверх стекла. Раньше это был градиент, теперь ровный тон: блик по контуру
+ * рисует библиотека, и второй сверху только мутил картину.
+ */
+fun glassSurfaceColor(isDark: Boolean, surface: Color, opaqueness: Float = 1f): Color {
+    val alpha = if (isDark) 0.12f else 0.28f
+    val base = if (isDark) Color.White else surface
+    return base.copy(alpha = (alpha * opaqueness).coerceIn(0f, 1f))
+}

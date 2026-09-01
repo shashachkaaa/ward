@@ -328,8 +328,8 @@
     <string name="lockdown_no_block">On, but traffic outside the tunnel is not blocked. During a reconnect it goes out in the clear</string>
     <string name="lockdown_off">Off. After a reboot or a drop the tunnel does not come back on its own</string>
     <string name="lockdown_hint_title">Traffic is not protected on a drop</string>
-    <string name="lockdown_hint_text">Turn on always-on VPN with blocking in the system settings, and nothing leaves the device without the tunnel.</string>
-    <string name="lockdown_hint_open">Open settings</string>
+    <string name="lockdown_hint_text">In VPN settings, tap the gear next to Ward and turn on blocking connections without VPN.</string>
+    <string name="lockdown_hint_open">Settings</string>
     <string name="title_pref_ipv6_enabled">Enable IPv6</string>
     <string name="summary_pref_ipv6_enabled">Add IPv6 address and routes to the VPN interface</string>
 

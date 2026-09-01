@@ -929,40 +929,57 @@ private fun LockdownBanner(
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 10.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp)
+            // Текст занимает всю ширину, кнопки идут под ним.
+            //
+            // У плашки о падении текст и кнопки стоят в одной строке, и это работает,
+            // пока текст короткий, а кнопки узкие. Здесь ни то, ни другое: объяснение
+            // в два предложения, и «Открыть настройки» вдвое шире «Открыть». Колонка
+            // текста схлопывалась до одного слова в строке, плашка вырастала во весь
+            // экран и закрывала собой список
+            Column(
+                modifier = Modifier.padding(
+                    start = 14.dp,
+                    end = 8.dp,
+                    top = 10.dp,
+                    bottom = 4.dp
+                )
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.lockdown_hint_title),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = stringResource(R.string.lockdown_hint_text),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                Text(
+                    text = stringResource(R.string.lockdown_hint_title),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = stringResource(R.string.lockdown_hint_text),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
 
-                TextButton(onClick = onDismiss) {
-                    Text(
-                        text = stringResource(R.string.crash_banner_dismiss),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                TextButton(onClick = onOpen) {
-                    Text(
-                        text = stringResource(R.string.lockdown_hint_open),
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(
+                            text = stringResource(R.string.crash_banner_dismiss),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    TextButton(onClick = onOpen) {
+                        Text(
+                            text = stringResource(R.string.lockdown_hint_open),
+                            color = MaterialTheme.colorScheme.secondary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }

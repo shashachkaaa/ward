@@ -329,8 +329,8 @@
     <string name="lockdown_no_block">Включён, но трафик мимо туннеля не блокируется. В момент переподключения он уходит открытым</string>
     <string name="lockdown_off">Выключен. После перезагрузки или обрыва туннель сам не поднимется</string>
     <string name="lockdown_hint_title">Трафик не защищён при обрыве</string>
-    <string name="lockdown_hint_text">Включите постоянный VPN с блокировкой в системных настройках, и без туннеля наружу не уйдёт ничего.</string>
-    <string name="lockdown_hint_open">Открыть настройки</string>
+    <string name="lockdown_hint_text">В настройках VPN нажмите шестерёнку рядом с Ward и включите блокировку соединений без VPN.</string>
+    <string name="lockdown_hint_open">Настройки</string>
     <string name="title_pref_ipv6_enabled">Включить IPv6</string>
     <string name="summary_pref_ipv6_enabled">Добавить IPv6-адрес и маршруты в VPN-интерфейс</string>
 

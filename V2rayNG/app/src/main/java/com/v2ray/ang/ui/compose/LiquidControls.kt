@@ -15,7 +15,6 @@ import com.kyant.backdrop.backdrops.emptyBackdrop
 import com.kyant.backdrop.catalog.components.LiquidButton
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
-import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 
 /**
@@ -106,14 +105,10 @@ fun LiquidGlassButton(
                 )
             )
         },
-        // Толщина стенки: тёмная кромка внутри, с той стороны, куда свет не достаёт
-        innerShadow = {
-            InnerShadow(
-                radius = 6f.dp,
-                offset = DpOffset(0f.dp, 2f.dp),
-                color = Color.Black.copy(alpha = if (isDark) 0.28f else 0.16f)
-            )
-        },
+        // Толщина стенки: тёмная кромка внутри, с той стороны, куда свет не достаёт.
+        // Рисуется своим градиентом, а не внутренней тенью библиотеки: та теряет
+        // размытие в переиспользованной строке списка и обращается в резкую черту
+        innerEdge = Color.Black.copy(alpha = if (isDark) 0.28f else 0.16f),
         // Кнопка приподнята над фоном. Тень оригинала под мелкий чип слишком широкая
         shadow = {
             Shadow(

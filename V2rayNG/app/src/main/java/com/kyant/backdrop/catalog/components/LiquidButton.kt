@@ -33,6 +33,7 @@ import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 import com.kyant.shapes.Capsule
+import com.v2ray.ang.ui.compose.innerEdgeShade
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -79,6 +80,13 @@ fun LiquidButton(
     // давать светом: заливка градиентом, тень внутрь и тень наружу
     surfaceBrush: Brush? = null,
     innerShadow: (() -> InnerShadow?)? = null,
+    // Тёмная кромка внутри по верхнему краю - вместо внутренней тени библиотеки.
+    // Та держит свой слой видеоядра и запомненный радиус размытия, а в списке слой
+    // при переиспользовании строки создаётся заново, радиус же остаётся прежним -
+    // и размытие новому слою не назначается. Мягкая кромка после прокрутки вниз и
+    // обратно превращалась в резкую черту. Здесь слоя нет, портиться нечему
+    innerEdge: Color? = null,
+    innerEdgeDepth: Dp = 8f.dp,
     shadow: (() -> Shadow?)? = DefaultButtonShadow,
     content: @Composable RowScope.() -> Unit
 ) {
@@ -149,6 +157,13 @@ fun LiquidButton(
                     if (surfaceBrush != null) {
                         drawRect(surfaceBrush)
                     }
+                }
+            )
+            .then(
+                if (innerEdge != null) {
+                    Modifier.innerEdgeShade(innerEdge, Capsule(), innerEdgeDepth)
+                } else {
+                    Modifier
                 }
             )
             .clickable(

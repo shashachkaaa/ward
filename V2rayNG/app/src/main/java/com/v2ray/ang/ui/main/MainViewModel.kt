@@ -16,6 +16,7 @@ import com.v2ray.ang.dto.entities.ServersCache
 import com.v2ray.ang.dto.entities.SubscriptionCache
 import com.v2ray.ang.extension.matchesPattern
 import com.v2ray.ang.ui.compose.AppSnackbarManager
+import com.v2ray.ang.handler.LockdownStatus
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.CrashReportManager
 import com.v2ray.ang.handler.AppUpdateInstaller
@@ -37,8 +38,11 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -86,6 +90,30 @@ class MainViewModel(
 
     /** Найденное обновление: из него на главном экране рисуется плашка. */
     val availableUpdate: StateFlow<CheckUpdateResult?> = _availableUpdate.asStateFlow()
+
+    /**
+     * Постоянный VPN: последнее, что сообщил работающий сервис.
+     *
+     * Начальное значение берётся из запомненного, а не из пустоты: туннель может быть
+     * не поднят, и тогда спросить систему не у кого - но показать человеку прошлый
+     * ответ честнее, чем промолчать.
+     */
+    private val _lockdown = MutableStateFlow(LockdownStatus.remembered())
+
+    private val _lockdownHintDismissed = MutableStateFlow(
+        MmkvManager.decodeSettingsBool(AppConfig.PREF_LOCKDOWN_HINT_DISMISSED, false)
+    )
+
+    /**
+     * Подсказка на главном экране: только пока её не закрыли.
+     *
+     * Отдельно от самого состояния: строке в настройках оно нужно всегда, а подсказка
+     * показывается один раз и исчезает навсегда - это разные сроки жизни у одного факта.
+     */
+    val lockdownHint: StateFlow<LockdownStatus?> =
+        combine(_lockdown, _lockdownHintDismissed) { status, dismissed ->
+            status?.takeIf { !dismissed }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val _crashReport = MutableStateFlow<LogFileInfo?>(null)
 
@@ -205,6 +233,13 @@ class MainViewModel(
             is MainServiceEvent.TrafficSpeedUpdate -> {
                 TrafficSpeedState.decode(event.payload)?.let { (speed, interval) ->
                     TrafficSpeedState.publish(speed, interval)
+                }
+            }
+
+            is MainServiceEvent.LockdownStatusUpdate -> {
+                LockdownStatus.decode(event.payload)?.let { status ->
+                    LockdownStatus.remember(status)
+                    _lockdown.value = status
                 }
             }
 
@@ -527,6 +562,12 @@ class MainViewModel(
 
         MmkvManager.encodeSettings(AppConfig.PREF_LAST_RUN_VERSION_CODE, current)
         _whatsNew.value = notes
+    }
+
+    /** Подсказку про постоянный VPN закрыли: больше её не показываем. */
+    fun dismissLockdownHint() {
+        MmkvManager.encodeSettings(AppConfig.PREF_LOCKDOWN_HINT_DISMISSED, true)
+        _lockdownHintDismissed.value = true
     }
 
     /** Окно с изменениями закрыто: до следующего обновления оно больше не нужно. */

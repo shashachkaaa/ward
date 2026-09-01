@@ -127,6 +127,12 @@ object AppConfig {
      * По нему после обновления показывается окно с изменениями. Ноль означает
      * первый запуск после установки - показывать там нечего.
      */
+    /** Последнее известное состояние постоянного VPN: пока туннель не поднят, спросить некого. */
+    const val PREF_LOCKDOWN_STATUS = "pref_lockdown_status"
+
+    /** Подсказку про постоянный VPN на главном экране закрыли навсегда. */
+    const val PREF_LOCKDOWN_HINT_DISMISSED = "pref_lockdown_hint_dismissed"
+
     const val PREF_LAST_RUN_VERSION_CODE = "pref_last_run_version_code"
 
     /** Отчёт о сбое, о котором уже сообщили: плашка про него больше не всплывает. */
@@ -239,6 +245,9 @@ object AppConfig {
 
     /** Замер скорости из процесса ядра в процесс интерфейса. */
     const val MSG_TRAFFIC_SPEED = 75
+
+    /** Состояние постоянного VPN: сервис знает его, интерфейс - нет, они в разных процессах. */
+    const val MSG_LOCKDOWN_STATUS = 76
 
     const val MSG_SUB_UPDATE_START = 8
     const val MSG_SUB_UPDATE_CANCEL = 81

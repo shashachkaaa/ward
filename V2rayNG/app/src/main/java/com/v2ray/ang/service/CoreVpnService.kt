@@ -12,6 +12,8 @@ import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.StrictMode
 import com.v2ray.ang.AppConfig
+import com.v2ray.ang.handler.LockdownStatus
+import com.v2ray.ang.helper.MessageHelper
 import com.v2ray.ang.AppConfig.LOOPBACK
 import com.v2ray.ang.BuildConfig
 import com.v2ray.ang.contracts.ServiceControl
@@ -114,6 +116,25 @@ class CoreVpnService : VpnService(), ServiceControl {
 
         // Start LAN sharing if enabled in settings
         RootLanSharing.startClientSharing(this)
+
+        reportLockdownStatus()
+    }
+
+    /**
+     * Сообщает интерфейсу, включён ли постоянный VPN и блокирует ли он трафик мимо
+     * туннеля. Спросить об этом может только сам сервис, а живёт он в отдельном
+     * процессе - отсюда и передача сообщением, тем же каналом, что и замер скорости.
+     *
+     * Один раз за запуск: на ходу эти настройки не меняются, система перезапускает
+     * туннель, когда их правят.
+     */
+    private fun reportLockdownStatus() {
+        val status = LockdownStatus.of(this) ?: return
+        LogUtil.i(
+            AppConfig.TAG,
+            "Always-on VPN: alwaysOn=${status.alwaysOn}, lockdown=${status.lockdown}"
+        )
+        MessageHelper.sendMsg2UI(this, AppConfig.MSG_LOCKDOWN_STATUS, status.encode())
     }
 
     override fun stopService() {

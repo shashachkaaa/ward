@@ -14,6 +14,9 @@ sealed class MainServiceEvent {
     /** Замер скорости, пришедший из процесса ядра. */
     data class TrafficSpeedUpdate(val payload: String) : MainServiceEvent()
 
+    /** Состояние постоянного VPN, каким его увидел работающий сервис. */
+    data class LockdownStatusUpdate(val payload: String) : MainServiceEvent()
+
     /** Подписка обновлена своей службой: список на экране устарел целиком. */
     data class SubscriptionUpdated(val subId: String) : MainServiceEvent()
 }

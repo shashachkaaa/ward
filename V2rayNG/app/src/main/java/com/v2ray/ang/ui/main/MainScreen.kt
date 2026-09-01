@@ -1,6 +1,7 @@
 package com.v2ray.ang.ui.main
 
 import android.content.Intent
+import android.provider.Settings
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -57,6 +58,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalContext
 import com.v2ray.ang.handler.AppUpdateInstaller
+import com.v2ray.ang.handler.LockdownStatus
 import com.v2ray.ang.handler.UpdateInstallState
 import com.v2ray.ang.ui.logcat.LogFileActivity
 import com.v2ray.ang.ui.compose.AppSnackbarManager
@@ -194,6 +196,7 @@ fun MainScreen(
 
     val availableUpdate by mainViewModel.availableUpdate.collectAsStateWithLifecycle()
     val crashReport by mainViewModel.crashReport.collectAsStateWithLifecycle()
+    val lockdownHint by mainViewModel.lockdownHint.collectAsStateWithLifecycle()
     val whatsNew by mainViewModel.whatsNew.collectAsStateWithLifecycle()
     val installState by AppUpdateInstaller.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -343,6 +346,20 @@ fun MainScreen(
                         mainViewModel.startUpdate(onFallback = { url -> uriHandler.openUri(url) })
                     },
                     onDismiss = { mainViewModel.dismissUpdate() }
+                )
+
+                LockdownBanner(
+                    status = lockdownHint,
+                    onOpen = {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Settings.ACTION_VPN_SETTINGS)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                        mainViewModel.dismissLockdownHint()
+                    },
+                    onDismiss = { mainViewModel.dismissLockdownHint() }
                 )
 
                 CrashBanner(
@@ -873,6 +890,76 @@ private fun CrashBanner(
                     Text(
                         text = stringResource(R.string.crash_banner_open),
                         color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Подсказка про постоянный VPN.
+ *
+ * Показывается один раз и только тем, у кого щель действительно есть: система знает,
+ * что туннель поднимался, и знает, что трафик мимо него не заблокирован. Закрыл -
+ * больше не увидит; кто про эту настройку знает и не хочет её, того не дёргаем.
+ *
+ * Настройка системная, и прямо к нашему приложению система не пускает - открывается
+ * общий раздел VPN, где Ward выбирают руками.
+ */
+@Composable
+private fun LockdownBanner(
+    status: LockdownStatus?,
+    onOpen: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AnimatedVisibility(
+        visible = status != null && !status.isSealed,
+        enter = fadeIn(tween(300)) + expandVertically(tween(300)),
+        exit = fadeOut(tween(200)) + shrinkVertically(tween(200))
+    ) {
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.30f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.lockdown_hint_title),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = stringResource(R.string.lockdown_hint_text),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        text = stringResource(R.string.crash_banner_dismiss),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                TextButton(onClick = onOpen) {
+                    Text(
+                        text = stringResource(R.string.lockdown_hint_open),
+                        color = MaterialTheme.colorScheme.secondary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )

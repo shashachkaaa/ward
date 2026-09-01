@@ -324,6 +324,13 @@
     <string name="title_pref_fake_dns_enabled">Использовать поддельную DNS</string>
     <string name="summary_pref_fake_dns_enabled">Локальная DNS возвращает поддельные IP-адреса (быстрее, но может не работать с некоторыми приложениями)</string>
 
+    <string name="title_lockdown_status">Постоянный VPN</string>
+    <string name="lockdown_sealed">Включён, трафик мимо туннеля заблокирован</string>
+    <string name="lockdown_no_block">Включён, но трафик мимо туннеля не блокируется. В момент переподключения он уходит открытым</string>
+    <string name="lockdown_off">Выключен. После перезагрузки или обрыва туннель сам не поднимется</string>
+    <string name="lockdown_hint_title">Трафик не защищён при обрыве</string>
+    <string name="lockdown_hint_text">Включите постоянный VPN с блокировкой в системных настройках, и без туннеля наружу не уйдёт ничего.</string>
+    <string name="lockdown_hint_open">Открыть настройки</string>
     <string name="title_pref_ipv6_enabled">Включить IPv6</string>
     <string name="summary_pref_ipv6_enabled">Добавить IPv6-адрес и маршруты в VPN-интерфейс</string>
 

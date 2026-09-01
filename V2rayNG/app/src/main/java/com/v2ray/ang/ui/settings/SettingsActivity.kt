@@ -1,6 +1,7 @@
 package com.v2ray.ang.ui.settings
 
 import android.content.Intent
+import android.provider.Settings
 import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
@@ -73,6 +74,7 @@ import com.v2ray.ang.extension.toTrafficString
 import com.v2ray.ang.handler.CrashReportManager
 import com.v2ray.ang.handler.LiveNotificationStatus
 import com.v2ray.ang.handler.LogFileManager
+import com.v2ray.ang.handler.LockdownStatus
 import com.v2ray.ang.handler.MmkvManager.rememberMmkvBool
 import com.v2ray.ang.handler.MmkvManager.rememberMmkvString
 import com.v2ray.ang.root.RootManager
@@ -690,6 +692,61 @@ private fun ModeSettings(
     }
 }
 
+/**
+ * Постоянный VPN: поднимает ли его система сама и закрывает ли трафик мимо туннеля.
+ *
+ * Показываем, потому что молчание тут дороже всего: без блокировки в момент обрыва
+ * трафик секунду-другую идёт открытым, и человек об этом никак не узнает. Настройка
+ * системная, поэтому строка не переключает, а объясняет и отводит куда надо.
+ *
+ * Ответ приходит от работающего сервиса и запоминается. Пока туннель ни разу не
+ * поднимали, ответа нет вовсе - тогда и строки нет: пугать догадкой хуже, чем молчать.
+ */
+@Composable
+private fun LockdownStatusItem(enabled: Boolean) {
+    val context = LocalContext.current
+
+    // Перечитываем на каждом возвращении: настройку правят в системе, а после правки
+    // система перезапускает туннель - значит сервис успевает сообщить новое состояние
+    var status by remember { mutableStateOf(LockdownStatus.remembered()) }
+    ResumePauseEffect(
+        key = enabled,
+        onResume = { status = LockdownStatus.remembered() },
+        onPause = {}
+    )
+
+    val current = status.takeIf { enabled } ?: return
+
+    val summary = stringResource(
+        when {
+            current.isSealed -> R.string.lockdown_sealed
+            current.alwaysOn -> R.string.lockdown_no_block
+            else -> R.string.lockdown_off
+        }
+    )
+    val failureText = stringResource(R.string.toast_failure)
+
+    SettingsInfoItem(
+        title = stringResource(R.string.title_lockdown_status),
+        summary = summary,
+        onClick = if (current.isSealed) {
+            null
+        } else {
+            {
+                runCatching { context.startActivity(vpnSystemSettingsIntent()) }
+                    .onFailure { AppSnackbarManager.show(failureText) }
+            }
+        }
+    )
+}
+
+/**
+ * Системный раздел с настройками VPN. Прямо к нужному приложению система не пускает -
+ * открывается общий список, где Ward выбирают руками.
+ */
+private fun vpnSystemSettingsIntent(): Intent =
+    Intent(Settings.ACTION_VPN_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
 @Composable
 private fun VpnSettings(modifier: Modifier) {
     var ipv6Enabled by rememberMmkvBool(AppConfig.PREF_IPV6_ENABLED, false)
@@ -720,6 +777,7 @@ private fun VpnSettings(modifier: Modifier) {
     val hevLogValues = stringArrayResource(R.array.hev_tunnel_loglevel).toList()
 
     SettingsColumn(modifier) {
+        LockdownStatusItem(enabled = isVpn)
         SettingsSwitchItem(
             title = stringResource(R.string.title_pref_ipv6_enabled),
             summary = stringResource(R.string.summary_pref_ipv6_enabled),

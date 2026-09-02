@@ -197,7 +197,11 @@ fun LiquidBottomTabs(
                             blur(8f.dp.toPx())
                         }
                         if (refracts) {
-                            lens(24f.dp.toPx(), 24f.dp.toPx())
+                            // depthEffect подмешивает в преломление сдвиг от середины,
+                            // а не только по нормали к краю. Стекло от этого читается
+                            // толстым: то, что под ним, чуть выпучивается, как под
+                            // каплей, а не только заворачивается у кромки
+                            lens(24f.dp.toPx(), 24f.dp.toPx(), depthEffect = true)
                         }
                     },
                     layerBlock = {
@@ -241,7 +245,8 @@ fun LiquidBottomTabs(
                             if (refracts) {
                                 lens(
                                     24f.dp.toPx() * progress,
-                                    24f.dp.toPx() * progress
+                                    24f.dp.toPx() * progress,
+                                    depthEffect = true
                                 )
                             }
                         },

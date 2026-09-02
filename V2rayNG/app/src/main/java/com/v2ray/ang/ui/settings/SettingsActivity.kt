@@ -72,6 +72,7 @@ import com.v2ray.ang.dto.LogFileInfo
 import com.v2ray.ang.enums.PingType
 import com.v2ray.ang.extension.toTrafficString
 import com.v2ray.ang.handler.CrashReportManager
+import com.v2ray.ang.handler.Diagnostics
 import com.v2ray.ang.handler.LiveNotificationStatus
 import com.v2ray.ang.handler.LogFileManager
 import com.v2ray.ang.handler.LockdownStatus
@@ -1216,6 +1217,34 @@ private fun InfoSettings(modifier: Modifier) {
                             AppSnackbarManager.show("Ферз, тут нет золота.")
                         }
                     }
+            )
+        }
+
+        // Состояние идёт первым: за ним сюда и приходят, когда «не работает».
+        // Пересчитывается на каждом возвращении - настройки правят на соседних экранах
+        var stateEntries by remember { mutableStateOf(emptyList<Diagnostics.Entry>()) }
+        ResumePauseEffect(
+            onResume = { stateEntries = Diagnostics.state(context) },
+            onPause = {}
+        )
+
+        PreferenceGroupHeader(title = stringResource(R.string.title_info_state))
+        SettingsGroupCard {
+            stateEntries.forEach { entry ->
+                SettingsInfoItem(
+                    title = entry.label,
+                    value = entry.value,
+                    onClick = { copy(entry.label, entry.value) }
+                )
+            }
+            SettingsMenuItem(
+                title = stringResource(R.string.title_info_copy_all),
+                subtitle = stringResource(R.string.summary_info_copy_all),
+                onClick = {
+                    val report = Diagnostics.asText(context)
+                    Utils.setClipboard(context, report)
+                    AppSnackbarManager.show(copiedText)
+                }
             )
         }
 

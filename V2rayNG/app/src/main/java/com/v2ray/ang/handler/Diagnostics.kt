@@ -33,6 +33,9 @@ object Diagnostics {
 
     private const val NEVER = "-"
 
+    /** То же умолчание, что берёт сборщик конфига, когда стратегию не задавали. */
+    private const val DEFAULT_DOMAIN_STRATEGY = "AsIs"
+
     /**
      * Что происходит прямо сейчас: режим, сервер, подписки, DNS, маршрутизация.
      *
@@ -46,7 +49,8 @@ object Diagnostics {
         add(Entry(context.getString(R.string.title_info_subscriptions), subscriptions(context)))
         add(Entry(context.getString(R.string.title_info_last_update), lastUpdate()))
         add(Entry(context.getString(R.string.title_info_dns), dns()))
-        add(Entry(context.getString(R.string.title_info_routing), routing()))
+        add(Entry(context.getString(R.string.title_info_local_dns), localDns(context)))
+        add(Entry(context.getString(R.string.title_info_routing), routing(context)))
         add(Entry(context.getString(R.string.title_info_per_app), perApp(context)))
     }
 
@@ -114,16 +118,34 @@ object Diagnostics {
     private fun dns(): String {
         val remote = MmkvManager.decodeSettingsString(AppConfig.PREF_REMOTE_DNS).orEmpty()
         val domestic = MmkvManager.decodeSettingsString(AppConfig.PREF_DOMESTIC_DNS).orEmpty()
-        val local = MmkvManager.decodeSettingsBool(AppConfig.PREF_LOCAL_DNS_ENABLED)
-        val fake = MmkvManager.decodeSettingsBool(AppConfig.PREF_FAKE_DNS_ENABLED)
-        return "$remote | $domestic | local=$local fake=$fake"
+        return "$remote | $domestic"
     }
 
-    private fun routing(): String {
-        val strategy = MmkvManager.decodeSettingsString(AppConfig.PREF_ROUTING_DOMAIN_STRATEGY).orEmpty()
-        val sniffing = MmkvManager.decodeSettingsBool(AppConfig.PREF_SNIFFING_ENABLED, true)
-        return "$strategy | sniffing=$sniffing"
+    /** Отдельной строкой: в строку про адреса это не влезало и читалось третьим адресом. */
+    private fun localDns(context: Context): String {
+        val local = MmkvManager.decodeSettingsBool(AppConfig.PREF_LOCAL_DNS_ENABLED)
+        val fake = MmkvManager.decodeSettingsBool(AppConfig.PREF_FAKE_DNS_ENABLED)
+        return "${onOff(context, local)}, fake ${onOff(context, fake)}"
     }
+
+    /**
+     * Стратегия доменов и сниффинг.
+     *
+     * Пустая настройка означает не пустоту, а «AsIs» - именно так её читает сборщик
+     * конфига, когда её не задавали. Сводка обязана говорить то же самое, иначе в
+     * ней будет прочерк там, где на деле работает умолчание.
+     */
+    private fun routing(context: Context): String {
+        val strategy = MmkvManager.decodeSettingsString(AppConfig.PREF_ROUTING_DOMAIN_STRATEGY)
+            ?.takeIf { it.isNotBlank() } ?: DEFAULT_DOMAIN_STRATEGY
+        val sniffing = MmkvManager.decodeSettingsBool(AppConfig.PREF_SNIFFING_ENABLED, true)
+        val sniffingLabel = context.getString(R.string.title_info_sniffing)
+        return "$strategy · $sniffingLabel ${onOff(context, sniffing)}"
+    }
+
+    private fun onOff(context: Context, value: Boolean): String = context.getString(
+        if (value) R.string.title_info_on else R.string.title_info_off
+    )
 
     private fun perApp(context: Context): String {
         if (!MmkvManager.decodeSettingsBool(AppConfig.PREF_PER_APP_PROXY)) {

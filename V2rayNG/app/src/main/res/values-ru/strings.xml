@@ -246,6 +246,9 @@
     <string name="title_info_last_update">Обновление подписки</string>
     <string name="title_info_dns">DNS (внешний | внутренний)</string>
     <string name="title_info_routing">Маршрутизация</string>
+    <string name="title_info_local_dns">Локальный DNS</string>
+    <string name="title_info_sniffing">сниффинг</string>
+    <string name="title_info_on">включено</string>
     <string name="title_info_per_app">Проксирование по приложениям</string>
     <string name="title_info_per_app_bypass">в обход</string>
     <string name="title_info_per_app_only">только эти</string>

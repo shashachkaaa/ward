@@ -240,6 +240,9 @@
     <string name="title_info_last_update">Last subscription update</string>
     <string name="title_info_dns">DNS (remote | domestic)</string>
     <string name="title_info_routing">Routing</string>
+    <string name="title_info_local_dns">Local DNS</string>
+    <string name="title_info_sniffing">sniffing</string>
+    <string name="title_info_on">on</string>
     <string name="title_info_per_app">Per-app proxy</string>
     <string name="title_info_per_app_bypass">bypass</string>
     <string name="title_info_per_app_only">only these</string>

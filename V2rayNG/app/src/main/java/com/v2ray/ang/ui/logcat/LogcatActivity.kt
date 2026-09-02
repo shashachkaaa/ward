@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,7 +75,7 @@ class LogcatActivity : BaseComponentActivity() {
 
     private fun shareLogcat() {
         lifecycleScope.launch(Dispatchers.IO) {
-            val logText = viewModel.filteredLogs.value.joinToString("\n")
+            val logText = viewModel.filteredLogs.value.joinToString("\n") { it.text }
 
             val result = try {
                 val shareDir = File(cacheDir, "shared_logs").apply {
@@ -154,6 +155,20 @@ fun LogcatScreen(
         listState.interactionSource.interactions.collect { interaction ->
             if (interaction is DragInteraction.Start) autoScroll = false
         }
+    }
+
+    // Вернулся к концу списка - следование включается снова, без нажатия кнопки.
+    // Смотрим на последнюю видимую строку, а не на положение прокрутки: derivedStateOf
+    // отдаёт ответ, только когда он меняется, иначе это был бы пересчёт каждый кадр
+    val atEnd by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()
+            last == null || last.index >= info.totalItemsCount - 1
+        }
+    }
+    LaunchedEffect(atEnd) {
+        if (atEnd) autoScroll = true
     }
 
     // Follow the log only while the screen is in front of the user
@@ -272,8 +287,11 @@ fun LogcatScreen(
                 // Последняя строка лога не должна замереть внутри полосы затухания снизу
                 contentPadding = PaddingValues(bottom = BottomBlurHeight)
             ) {
-                itemsIndexed(items = logs, key = { index, _ -> index }) { _, log ->
-                    LogcatItem(log = log, onLongClick = { Utils.setClipboard(context, log) })
+                items(items = logs, key = { it.id }) { line ->
+                    LogcatItem(
+                        log = line.text,
+                        onLongClick = { Utils.setClipboard(context, line.text) }
+                    )
                     ItemDivider()
                 }
             }

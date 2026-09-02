@@ -30,11 +30,22 @@ class LogcatViewModel(application: Application) : BaseViewModel(application) {
     }
 
     // Oldest first, the way a log reads: fresh lines are appended at the bottom
-    private val logsetsAll: MutableList<String> = mutableListOf()
+    private val logsetsAll: MutableList<LogLine> = mutableListOf()
     private var currentFilter: String = ""
 
-    private val _filteredLogs = MutableStateFlow<List<String>>(emptyList())
-    val filteredLogs: StateFlow<List<String>> = _filteredLogs.asStateFlow()
+    /**
+     * Сквозной номер строки с начала потока.
+     *
+     * Нужен не для показа, а чтобы у строки был неизменный признак. Список держит
+     * последние три тысячи строк и старые выбрасывает с начала - от этого у всех
+     * оставшихся сдвигаются порядковые номера. Пока список опознавал строки по
+     * порядковому номеру, для него это выглядело так, будто содержимое всех строк
+     * разом поменялось: человек стоял на своём месте, а текст под ним уезжал вверх.
+     */
+    private var nextLineId: Long = 0
+
+    private val _filteredLogs = MutableStateFlow<List<LogLine>>(emptyList())
+    val filteredLogs: StateFlow<List<LogLine>> = _filteredLogs.asStateFlow()
 
     private val _isStreaming = MutableStateFlow(false)
     val isStreaming: StateFlow<Boolean> = _isStreaming.asStateFlow()
@@ -142,7 +153,7 @@ class LogcatViewModel(application: Application) : BaseViewModel(application) {
     private fun publish(lines: List<String>) {
         if (lines.isEmpty()) return
         synchronized(logsetsAll) {
-            logsetsAll.addAll(lines)
+            lines.forEach { logsetsAll.add(LogLine(nextLineId++, it)) }
             val overflow = logsetsAll.size - MAX_LINES
             if (overflow > 0) {
                 logsetsAll.subList(0, overflow).clear()
@@ -152,7 +163,7 @@ class LogcatViewModel(application: Application) : BaseViewModel(application) {
     }
 
     fun copyLogcat() {
-        val all = filteredLogs.value.joinToString("\n")
+        val all = filteredLogs.value.joinToString("\n") { it.text }
         Utils.setClipboard(app, all)
         toast(R.string.toast_success)
     }
@@ -179,7 +190,7 @@ class LogcatViewModel(application: Application) : BaseViewModel(application) {
         _filteredLogs.value = if (currentFilter.isEmpty()) {
             snapshot
         } else {
-            snapshot.filter { it.contains(currentFilter, ignoreCase = true) }
+            snapshot.filter { it.text.contains(currentFilter, ignoreCase = true) }
         }
     }
 

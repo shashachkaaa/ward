@@ -15,13 +15,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /**
  * Заметки к релизу в диалоге обновления.
  *
  * Текст приходит с GitHub размеченным, и раньше он показывался как есть - со
  * звёздочками вместо жирного. Полноценный markdown сюда тащить незачем: заметки
- * пишем мы сами и пользуемся ровно тремя приёмами - жирный, курсив и моноширинный.
+ * пишем мы сами и пользуемся четырьмя приёмами - заголовок, жирный, курсив и
+ * моноширинный.
  *
  * Второе: длинные заметки просто обрезались. Диалог не прокручивается сам, а его
  * содержимое растёт, пока хватает места, и молча упирается в кнопки.
@@ -37,6 +39,25 @@ fun ReleaseNotesText(notes: String, modifier: Modifier = Modifier) {
             .heightIn(max = 360.dp)
             .verticalScroll(rememberScrollState())
     )
+}
+
+/** Заголовок раздела: крупнее и жирнее обычного текста, но без своего кегля в теме. */
+private val HeadingStyle = SpanStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp)
+
+/**
+ * Длина метки заголовка в этом месте, включая пробел за решётками, или 0.
+ *
+ * Заголовком считается только начало строки: от одной до шести решёток и пробел -
+ * ровно как в markdown. Решётка посреди строки разметкой не является.
+ */
+private fun headingAt(text: String, index: Int): Int {
+    if (index > 0 && text[index - 1] != '\n') return 0
+    var hashes = 0
+    while (index + hashes < text.length && text[index + hashes] == '#' && hashes < 6) hashes++
+    if (hashes == 0) return 0
+    val after = index + hashes
+    if (after >= text.length || text[after] != ' ') return 0
+    return hashes + 1
 }
 
 /** Границы разметки: чем окружён кусок и как его показывать. */
@@ -58,6 +79,20 @@ private val markers = listOf(
 fun parseSimpleMarkdown(text: String): AnnotatedString = buildAnnotatedString {
     var i = 0
     while (i < text.length) {
+        // Заголовок разбирается первым и только с начала строки: решётка посреди
+        // текста - это решётка, а не разметка. На странице релиза заголовки делят
+        // заметки на разделы, и без разбора они приезжали сюда решётками в текст
+        val headingLength = headingAt(text, i)
+        if (headingLength > 0) {
+            val start = i + headingLength
+            val end = text.indexOf('\n', start).takeIf { it >= 0 } ?: text.length
+            pushStyle(HeadingStyle)
+            append(text.substring(start, end))
+            pop()
+            i = end
+            continue
+        }
+
         var matched = false
         for ((token, style) in markers) {
             if (!text.startsWith(token, i)) continue

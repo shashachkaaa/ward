@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
@@ -14,6 +16,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -41,6 +47,7 @@ import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
 import com.kyant.backdrop.shadow.Shadow
+import kotlinx.coroutines.flow.collectLatest
 
 /**
  * Стекло всего приложения. Своей реализации здесь больше нет: и размытие, и линзу, и
@@ -139,6 +146,21 @@ class GlassBackdrop internal constructor(internal val layer: GraphicsLayer) : Ba
      */
     internal var recorded = false
 
+    /**
+     * Сколько окон сейчас смотрят в этот слой.
+     *
+     * Пока смотрит хоть одно, слой надо переписывать каждый кадр. Сам по себе он
+     * переписывается только когда что-то ещё вызвало отрисовку экрана - а под
+     * открытым окном вызывать её некому, и картинка застывает.
+     */
+    internal var readers by mutableIntStateOf(0)
+
+    /**
+     * Отметка кадра. Значения не имеет: её читают внутри отрисовки, чтобы та шла
+     * каждый кадр, пока в слой кто-то смотрит.
+     */
+    internal var frame by mutableLongStateOf(0L)
+
     /** Он же в виде, понятном компонентам библиотеки. */
     val backdrop: Backdrop get() = this
 
@@ -176,9 +198,30 @@ fun Modifier.glassBackdropSource(
     @Suppress("UNUSED_PARAMETER") blurRadius: Dp = GlassBlurRadius
 ): Modifier {
     if (!LocalGlassQuality.current.blurs) return this
+
+    // Пока в слой смотрит хоть одно окно, гоним отрисовку по кадрам.
+    //
+    // Слой переписывается тогда, когда рисуется этот узел, а рисуется он, когда его
+    // что-то испортило. Под открытым окном портить некому: список стоит, кнопка стоит,
+    // и единственное, что движется, - капля в нижней капсуле, а она ездит своим слоем
+    // видеоядра и чужую отрисовку не трогает. Оттого картинка под стеклом и застывала:
+    // пока окно выезжало, кадры шли, а как встало - замерла до первого чужого движения.
+    //
+    // Гоняем только пока смотрят: без открытого окна перезапись всего экрана каждый
+    // кадр была бы чистым расходом батареи на неподвижной картинке.
+    LaunchedEffect(backdrop) {
+        snapshotFlow { backdrop.readers > 0 }.collectLatest { watched ->
+            while (watched) {
+                withFrameNanos { backdrop.frame = it }
+            }
+        }
+    }
+
     return this
         .onGloballyPositioned { backdrop.origin = it.positionOnScreen() }
         .drawWithContent {
+            // Чтение отметки внутри отрисовки и делает её кадровой
+            backdrop.frame
             backdrop.layer.record { this@drawWithContent.drawContent() }
             backdrop.recorded = true
             drawLayer(backdrop.layer)
@@ -344,9 +387,19 @@ fun Modifier.glassPanel(
     fallbackColor: Color? = null
 ): Modifier {
     val dense = fallbackColor ?: MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.94f)
+
+    // Пока окно на виду, слой под ним обязан переписываться каждый кадр. Считаем
+    // смотрящих здесь, а не у каждого окна поимённо: окно - это и есть тот, кому
+    // нужна живая картинка позади, а всё прочее стекло рисуется вместе с экраном
+    val source = LocalGlassBackdrop.current
+    DisposableEffect(source) {
+        source?.let { it.readers++ }
+        onDispose { source?.let { it.readers-- } }
+    }
+
     return glassBackground(
         shape = shape,
-        backdrop = LocalGlassBackdrop.current,
+        backdrop = source,
         blurRadius = blurRadius,
         opaqueness = opaqueness,
         dispersion = false,

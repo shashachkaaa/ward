@@ -73,6 +73,17 @@ val GlassBlurRadius = 8.dp
  */
 val GlassPanelBlurRadius = 6.dp
 
+/**
+ * Насколько широкой полосой от края идёт преломление и насколько сильно оно уводит.
+ *
+ * Высота у карточек и у окон разная, сила общая. У карточки полоса узкая - ей и
+ * положено лишь обозначить край; у окна вдвое шире, как у нижней капсулы, отчего
+ * стекло читается толстым, а не наклейкой.
+ */
+val GlassRefractionHeight = 12.dp
+val GlassPanelRefractionHeight = 24.dp
+val GlassRefractionAmount = 24.dp
+
 /** Форма выпадающих меню. */
 val GlassMenuShape = RoundedCornerShape(20.dp)
 
@@ -191,6 +202,8 @@ fun Modifier.glassBackground(
     opaqueness: Float = 1f,
     surfaceTint: Color? = null,
     dispersion: Boolean = true,
+    refractionHeight: Dp = GlassRefractionHeight,
+    depthEffect: Boolean = false,
     fallbackColor: Color? = null,
     innerGlow: Color? = null
 ): Modifier {
@@ -259,7 +272,12 @@ fun Modifier.glassBackground(
             // Оно же и самое дорогое: отдельная программа для видеоядра на каждую
             // поверхность каждый кадр. На упрощённом уровне его нет
             if (quality.refracts) {
-                lens(12f.dp.toPx(), 24f.dp.toPx(), chromaticAberration = dispersion)
+                lens(
+                    refractionHeight.toPx(),
+                    GlassRefractionAmount.toPx(),
+                    depthEffect = depthEffect,
+                    chromaticAberration = dispersion
+                )
             }
         },
         highlight = { Highlight.Ambient },
@@ -280,11 +298,16 @@ private fun Modifier.innerGlowIfNeeded(color: Color?, shape: Shape): Modifier =
  * Стекло для окон поверх экрана - диалогов, меню, шторок, снекбара. Слой берётся из
  * темы, так что ставить его вручную не нужно.
  *
- * Разложение по краю выключено. Разложение - это цветные
- * каёмки от преломления, и придуманы они для крупного стекла над richным содержимым,
- * где читаются переливом. Над тёмным списком настроек от них остаётся радужная кайма
- * по скруглению угла: на кромке диалога каналы расходились на два десятка значений
- * там, где фон ровно серый. Глазу это читается не стеклом, а дефектом печати.
+ * Преломление здесь такое же, как у нижней капсулы: полоса вдвое шире, чем у
+ * карточек, и включённая толщина. Толщина подмешивает в преломление сдвиг от
+ * середины, а не только по нормали к краю, - то, что под стеклом, слегка выпучивается,
+ * как под каплей. Капсула с этим смотрелась хорошо, окна просят того же.
+ *
+ * Разложение по краю при этом выключено. Разложение - это цветные каёмки от
+ * преломления, и придуманы они для крупного стекла над насыщенным содержимым, где
+ * читаются переливом. Над тёмным списком настроек от них остаётся радужная кайма по
+ * скруглению угла: на кромке диалога каналы расходились на два десятка значений там,
+ * где фон ровно серый. Глазу это читается не стеклом, а дефектом печати.
  */
 @Composable
 fun Modifier.glassPanel(
@@ -300,6 +323,8 @@ fun Modifier.glassPanel(
         blurRadius = blurRadius,
         opaqueness = opaqueness,
         dispersion = false,
+        refractionHeight = GlassPanelRefractionHeight,
+        depthEffect = true,
         fallbackColor = dense
     )
 }

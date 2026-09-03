@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +39,7 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 import com.kyant.backdrop.shadow.Shadow
 
 /**
@@ -86,11 +88,9 @@ val GlassPanelBlurRadius = 6.dp
  * заметную его часть.
  */
 val GlassRefractionHeight = 12.dp
-val GlassPanelRefractionHeight = 48.dp
+val GlassPanelRefractionHeight = 24.dp
 val GlassRefractionAmount = 24.dp
-
-/** Сила увода у окон: раз уж полоса шире, ей есть где развернуться. */
-val GlassPanelRefractionAmount = 32.dp
+val GlassPanelRefractionAmount = 24.dp
 
 /** Форма выпадающих меню. */
 val GlassMenuShape = RoundedCornerShape(20.dp)
@@ -213,6 +213,7 @@ fun Modifier.glassBackground(
     refractionHeight: Dp = GlassRefractionHeight,
     refractionAmount: Dp = GlassRefractionAmount,
     depthEffect: Boolean = false,
+    highlightAngle: State<Float>? = null,
     fallbackColor: Color? = null,
     innerGlow: Color? = null
 ): Modifier {
@@ -289,7 +290,24 @@ fun Modifier.glassBackground(
                 )
             }
         },
-        highlight = { Highlight.Ambient },
+        highlight = {
+            // Угол читается здесь, внутри отрисовки, а не в перекомпоновке: датчик
+            // шлёт события десятками в секунду, и снаружи это пересобирало бы кадр
+            val angle = highlightAngle
+            if (angle != null) {
+                Highlight(
+                    width = 1f.dp,
+                    style = HighlightStyle.Default(
+                        color = Color.White.copy(alpha = if (isDark) 0.55f else 0.85f),
+                        angle = angle.value,
+                        falloff = 2f,
+                        blendMode = DrawScope.DefaultBlendMode
+                    )
+                )
+            } else {
+                Highlight.Ambient
+            }
+        },
         shadow = { Shadow(radius = 8f.dp, color = Color.Black.copy(alpha = 0.08f)) },
         onDrawSurface = {
             drawRect(tint)
@@ -335,6 +353,10 @@ fun Modifier.glassPanel(
         refractionHeight = GlassPanelRefractionHeight,
         refractionAmount = GlassPanelRefractionAmount,
         depthEffect = true,
+        // Блик по наклону телефона. Настоящее стекло ловит свет под тем углом, под
+        // которым его держат, и это единственный признак стекла, не зависящий от того,
+        // что под ним. Преломлению на нашем чёрном фоне гнуть нечего, а свету - есть
+        highlightAngle = rememberGravityAngle(),
         fallbackColor = dense
     )
 }

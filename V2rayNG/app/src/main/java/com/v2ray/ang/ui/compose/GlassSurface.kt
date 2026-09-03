@@ -76,13 +76,21 @@ val GlassPanelBlurRadius = 6.dp
 /**
  * Насколько широкой полосой от края идёт преломление и насколько сильно оно уводит.
  *
- * Высота у карточек и у окон разная, сила общая. У карточки полоса узкая - ей и
- * положено лишь обозначить край; у окна вдвое шире, как у нижней капсулы, отчего
- * стекло читается толстым, а не наклейкой.
+ * У карточки полоса узкая - ей и положено лишь обозначить край.
+ *
+ * У окна вчетверо шире, и вот почему. Полоса меряется в точках от кромки внутрь, а
+ * доля её в поверхности зависит от размера. У нижней капсулы ростом в полсотни точек
+ * двадцать четыре - это половина её высоты, оттого она вся и выглядит линзой. У меню
+ * ростом в четыреста те же двадцать четыре - тонкая каёмка, а середина остаётся
+ * плоской. Чтобы окно читалось стеклом, а не картинкой в рамке, полосе нужно занимать
+ * заметную его часть.
  */
 val GlassRefractionHeight = 12.dp
-val GlassPanelRefractionHeight = 24.dp
+val GlassPanelRefractionHeight = 48.dp
 val GlassRefractionAmount = 24.dp
+
+/** Сила увода у окон: раз уж полоса шире, ей есть где развернуться. */
+val GlassPanelRefractionAmount = 32.dp
 
 /** Форма выпадающих меню. */
 val GlassMenuShape = RoundedCornerShape(20.dp)
@@ -203,6 +211,7 @@ fun Modifier.glassBackground(
     surfaceTint: Color? = null,
     dispersion: Boolean = true,
     refractionHeight: Dp = GlassRefractionHeight,
+    refractionAmount: Dp = GlassRefractionAmount,
     depthEffect: Boolean = false,
     fallbackColor: Color? = null,
     innerGlow: Color? = null
@@ -274,7 +283,7 @@ fun Modifier.glassBackground(
             if (quality.refracts) {
                 lens(
                     refractionHeight.toPx(),
-                    GlassRefractionAmount.toPx(),
+                    refractionAmount.toPx(),
                     depthEffect = depthEffect,
                     chromaticAberration = dispersion
                 )
@@ -324,6 +333,7 @@ fun Modifier.glassPanel(
         opaqueness = opaqueness,
         dispersion = false,
         refractionHeight = GlassPanelRefractionHeight,
+        refractionAmount = GlassPanelRefractionAmount,
         depthEffect = true,
         fallbackColor = dense
     )

@@ -62,7 +62,6 @@ import com.v2ray.ang.handler.LockdownStatus
 import com.v2ray.ang.handler.UpdateInstallState
 import com.v2ray.ang.ui.logcat.LogFileActivity
 import com.v2ray.ang.ui.compose.AppSnackbarManager
-import com.v2ray.ang.ui.compose.GlassSurface
 import com.v2ray.ang.ui.compose.LiquidGlassButton
 import com.v2ray.ang.ui.compose.LiquidPowerButton
 import com.v2ray.ang.ui.compose.QRCodeDialog
@@ -75,6 +74,7 @@ import com.v2ray.ang.ui.compose.BottomBlurScrim
 import com.v2ray.ang.ui.compose.LocalGlassAdaptive
 import com.v2ray.ang.ui.compose.LocalGlassQuality
 import com.v2ray.ang.ui.compose.glassBackdropSource
+import com.v2ray.ang.ui.compose.glassPanel
 import com.v2ray.ang.ui.compose.rememberGlassBackdrop
 
 @Composable
@@ -247,6 +247,18 @@ fun MainScreen(
     // общий слой такому стеклу недоступен, оно само в него пишется
     val contentBackdrop = rememberGlassBackdrop()
 
+    // Третий слой - весь экран целиком, вместе с нижней капсулой и полосой затухания.
+    //
+    // Первый слой пишет только содержимое Scaffold, потому что капсула и полоса сами
+    // его читают, а рисовать слой внутри его же записи нельзя. Но всплывающим окнам -
+    // меню, диалогам, шторке - нужен именно весь экран: они лежат поверх капсулы и
+    // обязаны размывать и её. С первым слоем меню размывало список и оставляло капсулу
+    // резкой, будто она нарисована сверху.
+    //
+    // Живут окна в своих окнах системы, в эту запись не попадают и потому вправе её
+    // читать. Записать слой внутри записи другого слоя тоже можно - это разные слои
+    val popupBackdrop = rememberGlassBackdrop()
+
     // Состояние списка нужно не для прокрутки, а чтобы знать, едет ли он: пока едет,
     // стекло внутри него идёт упрощённым
     val listState = rememberLazyListState()
@@ -261,10 +273,10 @@ fun MainScreen(
     )
 
     CompositionLocalProvider(
-        LocalGlassBackdrop provides backdrop,
+        LocalGlassBackdrop provides popupBackdrop,
         LocalContentBackdrop provides contentBackdrop
     ) {
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().glassBackdropSource(popupBackdrop)) {
         Scaffold(
             // Фон рисуется отдельно и в свой слой: карточкам нужно преломлять именно
             // его, а общий слой им брать нельзя - они сами в него пишутся
@@ -1193,12 +1205,14 @@ private fun ImportSheet(
         // Стекло должно доходить до самого низа экрана, отступ под навигацию делаем сами
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
-        GlassSurface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = sheetShape,
-            backdrop = LocalGlassBackdrop.current,
-            blurRadius = 34.dp,
-            opaqueness = 1.15f
+        // Шторка - такое же окно поверх экрана, как меню и диалоги, и стекло у неё
+        // должно быть тем же. Своя настройка тут и делала её чужой: размытие в тридцать
+        // четыре точки против шести у остальных и плёнка вдвое плотнее превращали
+        // шторку в светлую панель, ни на что в приложении не похожую
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassPanel(sheetShape)
         ) {
             Column(
                 modifier = Modifier

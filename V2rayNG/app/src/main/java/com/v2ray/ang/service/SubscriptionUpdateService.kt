@@ -39,9 +39,29 @@ class SubscriptionUpdateService : Service() {
 
     private val updateSemaphore = Semaphore(2)
 
+    /**
+     * Уведомление показывается здесь, до всякой работы.
+     *
+     * Система отмеряет службе переднего плана около десяти секунд на то, чтобы
+     * встать на передний план, и считает их с чужого startForegroundService.
+     * В этот срок укладывается и запуск процесса, и onCreate, и только потом
+     * onStartCommand - а здесь свой процесс, который поднимается с нуля. Пока в
+     * onCreate стояла инициализация ядра, на небыстром телефоне уведомления
+     * система не дожидалась и убивала процесс.
+     */
     override fun onCreate() {
         super.onCreate()
-        CoreNativeManager.initCoreEnv(this)
+        runCatching {
+            NotificationHelper.startForeground(
+                this,
+                NotificationChannelType.SUBSCRIPTION_UPDATE,
+                getString(R.string.title_pref_auto_update_subscription),
+                getString(R.string.app_name)
+            )
+        }.onFailure {
+            LogUtil.e(AppConfig.TAG, "SubscriptionUpdateService failed to go foreground", it)
+        }
+        CoreNativeManager.warmUp(this)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

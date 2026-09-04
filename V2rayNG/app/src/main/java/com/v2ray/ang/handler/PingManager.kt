@@ -168,6 +168,11 @@ object PingManager {
         val url = SettingsManager.getDelayTestUrl()
         val (delay, error) = coreTestMutex.withLock {
             withContext(Dispatchers.IO) {
+                // Окружение ядра заводится здесь же, как и на соседнем пути замера.
+                // Раньше на него полагались молча: службы поднимали ядро у себя в
+                // onCreate, и к замеру оно всегда было готово. Инициализация оттуда
+                // ушла - значит, спрашивать надо самим
+                CoreNativeManager.initCoreEnv(context.applicationContext)
                 CoreNativeManager.measureOutboundDelayDetailed(configResult.content, url)
             }
         }

@@ -22,11 +22,25 @@ class CoreTestService : Service() {
     private val activeWorkers = Collections.synchronizedList(mutableListOf<RealPingWorkerService>())
 
     /**
-     * Initializes the V2Ray environment.
+     * Показывает уведомление до всякой работы и заводит ядро в стороне.
+     *
+     * Служба живёт в своём процессе, и на холодном запуске в отмеренные системой
+     * секунды попадает всё: подъём процесса, onCreate и только потом
+     * onStartCommand. Инициализация ядра в этот срок не помещалась.
      */
     override fun onCreate() {
         super.onCreate()
-        CoreNativeManager.initCoreEnv(this)
+        runCatching {
+            NotificationHelper.startForeground(
+                this,
+                NotificationChannelType.CORE_TEST,
+                getString(R.string.app_name),
+                getString(R.string.title_real_ping_all_server)
+            )
+        }.onFailure {
+            LogUtil.e(AppConfig.TAG, "CoreTestService failed to go foreground", it)
+        }
+        CoreNativeManager.warmUp(this)
     }
 
     /**

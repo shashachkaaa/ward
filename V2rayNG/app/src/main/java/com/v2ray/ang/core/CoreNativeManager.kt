@@ -8,7 +8,6 @@ import go.Seq
 import libv2ray.CoreCallbackHandler
 import libv2ray.CoreController
 import libv2ray.Libv2ray
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * V2Ray Native Library Manager
@@ -17,29 +16,61 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Provides initialization protection and unified API for V2Ray core operations.
  */
 object CoreNativeManager {
-    private val initialized = AtomicBoolean(false)
+    private val initLock = Any()
+
+    @Volatile
+    private var initialized = false
 
     /**
      * Initialize V2Ray core environment.
      * This method is thread-safe and ensures initialization happens only once.
-     * Subsequent calls will be ignored silently.
      *
+     * Пришедший вторым не уходит ни с чем, а ждёт на замке, пока первый закончит.
+     * Раньше здесь стоял флаг «занято»: второй видел его и возвращался сразу, хотя
+     * библиотека ещё поднималась, - и звал ядро по неготовому окружению. Пока
+     * инициализация висела в onCreate служб, разойтись двоим было негде; с
+     * прогревом в стороне от главного потока это стало возможным.
      */
     fun initCoreEnv(context: Context?) {
-        if (initialized.compareAndSet(false, true)) {
+        if (initialized) {
+            LogUtil.d(AppConfig.TAG, "V2Ray core environment already initialized, skipping")
+            return
+        }
+        synchronized(initLock) {
+            if (initialized) return
             try {
                 Seq.setContext(context?.applicationContext)
                 val assetPath = Utils.userAssetPath(context)
                 val deviceId = Utils.getDeviceIdForXUDPBaseKey()
                 Libv2ray.initCoreEnv(assetPath, deviceId)
+                initialized = true
                 LogUtil.i(AppConfig.TAG, "V2Ray core environment initialized successfully")
             } catch (e: Exception) {
                 LogUtil.e(AppConfig.TAG, "Failed to initialize V2Ray core environment", e)
-                initialized.set(false)
                 throw e
             }
-        } else {
-            LogUtil.d(AppConfig.TAG, "V2Ray core environment already initialized, skipping")
+        }
+    }
+
+    /**
+     * Готовит окружение ядра в стороне от главного потока.
+     *
+     * Инициализация подтягивает нативную библиотеку ядра и разбирает файлы карт -
+     * на холодном процессе это секунды. Службе переднего плана столько занимать
+     * главный поток нельзя: система отмеряет ей около десяти секунд на показ
+     * уведомления, и считает их со своего startForegroundService, а не с нашего
+     * onCreate. Пока инициализация стояла в onCreate, в этот срок укладывался не
+     * всякий телефон, и система убивала процесс.
+     *
+     * Не дойти до конца тут не страшно: [initCoreEnv] идемпотентна, и тот, кому
+     * ядро понадобится, позовёт её сам и дождётся на замке.
+     */
+    fun warmUp(context: Context) {
+        if (initialized) return
+        val appContext = context.applicationContext
+        Thread({ runCatching { initCoreEnv(appContext) } }, "core-warmup").apply {
+            isDaemon = true
+            start()
         }
     }
 

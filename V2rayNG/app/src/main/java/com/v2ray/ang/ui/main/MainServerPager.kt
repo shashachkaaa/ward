@@ -80,6 +80,15 @@ import kotlin.math.sin
 /** Высота стеклянных таблеток «обновить» и «пинг» в шапке группы. */
 private val SubActionPillHeight = 30.dp
 
+/**
+ * Сколько строк объявления видно в свёрнутом виде.
+ *
+ * Три - это столько, сколько нужно, чтобы понять, о чём речь, и решить, читать ли
+ * дальше. Меньше - и от объявления остаётся обрывок, ради которого его всё равно
+ * придётся раскрывать каждый раз.
+ */
+private const val AnnounceCollapsedLines = 3
+
 /** Форма карточки группы. */
 private val CardShape = RoundedCornerShape(26.dp)
 
@@ -579,7 +588,11 @@ fun ProfileCard(
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                     thickness = 1.dp,
-                    modifier = Modifier.padding(vertical = 10.dp)
+                    // Шесть точек вместо десяти: черта и так отделяет шапку от
+                    // строки с трафиком, а по десять сверху и снизу давали между
+                    // ними тридцать девять точек пустоты - на замере это был
+                    // второй по величине кусок карточки после самого объявления
+                    modifier = Modifier.padding(vertical = 6.dp)
                 )
 
                 Row(
@@ -697,13 +710,29 @@ fun ProfileCard(
 
                 if (announceText.isNotBlank()) {
                     Spacer(Modifier.height(8.dp))
+                    // Объявление приходит от панели, и длина его ничем не ограничена:
+                    // сколько провайдер напишет, столько карточка и займёт. Замер по
+                    // снимку: четыре строки с пустой посередине - сто тридцать три
+                    // точки, почти половина всей карточки, а под ней уже не помещался
+                    // список серверов, ради которого экран и открывают.
+                    //
+                    // Отсюда потолок в три строки, а целиком - по нажатию. Объявление
+                    // никуда не девается и остаётся на виду; чего оно больше не может -
+                    // это своей длиной решать за весь экран.
+                    var announceExpanded by remember(announceText) { mutableStateOf(false) }
                     Text(
-                        text = announceText, 
-                        fontSize = 11.sp, 
-                        textAlign = TextAlign.Center, 
-                        fontWeight = FontWeight.Bold, 
-                        color = MaterialTheme.colorScheme.onSurface, 
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
+                        text = announceText,
+                        fontSize = 11.sp,
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = if (announceExpanded) Int.MAX_VALUE else AnnounceCollapsedLines,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { announceExpanded = !announceExpanded }
+                            .padding(horizontal = 4.dp)
                     )
                 }
             }

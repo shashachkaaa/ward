@@ -142,9 +142,16 @@ fun MainScreen(
 
     var uptime by remember { mutableLongStateOf(0L) }
     LaunchedEffect(uiState.isRunning, uiState.serviceStartTime) {
-        if (uiState.isRunning && uiState.serviceStartTime != null) {
+        // Время начала берём один раз, до цикла, а не перечитываем каждую секунду.
+        //
+        // Перечитывать нельзя: при отключении оно становится null, а этот цикл
+        // отменяется не мгновенно, а на следующем кадре. Проснись он после паузы
+        // в этот промежуток - и `!!` уронил бы всё приложение ровно в момент
+        // отключения. Окно узкое, но попадание в него - падение, а не мелочь
+        val start = uiState.serviceStartTime
+        if (uiState.isRunning && start != null) {
             while (true) {
-                uptime = System.currentTimeMillis() - uiState.serviceStartTime!!
+                uptime = System.currentTimeMillis() - start
                 delay(1000L)
             }
         } else {

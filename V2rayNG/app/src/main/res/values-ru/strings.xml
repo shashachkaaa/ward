@@ -498,6 +498,7 @@
 
     <string name="import_subscription_success">Подписка импортирована</string>
     <string name="import_subscription_failure">Невозможно импортировать подписку</string>
+    <string name="import_subscription_not_downloaded">Подписка добавлена, но не скачалась. Обновите её вручную.</string>
     <string name="title_fragment_settings">Настройки фрагментирования</string>
     <string name="title_pref_fragment_packets">Фрагментирование пакетов</string>
     <string name="title_pref_fragment_length">Длина фрагмента (от — до)</string>

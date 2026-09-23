@@ -809,15 +809,22 @@ class MainViewModel(
                 try {
                     // Одиночный ключ - отдельный сервер, а не часть подписки: положив его
                     // в подписку, мы бы стёрли его первым же её обновлением
-                    val (count, countSub) =
+                    val imported =
                         dataSource.importBatchConfig(configText, STANDALONE_GROUP_ID, true)
+                    val (count, countSub) = imported
 
                     // Новую подписку уже подтянул сам импорт; здесь остаётся случай,
                     // когда адрес был знаком - тогда просто обновляем всё
                     if (isUrl && countSub == 0) {
-                        dataSource.updateConfigViaSubAll()
+                        if (dataSource.updateConfigViaSubAll().failureCount > 0) {
+                            importError.value = dataSource.getString(R.string.main_update_failed)
+                        }
                     } else if (count == 0 && countSub == 0) {
                         importError.value = dataSource.getString(R.string.main_clipboard_empty)
+                    } else if (imported.hasSubFailures) {
+                        // Подписка заведена, но сеть её не отдала. Карточка появится
+                        // пустой - и человек должен знать почему, а не гадать
+                        importError.value = dataSource.getString(R.string.main_update_failed)
                     }
 
                     setupGroupTab(forceRefresh = true).join()

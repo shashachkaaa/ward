@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import com.v2ray.ang.AppConfig
+import com.v2ray.ang.dto.BatchImportResult
 import com.v2ray.ang.R
 import com.v2ray.ang.extension.toast
 import com.v2ray.ang.extension.toastError
@@ -129,21 +130,26 @@ class UrlSchemeActivity : BaseComponentActivity() {
         LogUtil.i(AppConfig.TAG, "Importing from url scheme: $url")
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val (count, countSub) = try {
+            val imported = try {
                 // Дописываем к тому, что уже есть: с заменой каждый импорт ключа
                 // стирал бы все добавленные до него
                 AngConfigManager.importBatchConfig(url, AppConfig.STANDALONE_SUBSCRIPTION_ID, true)
             } catch (e: Exception) {
                 LogUtil.e(AppConfig.TAG, "Failed to import from url scheme", e)
-                0 to 0
+                BatchImportResult(0, 0)
             }
+            val added = imported.count + imported.countSub
             withContext(Dispatchers.Main) {
-                if (count + countSub > 0) {
-                    toast(R.string.import_subscription_success)
-                } else {
-                    toast(R.string.import_subscription_failure)
+                // По этой ссылке люди приходят с сайта провайдера, и «добавлено»
+                // тут - первое, что они видят. Раньше оно звучало и тогда, когда
+                // подписка заводилась, а скачаться не могла: человек открывал
+                // приложение и находил пустую карточку без единого объяснения
+                when {
+                    added == 0 -> toast(R.string.import_subscription_failure)
+                    imported.hasSubFailures -> toast(R.string.import_subscription_not_downloaded)
+                    else -> toast(R.string.import_subscription_success)
                 }
-                openMainAndFinish(refresh = count + countSub > 0)
+                openMainAndFinish(refresh = added > 0)
             }
         }
         return true

@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import androidx.core.content.ContextCompat
 import com.v2ray.ang.AngApplication
 import com.v2ray.ang.AppConfig
+import com.v2ray.ang.dto.BatchImportResult
 import com.v2ray.ang.dto.SubscriptionUpdateResult
 import com.v2ray.ang.dto.TestServiceMessage
 import com.v2ray.ang.dto.entities.ProfileItem
@@ -184,7 +185,7 @@ class MainRepository(
         server: String?,
         subscriptionId: String,
         updateUI: Boolean
-    ): Pair<Int, Int> = AngConfigManager.importBatchConfig(server, subscriptionId, updateUI)
+    ): BatchImportResult = AngConfigManager.importBatchConfig(server, subscriptionId, updateUI)
 
     override fun updateConfigViaSubAll(): SubscriptionUpdateResult =
         AngConfigManager.updateConfigViaSubAll()

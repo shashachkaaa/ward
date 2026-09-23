@@ -6,6 +6,7 @@ import android.text.TextUtils
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.R
 import com.v2ray.ang.core.CoreConfigManager
+import com.v2ray.ang.dto.BatchImportResult
 import com.v2ray.ang.dto.SubscriptionUpdateResult
 import com.v2ray.ang.dto.UrlContentRequest
 import com.v2ray.ang.dto.entities.ProfileItem
@@ -176,9 +177,11 @@ object AngConfigManager {
      * @param server The server string.
      * @param subid The subscription ID.
      * @param append Whether to append the configurations.
-     * @return A pair containing the number of configurations and subscriptions imported.
+     * @return Сколько добавлено ключей и подписок и сколько подписок не скачалось.
+     *   Ходит в сеть, если среди импортированного есть подписка, - звать не из
+     *   главного потока.
      */
-    fun importBatchConfig(server: String?, subid: String, append: Boolean): Pair<Int, Int> {
+    fun importBatchConfig(server: String?, subid: String, append: Boolean): BatchImportResult {
         var count = parseBatchConfig(Utils.decode(server), subid, append)
         if (count <= 0) {
             count = parseBatchConfig(server, subid, append)
@@ -187,15 +190,29 @@ object AngConfigManager {
             count = parseCustomConfigServer(server, subid, append)
         }
 
+        val subsBefore = MmkvManager.decodeSubsList().toSet()
         var countSub = parseBatchSubscription(server)
         if (countSub <= 0) {
             countSub = parseBatchSubscription(Utils.decode(server))
         }
+
+        // Скачиваем только что заведённые подписки и смотрим, пришли ли они.
+        //
+        // Раньше тут обновлялись все подписки разом, а ответ выбрасывался. Отсюда
+        // две беды. Импорт докладывал об успехе, даже если новая подписка не
+        // скачалась, - и человек открывал пустую карточку. А обновление всех
+        // подряд смешивало бы чужие неудачи с этой: сломанная старая подписка
+        // выдавала бы себя за провал только что добавленной
+        var subFailures = 0
         if (countSub > 0) {
-            updateConfigViaSubAll()
+            val added = MmkvManager.decodeSubsList().filterNot { it in subsBefore }
+            subFailures = added
+                .mapNotNull { id -> MmkvManager.decodeSubscription(id)?.let { SubscriptionCache(id, it) } }
+                .fold(SubscriptionUpdateResult()) { acc, sub -> acc + updateConfigViaSub(sub) }
+                .failureCount
         }
 
-        return count to countSub
+        return BatchImportResult(count, countSub, subFailures)
     }
 
     /**

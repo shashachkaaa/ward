@@ -34,6 +34,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -138,6 +139,16 @@ class MainViewModel(
     private val groupDataCache = mutableMapOf<String, List<ServersCache>>()
     private val groupPageFlows = ConcurrentHashMap<String, MutableStateFlow<List<ServersCache>>>()
     private val groupLoadMutexes = ConcurrentHashMap<String, Mutex>()
+
+    /**
+     * Проверка задержки, запущенная в процессе приложения.
+     *
+     * Держим её здесь, потому что отменять её больше нечем. Проверок в приложении
+     * две: эта и та, что идёт в отдельном процессе через службу. Крестик на плашке
+     * слал отмену только службе - а служба при этой проверке даже не запускается,
+     * и нажатие не делало ровным счётом ничего.
+     */
+    private var pingJob: Job? = null
 
     private var setupGroupJob: Job? = null
     private var preloadJob: Job? = null
@@ -266,7 +277,8 @@ class MainViewModel(
     }
 
     private fun testProfilePing(subscriptionId: String) {
-        viewModelScope.launch(ioDispatcher) {
+        pingJob?.cancel()
+        pingJob = viewModelScope.launch(ioDispatcher) {
             try {
                 val guids = dataSource.getServerGuidList(subscriptionId)
                 if (guids.isEmpty()) return@launch
@@ -308,7 +320,15 @@ class MainViewModel(
                         }
                     }
 
-                    refresher.cancel()
+                    // Дожидаемся, а не просто просим остановиться.
+                    //
+                    // Обновляльщик раз в восемьсот миллисекунд перечитывает список и
+                    // кладёт его на экран. Отмена его лишь помечает: если он в этот
+                    // миг уже собрал список и идёт к показу, то покажет - и положит
+                    // недосчитанный список поверх итогового, который мы выложим
+                    // строкой ниже. Часть серверов оставалась без задержки до первого
+                    // постороннего обновления списка
+                    refresher.cancelAndJoin()
                 }
 
                 cacheMutex.withLock { groupDataCache.remove(subscriptionId) }
@@ -824,9 +844,20 @@ class MainViewModel(
             withContext(ioDispatcher) {
                 try {
                     val item = dataSource.getSubscriptionItem(subId) ?: return@withContext
-                    dataSource.updateConfigViaSub(SubscriptionCache(subId, item))
+                    // Неудача возвращается значением, а не исключением, и раньше это
+                    // значение просто выбрасывалось. Плашка уезжала, экран обновлялся
+                    // старым содержимым - и выходило, будто подписка обновилась, хотя
+                    // сеть могла её и не отдать. Молчаливый отказ хуже громкого:
+                    // человек не перезапрашивает то, что по его мнению уже получил
+                    val result = dataSource.updateConfigViaSub(SubscriptionCache(subId, item))
                     setupGroupTab(forceRefresh = true).join()
+                    if (result.failureCount > 0) {
+                        importError.value = dataSource.getString(R.string.main_update_failed)
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (e: Exception) {
+                    LogUtil.e(AppConfig.TAG, "Failed to update subscription", e)
                     importError.value = dataSource.getString(R.string.main_update_failed)
                 } finally {
                     isImporting.value = false
@@ -868,7 +899,16 @@ class MainViewModel(
         dataSource.testCurrentServerRealPing()
     }
 
+    /**
+     * Останавливает проверку задержки - обе сразу.
+     *
+     * Проверок две, и крестик должен гасить ту, которая на самом деле идёт.
+     * Одна живёт здесь, в процессе приложения, вторая - в отдельном процессе,
+     * у службы. Какая из них работает, отсюда не видно, поэтому отменяем обе:
+     * лишняя отмена ничего не стоит, а молчащий крестик стоил доверия.
+     */
     private fun cancelAllPing() {
+        pingJob?.cancel()
         dataSource.cancelAllPing()
     }
 

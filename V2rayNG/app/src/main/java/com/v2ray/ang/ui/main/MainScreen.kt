@@ -62,6 +62,7 @@ import com.v2ray.ang.handler.LockdownStatus
 import com.v2ray.ang.handler.UpdateInstallState
 import com.v2ray.ang.ui.logcat.LogFileActivity
 import com.v2ray.ang.ui.compose.AppSnackbarManager
+import com.v2ray.ang.ui.compose.ToastType
 import com.v2ray.ang.ui.compose.LiquidGlassButton
 import com.v2ray.ang.ui.compose.LiquidPowerButton
 import com.v2ray.ang.ui.compose.QRCodeDialog
@@ -117,11 +118,16 @@ fun MainScreen(
 
     val showImportMenu by mainViewModel.showImportSheet.collectAsStateWithLifecycle()
 
+    // Ошибки показываем тем же стеклом, что и все прочие сообщения приложения.
+    //
+    // Своя красная карточка была единственной поверхностью на экране, сделанной не
+    // по общим правилам: плоский материал, восемь точек скругления и цвет темы -
+    // отсюда и чужеродный вид рядом со стеклом. И убрать её было нечем: она просто
+    // висела свои четыре секунды. Плашку сообщения можно смахнуть пальцем сразу.
     LaunchedEffect(importError) {
-        if (importError != null) {
-            delay(4000)
-            mainViewModel.importError.value = null
-        }
+        val error = importError ?: return@LaunchedEffect
+        AppSnackbarManager.show(error, ToastType.ERROR, long = true)
+        mainViewModel.importError.value = null
     }
 
     // Крутится, пока служба не отчиталась о новом состоянии (или об ошибке запуска)
@@ -676,25 +682,6 @@ fun MainScreen(
             )
         }
 
-        AnimatedVisibility(
-            visible = importError != null,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
-            exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)
-        ) {
-            Card(
-                shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer), // ДИНАМИЧЕСКИЙ ЦВЕТ ОШИБКИ
-                elevation = CardDefaults.cardElevation(8.dp)
-            ) {
-                Text(
-                    text = importError ?: "", 
-                    color = MaterialTheme.colorScheme.onErrorContainer, // ДИНАМИЧЕСКИЙ ЦВЕТ ТЕКСТА ОШИБКИ
-                    fontWeight = FontWeight.Bold, 
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                )
-            }
-        }
     }
     }
 }

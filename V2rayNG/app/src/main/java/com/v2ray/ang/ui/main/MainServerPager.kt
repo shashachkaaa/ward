@@ -388,7 +388,8 @@ fun ProfileCard(
             // стилем, а по отдельности - линейкой или пятном
             innerGlow = serviceTint?.copy(alpha = 0.22f)
         ) {
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp, horizontal = 14.dp)) {
+            // Поля ужаты с четырнадцати: карточка выходила рыхлой и широкой
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 12.dp)) {
                 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -427,7 +428,7 @@ fun ProfileCard(
                                 // названия и даты, и мельче он читается недомерком.
                                 // Замер по снимку: блок 121 точка, значок был 91
                                 modifier = Modifier
-                                    .size(34.dp)
+                                    .size(30.dp)
                                     .clip(RoundedCornerShape(10.dp))
                                     // Оправа в цвете сервиса, если он его прислал
                                     .then(
@@ -583,7 +584,7 @@ fun ProfileCard(
                     // строки с трафиком, а по десять сверху и снизу давали между
                     // ними тридцать девять точек пустоты - на замере это был
                     // второй по величине кусок карточки после самого объявления
-                    modifier = Modifier.padding(vertical = 6.dp)
+                    modifier = Modifier.padding(vertical = 4.dp)
                 )
 
                 Row(
@@ -609,7 +610,7 @@ fun ProfileCard(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
                         )
                     }
                     
@@ -649,7 +650,7 @@ fun ProfileCard(
                     }
                     val barTint by animateColorAsState(barColor, tween(400), label = "trafficBarColor")
 
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(8.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -668,7 +669,7 @@ fun ProfileCard(
                 }
 
                 if (showRenew) {
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(8.dp))
                     LiquidGlassButton(
                         onClick = {
                             try {
@@ -700,13 +701,16 @@ fun ProfileCard(
                 }
 
                 if (announceText.isNotBlank()) {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
                     // Объявление показывается целиком. Потолок со сворачиванием тут
                     // уже стоял и был убран: объявление - это то, ради чего провайдер
                     // и заводит подписку, и прятать его за нажатием нельзя
                     Text(
                         text = announceText,
                         fontSize = 11.sp,
+                        // Межстрочный задан явно: по умолчанию шрифт давал почти
+                        // двойной интервал, и объявление раздувало карточку
+                        lineHeight = 14.sp,
                         textAlign = TextAlign.Center,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,

@@ -2,13 +2,13 @@ package com.v2ray.ang.ui.compose
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.addOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -37,33 +37,42 @@ private val DefaultDepth = 20.dp
 /**
  * Отсвет цвета внутрь от всех четырёх краёв: у кромки цвет виден, к середине гаснет.
  *
- * По углам заливки складываются, и угол светится ярче - так и надо: край, где
- * сходятся две стороны, ловит больше света.
+ * Рисуется не четырьмя полосами по сторонам, а обводками самой формы. Полосы -
+ * это прямоугольник: внутренний край отсвета выходил с острыми углами, а у
+ * скругления карточки отсвет обрезался и пропадал, и цвет читался квадратной
+ * рамкой внутри круглой. Обводка идёт по контуру формы, поэтому и отсвет
+ * повторяет её скругление.
+ *
+ * Мягкость - из стопки обводок: каждая следующая шире и заходит глубже, а
+ * прозрачны они так, что вместе у самой кромки дают исходный цвет. Там, где
+ * лежат все обводки, цвет плотнее всего; к середине их всё меньше, и он гаснет.
+ * Обрезка по форме оставляет от каждой только внутреннюю половину.
  */
 fun Modifier.innerEdgeGlow(color: Color, shape: Shape, depth: Dp = DefaultDepth): Modifier =
     drawWithCache {
         val inset = depth.toPx().coerceAtMost(size.minDimension / 2f)
-        if (inset <= 0f) return@drawWithCache onDrawBehind {}
+        if (inset <= 0f || color.alpha <= 0f) return@drawWithCache onDrawBehind {}
 
-        val clip = clipPathOf(shape)
-        val faded = color.fadedOut()
-        val top = Brush.verticalGradient(listOf(color, faded), 0f, inset)
-        val bottom = Brush.verticalGradient(listOf(faded, color), size.height - inset, size.height)
-        val left = Brush.horizontalGradient(listOf(color, faded), 0f, inset)
-        val right = Brush.horizontalGradient(listOf(faded, color), size.width - inset, size.width)
-
-        val horizontal = Size(size.width, inset)
-        val vertical = Size(inset, size.height)
+        val outline = clipPathOf(shape)
+        // Прозрачность одного слоя подобрана так, чтобы все слои вместе давали
+        // у кромки ровно исходную: 1 - (1 - a)^n = alpha
+        val layerAlpha = 1f - Math.pow(1.0 - color.alpha, 1.0 / GlowLayers).toFloat()
+        val layer = color.copy(alpha = layerAlpha)
+        val strokes = List(GlowLayers) { i ->
+            // Обводка ложится по контуру поровну наружу и внутрь, а внутрь нужно
+            // заглянуть на всю глубину слоя - отсюда удвоение
+            Stroke(width = 2f * inset * (i + 1) / GlowLayers)
+        }
 
         onDrawBehind {
-            clipPath(clip) {
-                drawRect(top, size = horizontal)
-                drawRect(bottom, topLeft = Offset(0f, size.height - inset), size = horizontal)
-                drawRect(left, size = vertical)
-                drawRect(right, topLeft = Offset(size.width - inset, 0f), size = vertical)
+            clipPath(outline) {
+                strokes.forEach { drawPath(outline, layer, style = it) }
             }
         }
     }
+
+/** Сколько обводок складывают отсвет: меньше - видны ступени, больше - лишняя работа. */
+private const val GlowLayers = 8
 
 /**
  * Тёмная кромка внутри по верхнему краю - толщина стенки у стекла.

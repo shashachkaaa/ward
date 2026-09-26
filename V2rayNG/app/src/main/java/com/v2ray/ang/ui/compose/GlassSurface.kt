@@ -247,6 +247,7 @@ fun Modifier.glassBackdropSource(
  * @param fallbackColor Подложка, когда слоя нет.
  * @param innerGlow Отсвет цвета внутрь от краёв - им карточка подписки показывает цвет
  *   сервиса. Ровно со всех сторон: это не тень предмета, а свет на стекле.
+ * @param innerGlowDepth Насколько далеко отсвет заходит внутрь; null - обычная глубина.
  */
 @Composable
 fun Modifier.glassBackground(
@@ -261,7 +262,8 @@ fun Modifier.glassBackground(
     depthEffect: Boolean = false,
     highlightAngle: State<Float>? = null,
     fallbackColor: Color? = null,
-    innerGlow: Color? = null
+    innerGlow: Color? = null,
+    innerGlowDepth: Dp? = null
 ): Modifier {
     val scheme = MaterialTheme.colorScheme
     val isDark = LocalDarkTheme.current
@@ -296,7 +298,7 @@ fun Modifier.glassBackground(
         )
         return background(solid, shape)
             .border(1.dp, rim, shape)
-            .innerGlowIfNeeded(innerGlow, shape)
+            .innerGlowIfNeeded(innerGlow, shape, innerGlowDepth)
     }
 
     val tint = glassSurfaceColor(isDark, scheme.surface, opaqueness)
@@ -361,11 +363,14 @@ fun Modifier.glassBackground(
             // капсулой или скруглённым прямоугольником, а не квадратом
             if (surfaceTint != null) drawRect(surfaceTint)
         }
-    ).innerGlowIfNeeded(innerGlow, shape)
+    ).innerGlowIfNeeded(innerGlow, shape, innerGlowDepth)
 }
 
-private fun Modifier.innerGlowIfNeeded(color: Color?, shape: Shape): Modifier =
-    if (color != null) innerEdgeGlow(color, shape) else this
+private fun Modifier.innerGlowIfNeeded(color: Color?, shape: Shape, depth: Dp?): Modifier = when {
+    color == null -> this
+    depth == null -> innerEdgeGlow(color, shape)
+    else -> innerEdgeGlow(color, shape, depth)
+}
 
 /**
  * Заставляет стекло пересобираться вслед за отметкой кадра слоя.
@@ -456,6 +461,7 @@ fun GlassSurface(
     fallbackColor: Color? = null,
     border: Color? = null,
     innerGlow: Color? = null,
+    innerGlowDepth: Dp? = null,
     content: @Composable BoxScope.() -> Unit = {}
 ) {
     Box(
@@ -469,7 +475,8 @@ fun GlassSurface(
             surfaceTint = surfaceTint,
             dispersion = dispersion,
             fallbackColor = fallbackColor,
-            innerGlow = innerGlow
+            innerGlow = innerGlow,
+            innerGlowDepth = innerGlowDepth
         ),
         content = content
     )

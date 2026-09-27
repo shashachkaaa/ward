@@ -1,0 +1,519 @@
+package com.v2ray.ang.util
+
+import android.content.Context
+import android.util.Base64
+import com.ward.desktop.DesktopPaths
+import com.v2ray.ang.AppConfig
+import com.v2ray.ang.AppConfig.LOOPBACK
+import com.v2ray.ang.BuildConfig
+import java.io.IOException
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.URI
+import java.net.URLDecoder
+import java.net.URLEncoder
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.UUID
+
+object Utils {
+
+    private val IPV4_REGEX =
+        Regex("^([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\\.([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\\.([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\\.([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])$")
+    /**
+     * Адрес в квадратных скобках, за которыми может стоять порт: `[::1]`, `[::1]:80`.
+     * В таком виде IPv6 записывают везде, где рядом бывает порт, - иначе двоеточие
+     * порта не отличить от двоеточий самого адреса.
+     */
+    private val BRACKETED_HOST_REGEX = Regex("""^\[(.+)](?::\d+)?$""")
+
+    private val IPV6_REGEX = Regex("^((?:[0-9A-Fa-f]{1,4}))?((?::[0-9A-Fa-f]{1,4}))*::((?:[0-9A-Fa-f]{1,4}))?((?::[0-9A-Fa-f]{1,4}))*|((?:[0-9A-Fa-f]{1,4}))((?::[0-9A-Fa-f]{1,4})){7}$")
+
+    /**
+     * Parse a string to an integer with a default value.
+     *
+     * @param str The string to parse.
+     * @param default The default value if parsing fails.
+     * @return The parsed integer, or the default value if parsing fails.
+     */
+    fun parseInt(str: String?, default: Int = 0): Int {
+        return str?.toIntOrNull() ?: default
+    }
+
+    /**
+     * Get text from the clipboard.
+     *
+     * @param context The context to use.
+     * @return The text from the clipboard, or an empty string if an error occurs.
+     */
+    fun getClipboard(context: Context): String {
+        // Настольная версия: буфер обмена AWT
+        return try {
+            val cb = java.awt.Toolkit.getDefaultToolkit().systemClipboard
+            cb.getData(java.awt.datatransfer.DataFlavor.stringFlavor) as? String ?: ""
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to get clipboard content", e)
+            ""
+        }
+    }
+
+    /**
+     * Set text to the clipboard.
+     *
+     * @param context The context to use.
+     * @param content The text to set to the clipboard.
+     */
+    fun setClipboard(context: Context, content: String) {
+        try {
+            java.awt.Toolkit.getDefaultToolkit().systemClipboard
+                .setContents(java.awt.datatransfer.StringSelection(content), null)
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to set clipboard content", e)
+        }
+    }
+
+    /**
+     * Decode a base64 encoded string.
+     *
+     * @param text The base64 encoded string.
+     * @return The decoded string, or an empty string if decoding fails.
+     */
+    fun decode(text: String?): String {
+        return tryDecodeBase64(text) ?: text?.trimEnd('=')?.let { tryDecodeBase64(it) }.orEmpty()
+    }
+
+    /**
+     * Try to decode a base64 encoded string.
+     *
+     * @param text The base64 encoded string.
+     * @return The decoded string, or null if decoding fails.
+     */
+    private fun tryDecodeBase64(text: String?): String? {
+        if (text.isNullOrEmpty()) return null
+
+        try {
+            return Base64.decode(text, Base64.NO_WRAP).toString(Charsets.UTF_8)
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to decode standard base64", e)
+        }
+        try {
+            return Base64.decode(text, Base64.NO_WRAP.or(Base64.URL_SAFE)).toString(Charsets.UTF_8)
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to decode URL-safe base64", e)
+        }
+        return null
+    }
+
+    /**
+     * Encode a string to base64.
+     *
+     * @param text The string to encode.
+     * @param removePadding
+     * @return The base64 encoded string, or an empty string if encoding fails.
+     */
+    fun encode(text: String, removePadding: Boolean = false): String {
+        return try {
+            var encoded = Base64.encodeToString(text.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+            if (removePadding) {
+                encoded = encoded.trimEnd('=')
+            }
+            encoded
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to encode text to base64", e)
+            ""
+        }
+    }
+
+    /**
+     * Check if a string is a valid IP address.
+     *
+     * @param value The string to check.
+     * @return True if the string is a valid IP address, false otherwise.
+     */
+    fun isIpAddress(value: String?): Boolean {
+        if (value.isNullOrEmpty()) return false
+
+        try {
+            var addr = value.trim()
+            if (addr.isEmpty()) return false
+
+            //CIDR
+            if (addr.contains("/")) {
+                val arr = addr.split("/")
+                if (arr.size == 2 && arr[1].toIntOrNull() != null && arr[1].toInt() > -1) {
+                    addr = arr[0]
+                }
+            }
+
+            // Скобки снимаем первыми: «[::1]:80» иначе не разбирался вовсе - до
+            // проверки доходила строка со скобкой и портом, а под неё не подходит
+            // ни одно выражение
+            BRACKETED_HOST_REGEX.matchEntire(addr)?.let { addr = it.groupValues[1] }
+
+            // IPv4 внутри IPv6: «::ffff:192.168.0.1» - это тот же IPv4
+            if (addr.startsWith("::ffff:") && '.' in addr) {
+                addr = addr.drop(7)
+            }
+
+            val octets = addr.split('.')
+            if (octets.size == 4) {
+                if (octets[3].contains(":")) {
+                    addr = addr.substring(0, addr.indexOf(":"))
+                }
+                return isIpv4Address(addr)
+            }
+
+            return isIpv6Address(addr)
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to validate IP address", e)
+            return false
+        }
+    }
+
+    /**
+     * Check if a string is a pure IP address (IPv4 or IPv6).
+     *
+     * @param value The string to check.
+     * @return True if the string is a pure IP address, false otherwise.
+     */
+    fun isPureIpAddress(value: String): Boolean {
+        return isIpv4Address(value) || isIpv6Address(value)
+    }
+
+    /**
+     * Check if a string is a valid domain name.
+     *
+     * A valid domain name must not be an IP address and must be a valid URL format.
+     *
+     * @param input The string to check.
+     * @return True if the string is a valid domain name, false otherwise.
+     */
+    fun isDomainName(input: String?): Boolean {
+        if (input.isNullOrEmpty()) return false
+
+        // Must not be an IP address and must be a valid URL format
+        return !isPureIpAddress(input) && isValidUrl(input)
+    }
+
+    /**
+     * Check if a string is a valid IPv4 address.
+     *
+     * @param value The string to check.
+     * @return True if the string is a valid IPv4 address, false otherwise.
+     */
+    private fun isIpv4Address(value: String): Boolean {
+        return IPV4_REGEX.matches(value)
+    }
+
+    /**
+     * Check if a string is a valid IPv6 address.
+     *
+     * @param value The string to check.
+     * @return True if the string is a valid IPv6 address, false otherwise.
+     */
+    private fun isIpv6Address(value: String): Boolean {
+        var addr = value
+        if (addr.startsWith("[") && addr.endsWith("]")) {
+            addr = addr.drop(1).dropLast(1)
+        }
+        return IPV6_REGEX.matches(addr)
+    }
+
+    /**
+     * Check if a string is a CoreDNS address.
+     *
+     * @param s The string to check.
+     * @return True if the string is a CoreDNS address, false otherwise.
+     */
+    fun isCoreDNSAddress(s: String): Boolean {
+        return s.startsWith("https") ||
+                s.startsWith("tcp") ||
+                s.startsWith("quic") ||
+                s == "localhost"
+    }
+
+    /**
+     * Check if a string is a valid URL.
+     *
+     * @param value The string to check.
+     * @return True if the string is a valid URL, false otherwise.
+     */
+    fun isValidUrl(value: String?): Boolean {
+        if (value.isNullOrEmpty()) return false
+
+        return try {
+            // Настольная версия: вместо Patterns и URLUtil - разбор через URI
+            val uri = URI(fixIllegalUrl(value))
+            (uri.scheme != null && !uri.host.isNullOrEmpty()) || isDomainName(value)
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to validate URL", e)
+            false
+        }
+    }
+
+    /**
+     * Open a URI in a browser.
+     *
+     * @param context The context to use.
+     * @param uriString The URI string to open.
+     */
+    fun openUri(context: Context, uriString: String) {
+        try {
+            com.ward.desktop.Platform.openUrl(uriString)
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to open URI", e)
+        }
+    }
+
+    /**
+     * Generate a UUID.
+     *
+     * @return A UUID string without dashes.
+     */
+    fun getUuid(): String {
+        return try {
+            UUID.randomUUID().toString().replace("-", "")
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to generate UUID", e)
+            ""
+        }
+    }
+
+    /**
+     * Decode a "encodeURIComponent" string.
+     *
+     * @param url The "encodeURIComponent" string.
+     * @return The decoded string, or the original string if decoding fails.
+     */
+    fun decodeURIComponent(url: String): String {
+        return try {
+            // Decode strictly according to RFC 3986 / encodeURIComponent semantics.
+            // '+' is a literal plus and MUST NOT be interpreted as space.
+            // Inputs using '+' for spaces are non-conforming and rejected deliberately
+            // to avoid cross-language interoperability issues.
+            URLDecoder.decode(url.replace("+", "%2B"), Charsets.UTF_8.toString())
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to decode encodeURIComponent", e)
+            url
+        }
+    }
+
+    /**
+     * Encode a string to "encodeURIComponent" format.
+     * 
+     * @param url The string to encode.
+     * @return The "encodeURIComponent" encoded string, or the original string if encoding fails.
+     */
+    fun encodeURIComponent(url: String): String {
+        return try {
+            // Replace '+' with '%20' to conform to encodeURIComponent semantics.
+            URLEncoder.encode(url, Charsets.UTF_8.toString()).replace("+", "%20")
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to encode encodeURIComponent", e)
+            url
+        }
+    }
+
+    /**
+     * Read text from an asset file.
+     *
+     * @param context The context to use.
+     * @param fileName The name of the asset file.
+     * @return The content of the asset file as a string.
+     */
+    fun readTextFromAssets(context: Context?, fileName: String): String {
+        if (context == null) return ""
+
+        return try {
+            // Настольная версия: ассеты лежат в ресурсах сборки
+            (Utils::class.java.getResourceAsStream("/assets/$fileName") ?: return "").use { inputStream ->
+                inputStream.bufferedReader().use { reader ->
+                    reader.readText()
+                }
+            }
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to read asset file: $fileName", e)
+            ""
+        }
+    }
+
+    /**
+     * Get the path to the user asset directory.
+     *
+     * @param context The context to use.
+     * @return The path to the user asset directory.
+     */
+    fun userAssetPath(context: Context?): String {
+        if (context == null) return ""
+
+        return try {
+            DesktopPaths.assetsDir.absolutePath
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to get user asset path", e)
+            ""
+        }
+    }
+
+    /**
+     * Get the device ID for XUDP base key.
+     *
+     * @return The device ID for XUDP base key.
+     */
+    fun getDeviceIdForXUDPBaseKey(): String {
+        return try {
+            // Как на Android: там берётся имя константы, а не сам идентификатор
+            val androidId = "android_id".toByteArray(Charsets.UTF_8)
+            Base64.encodeToString(androidId.copyOf(32), Base64.NO_PADDING.or(Base64.URL_SAFE))
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to generate device ID", e)
+            ""
+        }
+    }
+
+    /**
+     * Get the IPv6 address in a formatted string.
+     *
+     * @param address The IPv6 address.
+     * @return The formatted IPv6 address, or the original address if not valid.
+     */
+    fun getIpv6Address(address: String?): String {
+        if (address.isNullOrEmpty()) return ""
+
+        return if (isIpv6Address(address) && !address.contains('[') && !address.contains(']')) {
+            "[$address]"
+        } else {
+            address
+        }
+    }
+
+    /**
+     * Get the system locale.
+     *
+     * @return The system locale.
+     */
+    fun getSysLocale(): Locale = Locale.getDefault()
+
+    /**
+     * Fix illegal characters in a URL.
+     *
+     * @param str The URL string.
+     * @return The URL string with illegal characters replaced.
+     */
+    fun fixIllegalUrl(str: String): String {
+        return str.replace(" ", "%20")
+            .replace("|", "%7C")
+    }
+
+    /**
+     * Find a random free port.
+     *
+     * @return A random free port.
+     * @throws IOException If no free port is found.
+     */
+    fun findRandomFreePort(): Int {
+        return ServerSocket(0).use { it.localPort }
+    }
+
+    /**
+     * Check if a string is a valid subscription URL.
+     *
+     * @param value The string to check.
+     * @return True if the string is a valid subscription URL, false otherwise.
+     */
+    fun isValidSubUrl(value: String?): Boolean {
+        if (value.isNullOrEmpty()) return false
+
+        try {
+            if (value.startsWith("https://", ignoreCase = true)) return true
+            if (value.startsWith("http://", ignoreCase = true)) {
+                if (value.contains(LOOPBACK)) return true
+
+                //Check private ip address
+                val uri = URI(fixIllegalUrl(value))
+                if (isIpAddress(uri.host)) {
+                    AppConfig.PRIVATE_IP_LIST.forEach {
+                        if (isIpInCidr(uri.host, it)) return true
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to validate subscription URL", e)
+        }
+        return false
+    }
+
+    /**
+     * Check if the package is Xray.
+     *
+     * @return True if the package is Xray, false otherwise.
+     */
+    fun isXray(): Boolean = BuildConfig.APPLICATION_ID.startsWith("com.v2ray.ang")
+
+    /**
+     * Converts an InetAddress to its long representation
+     *
+     * @param ip The InetAddress to convert
+     * @return The long representation of the IP address
+     */
+    private fun inetAddressToLong(ip: InetAddress): Long {
+        val bytes = ip.address
+        var result: Long = 0
+        for (i in bytes.indices) {
+            result = result shl 8 or (bytes[i].toInt() and 0xff).toLong()
+        }
+        return result
+    }
+
+    /**
+     * Check if an IP address is within a CIDR range
+     *
+     * @param ip The IP address to check
+     * @param cidr The CIDR notation range (e.g., "192.168.1.0/24")
+     * @return True if the IP is within the CIDR range, false otherwise
+     */
+    fun isIpInCidr(ip: String, cidr: String): Boolean {
+        try {
+            if (!isIpAddress(ip)) return false
+
+            // Разбор маски: «192.168.1.0/24». Испорченная маска - обычный ответ
+            // «нет», а не поломка: сюда приходят и строки, набранные руками.
+            // Раньше на них разваливалось разрушающее присваивание, и ответ
+            // приходил из обработчика исключения вместе с записью в журнал
+            val parts = cidr.split("/")
+            if (parts.size != 2) return false
+            val cidrIp = parts[0]
+            val prefixLength = parts[1].toIntOrNull()?.takeIf { it in 0..32 } ?: return false
+
+            // Convert IP and CIDR's IP portion to Long
+            val ipLong = inetAddressToLong(InetAddress.getByName(ip))
+            val cidrIpLong = inetAddressToLong(InetAddress.getByName(cidrIp))
+
+            // Calculate subnet mask (e.g., /24 → 0xFFFFFF00)
+            val mask = if (prefixLength == 0) 0L else (-1L shl (32 - prefixLength))
+
+            // Check if they're in the same subnet
+            return (ipLong and mask) == (cidrIpLong and mask)
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to check if IP is in CIDR", e)
+            return false
+        }
+    }
+
+    /**
+     * Format a timestamp (milliseconds since epoch) into a date string.
+     * Returns empty string for null or non-positive timestamps.
+     * @param ts timestamp in milliseconds or null
+     * @param pattern SimpleDateFormat pattern, default "yyyy-MM-dd HH:mm"
+     */
+    fun formatTimestamp(ts: Long?, pattern: String = "yyyy-MM-dd HH:mm", locale: Locale = Locale.getDefault()): String {
+        if (ts == null || ts <= 0L) return ""
+        return try {
+            val sdf = SimpleDateFormat(pattern, locale)
+            sdf.format(Date(ts))
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to format timestamp", e)
+            ""
+        }
+    }
+}

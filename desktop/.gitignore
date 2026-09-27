@@ -1,0 +1,6 @@
+build/
+.gradle/
+.kotlin/
+# Бинарник xray и geo-файлы CI кладёт сюда перед упаковкой
+resources/windows/
+resources/linux/

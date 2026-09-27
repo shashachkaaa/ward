@@ -34,7 +34,9 @@ compose.desktop {
             packageName = "Ward"
             // MSI требует версию вида X.Y.Z без суффиксов
             packageVersion = wardVersion.removePrefix("v").substringBefore('-')
-            description = "Ward - клиент Xray"
+            // Только латиница: WiX собирает MSI в кодировке 1252, и кириллица
+            // в описании или имени производителя валит упаковку
+            description = "Ward - Xray client"
             vendor = "Ward"
             // Рядом с приложением кладётся бинарник xray и geo-файлы: CI скачивает
             // их в resources/<os> перед упаковкой

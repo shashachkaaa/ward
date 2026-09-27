@@ -20,6 +20,7 @@ object SystemProxy {
     /** Итог попытки: что получилось выставить, человеку это показывается. */
     data class Result(val ok: Boolean, val message: String)
 
+    @Synchronized
     fun enable(httpPort: Int, socksPort: Int): Result = try {
         if (DesktopPaths.isWindows) Windows.enable(httpPort) else Linux.enable(httpPort, socksPort)
     } catch (e: Exception) {
@@ -27,7 +28,13 @@ object SystemProxy {
         Result(false, "Не удалось включить системный прокси: ${e.message}")
     }
 
+    /**
+     * Возвращает прежние настройки - но только если их меняли мы. Иначе выход
+     * без подключения стёр бы прокси, который человек выставил себе сам.
+     */
+    @Synchronized
     fun disable() {
+        if (!store.decodeBool(KEY_DIRTY, false)) return
         try {
             if (DesktopPaths.isWindows) Windows.restore() else Linux.restore()
         } catch (e: Exception) {
@@ -39,8 +46,8 @@ object SystemProxy {
     fun recoverIfDirty() {
         if (store.decodeBool(KEY_DIRTY, false)) {
             AppLog.write('W', TAG, "restoring system proxy left from previous run", null)
-            disable()
         }
+        disable()
     }
 
     private const val KEY_DIRTY = "dirty"

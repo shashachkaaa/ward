@@ -63,3 +63,14 @@ class ConfigTest {
         assertEquals(2, result.count)
     }
 }
+
+class SystemProxyTest {
+    @Test
+    fun disableWithoutEnableTouchesNothing() {
+        // Флаг не выставлен - disable() обязан вернуться, ничего не запуская:
+        // на Windows он иначе стёр бы прокси пользователя из реестра
+        com.ward.desktop.core.SystemProxy.disable()
+        val store = com.tencent.mmkv.MMKV.mmkvWithID("SYSTEM_PROXY")
+        kotlin.test.assertNull(store.allKeys()?.firstOrNull { it != "dirty" })
+    }
+}

@@ -6,7 +6,6 @@ import com.v2ray.ang.dto.entities.SubscriptionCache
 import com.v2ray.ang.handler.AngConfigManager
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsManager
-import com.v2ray.ang.util.HttpUtil
 import com.ward.desktop.AppLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +19,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withContext
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.Socket
@@ -154,12 +152,8 @@ class AppController {
         if (guid == _selected.value) return
         MmkvManager.setSelectServer(guid)
         _selected.value = guid
-        if (_state.value !is ConnectionState.Disconnected) {
-            scope.launch {
-                xray.stop()
-                withContext(Dispatchers.Main) { connect() }
-            }
-        }
+        // Ядро перезапускается на новом сервере; системный прокси остаётся как был
+        if (_state.value !is ConnectionState.Disconnected) connect()
     }
 
     /** Вызывается при выходе: ядро и системный прокси не должны нас пережить. */

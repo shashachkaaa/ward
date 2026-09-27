@@ -33,9 +33,7 @@ class XrayProcess {
         stop()
         killStale()
 
-        val binary = DesktopPaths.xrayBinary
-        check(binary.exists()) { "Не найден файл ядра: ${binary.absolutePath}" }
-        if (!DesktopPaths.isWindows && !binary.canExecute()) binary.setExecutable(true)
+        val binary = executableBinary()
 
         // geoip.dat и geosite.dat из установки - в папку данных, откуда их читает ядро
         SettingsManager.initAssets(Context.app, DesktopPaths.bundledDir)
@@ -77,6 +75,28 @@ class XrayProcess {
                 onExit(exited.exitValue())
             }
         }
+    }
+
+    /**
+     * Бинарник ядра, который можно запустить.
+     *
+     * Упаковщик под Linux теряет у файлов бит исполнения, а поставить его на
+     * месте нельзя: /opt принадлежит root. Тогда ядро копируется в папку данных
+     * и запускается оттуда - копия обновляется, когда меняется установленный файл.
+     */
+    private fun executableBinary(): File {
+        val bundled = DesktopPaths.xrayBinary
+        check(bundled.exists()) { "Не найден файл ядра: ${bundled.absolutePath}" }
+        if (DesktopPaths.isWindows || bundled.canExecute()) return bundled
+        if (bundled.setExecutable(true)) return bundled
+
+        val copy = File(DesktopPaths.dataDir, "bin/xray")
+        if (!copy.exists() || copy.length() != bundled.length() || copy.lastModified() < bundled.lastModified()) {
+            copy.parentFile.mkdirs()
+            bundled.copyTo(copy, overwrite = true)
+        }
+        copy.setExecutable(true)
+        return copy
     }
 
     @Synchronized

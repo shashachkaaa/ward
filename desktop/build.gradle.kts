@@ -55,3 +55,15 @@ compose.desktop {
         }
     }
 }
+
+// Снимок окна под виртуальным экраном: xvfb-run ./gradlew screenshot
+tasks.register<JavaExec>("screenshot") {
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("com.ward.desktop.ScreenshotKt")
+    args = listOf(
+        (findProperty("shot") as String?) ?: layout.buildDirectory.file("screenshot.png").get().asFile.path,
+        (findProperty("wait") as String?) ?: "6000",
+        (findProperty("seed") as String?) ?: ""
+    )
+    (findProperty("dataDir") as String?)?.let { systemProperty("ward.dataDir", it) }
+}

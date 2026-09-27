@@ -4,6 +4,13 @@ import java.awt.Desktop
 import java.net.URI
 
 object Platform {
+    fun openFolder(dir: java.io.File) {
+        runCatching { Desktop.getDesktop().open(dir) }.onFailure {
+            val cmd = if (DesktopPaths.isWindows) listOf("explorer", dir.absolutePath) else listOf("xdg-open", dir.absolutePath)
+            runCatching { ProcessBuilder(cmd).start() }
+        }
+    }
+
     fun openUrl(url: String) {
         try {
             if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {

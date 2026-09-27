@@ -13,6 +13,10 @@ on:
   push:
     branches:
       - master
+    # Настольная версия собирается своим workflow (desktop.yml)
+    paths-ignore:
+      - 'desktop/**'
+      - '.github/workflows/desktop.yml'
 
 permissions:
   contents: write

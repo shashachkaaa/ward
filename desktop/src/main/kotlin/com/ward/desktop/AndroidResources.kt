@@ -14,7 +14,12 @@ import javax.xml.parsers.DocumentBuilderFactory
  */
 object AndroidResources {
 
-    private val russian = Locale.getDefault().language == "ru"
+    // Язык из настроек приложения, как на Android; «авто» - язык системы.
+    // Меняется при следующем запуске: строки кэшируются экранами
+    private val russian: Boolean by lazy {
+        runCatching { com.v2ray.ang.handler.SettingsManager.getLocale().language == "ru" }
+            .getOrDefault(Locale.getDefault().language == "ru")
+    }
 
     private class Table(
         val strings: Map<String, String>,

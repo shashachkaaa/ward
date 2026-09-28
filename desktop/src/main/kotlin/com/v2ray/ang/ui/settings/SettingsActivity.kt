@@ -206,11 +206,13 @@ private data class SettingsSection(
 private val settingsSections = listOf(
     SettingsSection(
         R.string.title_settings_section_general,
-        listOf(SettingsCategory.UI, SettingsCategory.MODE, SettingsCategory.SUBSCRIPTIONS)
+        // Настольная версия: режима (VPN, root) нет - работаем системным прокси
+        listOf(SettingsCategory.UI, SettingsCategory.SUBSCRIPTIONS)
     ),
     SettingsSection(
         R.string.title_settings_section_connection,
-        listOf(SettingsCategory.VPN_TUNNEL, SettingsCategory.CORE)
+        // Настольная версия: туннеля нет, настройки VPN не к чему применить
+        listOf(SettingsCategory.CORE)
     ),
     SettingsSection(
         R.string.title_settings_section_bypass,
@@ -402,11 +404,7 @@ private fun SettingsCategoryList(
         // которой больше нет, и попасть туда было нельзя вовсе
         PreferenceGroupHeader(title = stringResource(R.string.title_settings_section_tools))
         SettingsGroupCard {
-            SettingsCategoryItem(
-                title = stringResource(R.string.per_app_proxy_settings),
-                summary = stringResource(R.string.summary_settings_per_app_proxy),
-                onClick = { context.startActivity(Intent(context, PerAppProxyActivity::class.java)) }
-            )
+            // Настольная версия: прокси по приложениям нет - системный прокси общий
             SettingsCategoryItem(
                 title = stringResource(R.string.routing_settings_title),
                 summary = stringResource(R.string.summary_settings_routing),
@@ -574,7 +572,8 @@ private fun UiSettings(modifier: Modifier) {
         // Динамические цвета есть только с Android 12 - на старых прятать пункт честнее,
         // чем показывать переключатель, который ничего не делает
         val dynamicColor by ThemeManager.dynamicColor.collectAsStateWithLifecycle()
-        val dynamicAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+        // Настольная версия: цветов из обоев нет
+        val dynamicAvailable = false
         if (dynamicAvailable) {
             SettingsSwitchItem(
                 title = stringResource(R.string.title_pref_dynamic_color),
@@ -602,7 +601,8 @@ private fun UiSettings(modifier: Modifier) {
         )
         // Живое уведомление появилось в Android 16. На старых прятать пункт честнее,
         // чем показывать переключатель, который ничего не делает
-        if (Build.VERSION.SDK_INT >= 36) {
+        // Настольная версия: живых уведомлений Android 16 здесь нет
+        if (false) {
             SettingsSwitchItem(
                 title = stringResource(R.string.title_pref_live_notification),
                 summary = stringResource(R.string.summary_pref_live_notification),

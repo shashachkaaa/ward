@@ -25,6 +25,8 @@ object SettingsChangeManager {
      * Triggers service restart if the key is not UI-only, and always refreshes UI tabs.
      */
     fun notifySettingChanged(key: String) {
+        // Настольная версия: автозапуск - запись в автозагрузку системы, а не приёмник загрузки
+        if (key == AppConfig.PREF_IS_BOOTED) com.ward.desktop.Autostart.sync()
         if (key !in uiOnlyKeys) {
             makeRestartService()
         }

@@ -68,5 +68,6 @@ fun main(args: Array<String>) {
         exitProcess(0)
     }
     if (args.getOrNull(2) == "seed") seed()
-    com.ward.desktop.main()
+    // Основная main в том же пакете и с той же сигнатурой - зовём её по классу
+    Class.forName("com.ward.desktop.MainKt").getMethod("main", Array<String>::class.java).invoke(null, arrayOf<String>())
 }

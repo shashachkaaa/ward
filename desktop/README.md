@@ -1,54 +1,58 @@
 # Ward для Windows и Linux
 
-Настольный клиент на Compose Desktop. Первая версия работает системным прокси:
-Xray поднимает SOCKS и HTTP на 127.0.0.1, приложение прописывает их в настройках
-системы и возвращает прежние при отключении, выходе и после аварийного завершения.
-Туннеля (TUN) пока нет - см. `docs/DESKTOP.md`.
+Настольный клиент - это приложение под Android, перенесённое на Compose Desktop
+почти без правок: те же экраны, настройки, подписки, проверка серверов,
+маршрутизация, журнал, резервные копии и проверка обновлений.
+
+Работает системным прокси: Xray поднимает SOCKS и HTTP на 127.0.0.1, приложение
+прописывает их в настройках системы и возвращает прежние при отключении, выходе
+и после аварийного завершения. Туннеля (TUN) пока нет - см. `docs/DESKTOP.md`.
 
 ## Сборка
 
 ```
 # ядро и geo-файлы для своей системы - в resources/<windows|linux>
+# (что именно скачать - см. шаг «Download Xray core» в desktop.yml)
 ./gradlew run              # запустить из исходников
 ./gradlew test             # тесты; с бинарником xray проверяется и запуск ядра
 ./gradlew packageMsi       # Windows: .msi (и packageExe)
 ./gradlew packageDeb       # Linux: .deb
+xvfb-run ./gradlew screenshot -Pseed=seed   # снимок окна без экрана
 ```
 
 CI: `.github/workflows/desktop.yml`. Сборка идёт на каждый push в `desktop/`;
 релиз - запуском вручную с тегом вида `desktop-v1.0.0`. Настольный релиз никогда
 не становится «последним»: по `/releases/latest` проверяет обновления Android.
 
-## Откуда код
+## Как устроено
 
-`src/main/kotlin/com/v2ray/ang/` - **копии** файлов из `V2rayNG/app/src/main/java/com/v2ray/ang/`.
-Исправили что-то там в разборе ссылок, подписках или сборке конфига - перенесите
-сюда: `diff -r` по этим папкам покажет, где копии разошлись.
+`src/main/kotlin/com/v2ray/ang/` - **копии** файлов из
+`V2rayNG/app/src/main/java/com/v2ray/ang/`, включая экраны `ui/`. Исправили что-то
+там - перенесите сюда: `diff -r` по этим папкам покажет, где копии разошлись.
+Каждая правка в копии помечена комментарием «Настольная версия».
 
-Скопированы как есть: `AppConfig`, `fmt/`, `enums/`, `dto/` (часть), `extension/StringExt`,
-`ListExt`, `util/JsonUtil`, `CustomConfigUtil`, `LogUtil`,
-`core/CoreConfigManager`, `CoreOutboundBuilder`, `CoreConfigContextBuilder`,
-`handler/MmkvManager`, `SettingsChangeManager`, `SubscriptionHeaders`,
-`ui/compose/GlassSurface`, `InnerEdge`, `LiquidBackground`, `LiquidPowerButton`.
+Копии остаются копиями за счёт заглушек того, чего нет вне Android:
 
-С правками (каждая помечена комментарием «Настольная версия»):
+- `android/`, `androidx/` - Context, Activity и стопка экранов в одном окне
+  (`com/ward/desktop/Navigator.kt`), Intent, Bundle, Uri, Bitmap, ContentResolver,
+  широковещательные сообщения внутри процесса, функции ресурсов Compose;
+- `com/tencent/mmkv/MMKV.kt` - хранилище MMKV поверх JSON-файлов;
+- `libv2ray/` - ядро: вместо gomobile-библиотеки бинарник xray дочерним
+  процессом; замеры идут через его локальные входы, скорость - через API статистики;
+- строки, массивы и значки берутся из `V2rayNG/app/src/main/res` при сборке:
+  задача `generateAndroidR` строит класс `R` с теми же именами.
 
-- `util/Utils.kt` - буфер обмена, браузер, ассеты и пути;
-- `util/HttpUtil.kt` - система в User-Agent;
-- `handler/AngConfigManager.kt` - без QR, предупреждений о лимите и
-  фонового планировщика, x-device-os берётся из системы;
-- `handler/SettingsManager.kt` - режим всегда «прокси», geo-файлы из установки;
-- `extension/_Ext.kt` - без функций для Bundle и Intent.
+Службы Android (ядро, проверка серверов, обновление подписок) заменены объектами
+с той же логикой и теми же сообщениями: `core/CoreServiceManager.kt`,
+`service/`, `handler/SubscriptionUpdater.kt`, `helper/MessageHelper.kt`.
 
-Своё, настольное:
-
-- `android/` и `com/tencent/mmkv/MMKV.kt` - заглушки: Base64, Log, TextUtils,
-  Context и хранилище MMKV поверх JSON-файлов;
-- `util/DeviceInfo.kt`, `util/PackageUidResolver.kt`, `handler/LogFileManager.kt`;
-- `ui/compose/Theme.kt` - палитры взяты из Android, сборка темы своя;
-- `com/ward/desktop/` - окно, трей, запуск ядра, системный прокси.
+Чего на компьютере нет и что поэтому скрыто: режимы VPN и root, прокси по
+приложениям, цвета из обоев, живые уведомления, сканер QR с камеры (вместо него
+- картинка из буфера обмена или файл).
 
 ## Где лежат данные
 
 Windows - `%APPDATA%\Ward`, Linux - `~/.local/share/ward`. Внутри `store/`
-(подписки, серверы, настройки), `logs/` (журнал приложения и ядра) и `assets/`.
+(подписки, серверы, настройки), `logs/` (журнал приложения и ядра), `assets/`
+(geo-файлы) и `crash/` (отчёты о падениях). Резервная копия настольной версии с
+Android несовместима: форматы хранилищ разные.

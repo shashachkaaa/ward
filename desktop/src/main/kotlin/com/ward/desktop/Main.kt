@@ -69,7 +69,7 @@ object AppExit {
     }
 }
 
-fun main() {
+fun main(args: Array<String>) {
     if (acquireSingleInstance() == null) {
         JOptionPane.showMessageDialog(null, "Ward уже запущен - он в области уведомлений.", "Ward", JOptionPane.INFORMATION_MESSAGE)
         exitProcess(0)
@@ -82,12 +82,15 @@ fun main() {
     CoreProcesses.killStale()
     AngApplication.init()
     SubscriptionUpdater.sync(app)
+    Autostart.sync()
     Runtime.getRuntime().addShutdownHook(Thread { AppExit.shutdown() })
 
     application {
-        var visible by remember { mutableStateOf(true) }
+        // Запуск из автозагрузки - сразу в трей, окно по требованию
+        var visible by remember { mutableStateOf(Autostart.HIDDEN_ARG !in args || !isTraySupported) }
         var running by remember { mutableStateOf(CoreServiceManager.isRunning()) }
-        val icon = remember { BitmapPainter(bitmapResource(R.mipmap.ic_launcher)) }
+        // Значок - выбранный в настройках, как на Android
+        val icon = remember { BitmapPainter(bitmapResource(com.v2ray.ang.handler.AppIconManager.current().previewRes)) }
         val trayState = rememberTrayState()
         val hasTray = isTraySupported
 

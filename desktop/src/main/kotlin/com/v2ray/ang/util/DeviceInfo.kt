@@ -53,5 +53,8 @@ object DeviceInfo {
     /** Модель - на компьютере её нет, отдаём имя системы целиком. */
     val model: String get() = System.getProperty("os.name") ?: osName
 
+    /** Уровень API - на компьютере его нет; отдаём то, что считают заглушки Build. */
+    val sdkInt: Int get() = android.os.Build.VERSION.SDK_INT
+
     val abi: String get() = System.getProperty("os.arch") ?: "unknown"
 }

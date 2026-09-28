@@ -83,6 +83,13 @@ jobs:
         curl -fsSL -o xray.zip "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/${{ matrix.xray_zip }}"
         unzip -o xray.zip -d "resources/${{ matrix.res_dir }}"
         rm xray.zip
+        # geo-файлы - те же, что libv2ray кладёт в APK: расширенные от Loyalsoldier и
+        # geoip-only-cn-private.dat, на который ссылаются правила маршрутизации по умолчанию
+        for f in geoip.dat geosite.dat; do
+          curl -fsSL -o "resources/${{ matrix.res_dir }}/$f" "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/$f"
+        done
+        curl -fsSL -o "resources/${{ matrix.res_dir }}/geoip-only-cn-private.dat" \
+          "https://github.com/Loyalsoldier/geoip/releases/latest/download/geoip-only-cn-private.dat"
         # Сопроводительные файлы архива ядра приложению не нужны
         rm -f "resources/${{ matrix.res_dir }}"/README.md "resources/${{ matrix.res_dir }}"/xray_no_window.*
         ls -la "resources/${{ matrix.res_dir }}"

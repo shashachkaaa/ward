@@ -1,0 +1,439 @@
+package com.v2ray.ang.ui.compose
+
+import android.graphics.Canvas
+import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.createBitmap
+import com.v2ray.ang.R
+import com.v2ray.ang.handler.AppIconManager
+import com.v2ray.ang.handler.AppIconOption
+
+/**
+ * Вариант акцента: [id] хранится в настройках, [seed] - исходный цвет,
+ * из которого считаются все оттенки палитры.
+ */
+data class AccentOption(
+    val id: String,
+    val seed: Color,
+    @StringRes val titleRes: Int
+)
+
+object AccentPalette {
+
+    /**
+     * Родное индиго: его оттенки подобраны руками в теме, поэтому для него
+     * ничего не пересчитывается - палитра остаётся ровно такой, какой была.
+     */
+    const val DEFAULT_ID = "default"
+
+    val options = listOf(
+        AccentOption(DEFAULT_ID, Color(0xFF4F46E5), R.string.accent_indigo),
+        AccentOption("blue", Color(0xFF2563EB), R.string.accent_blue),
+        AccentOption("cyan", Color(0xFF0891B2), R.string.accent_cyan),
+        AccentOption("teal", Color(0xFF0D9488), R.string.accent_teal),
+        AccentOption("green", Color(0xFF16A34A), R.string.accent_green),
+        AccentOption("amber", Color(0xFFF59E0B), R.string.accent_amber),
+        AccentOption("orange", Color(0xFFF97316), R.string.accent_orange),
+        AccentOption("red", Color(0xFFDC2626), R.string.accent_red),
+        AccentOption("pink", Color(0xFFDB2777), R.string.accent_pink),
+        AccentOption("purple", Color(0xFF9333EA), R.string.accent_purple),
+        // Серый - вариант «без цвета»: насыщенность у зерна почти нулевая, поэтому
+        // после пересчёта серым выходит вся линейка, вплоть до подложек на светлой
+        // теме. Не чистый ноль намеренно: капля синевы читается сталью, а не пылью,
+        // и заодно даёт запас по разборчивости белых букв на кнопке
+        AccentOption("grey", Color(0xFF52525B), R.string.accent_grey)
+    )
+
+    fun find(id: String?): AccentOption =
+        options.firstOrNull { it.id == id } ?: options.first()
+}
+
+/**
+ * Тот же цвет с заданной светлотой: так из одного зерна получается вся линейка
+ * оттенков - от заливки кнопки до контейнера под текстом.
+ *
+ * @param lightness Светлота в HSL, от 0 (чёрный) до 1 (белый).
+ * @param saturation Множитель насыщенности: приглушает крикливые оттенки.
+ * @param hueShift Поворот тона по кругу, в градусах. Нужен одному месту -
+ *   второму пятну фона, которому положено быть соседним цветом, а не тем же.
+ */
+private fun Color.tone(lightness: Float, saturation: Float = 1f, hueShift: Float = 0f): Color {
+    val hsl = FloatArray(3)
+    ColorUtils.colorToHSL(toArgb(), hsl)
+    hsl[0] = (hsl[0] + hueShift).mod(360f)
+    hsl[1] = (hsl[1] * saturation).coerceIn(0f, 1f)
+    hsl[2] = lightness.coerceIn(0f, 1f)
+    return Color(ColorUtils.HSLToColor(hsl))
+}
+
+/**
+ * Цвет сервиса из заголовка `profile-color`, приведённый к нашей палитре.
+ *
+ * Владельцу сервиса достаётся только тон - светлоту и насыщенность подставляем мы,
+ * и отдельно для светлой и тёмной темы. Это не придирка: прислать нечитаемое иначе
+ * дело времени. Белый растворился бы на светлой теме, неоновый жёлтый съел бы текст,
+ * чёрный пропал бы на тёмной. Так владелец выбирает узнаваемость, а мы отвечаем за
+ * то, что на карточке видно буквы.
+ *
+ * @param raw Значение заголовка: `#RRGGBB`, `RRGGBB` или короткое `#RGB`.
+ * @param dark Тёмная ли тема сейчас.
+ * @return Цвет для кромки и оправы значка либо null, если разобрать не вышло -
+ *   тогда карточка остаётся обычной.
+ */
+fun serviceColor(raw: String, dark: Boolean): Color? {
+    val hex = raw.trim().removePrefix("#")
+    val full = when (hex.length) {
+        3 -> hex.map { "$it$it" }.joinToString("")
+        6 -> hex
+        // Восемь знаков - это цвет с прозрачностью. Прозрачность наша: сколько
+        // просвечивает кромка, решает оформление, а не тот, кто прислал цвет
+        8 -> hex.takeLast(6)
+        else -> return null
+    }
+    val rgb = full.toLongOrNull(16)?.toInt() ?: return null
+
+    val seed = Color(0xFF000000.toInt() or rgb)
+    return if (dark) seed.tone(0.72f, 0.9f) else seed.tone(0.45f)
+}
+
+/**
+ * Сколько акцента остаётся в подложках. Доля от насыщенности самого цвета, а не
+ * абсолютная величина: крикливый оранжевый и приглушённый бирюзовый должны
+ * оставить в сером примерно одинаковый след.
+ */
+private const val SurfaceTintStrength = 0.14f
+
+/**
+ * На сколько градусов второе пятно фона отходит от акцента.
+ *
+ * Соседний тон, а не противоположный: фону положено быть не одноцветным, но и в
+ * два цвета спорить он не должен. На сером повороту нечего поворачивать - серый
+ * остаётся серым, и фон становится ровным, каким ему при сером и полагается.
+ */
+private const val SecondToneShift = 40f
+
+/**
+ * Пересобирает семейства primary и secondary вокруг выбранного цвета.
+ *
+ * На светлой теме заодно пересобираются подложки карточек. Они были зашиты
+ * индигово-серыми - остаток от исходного акцента, - и с любым другим цветом
+ * ссорились с фоном: фон подкрашен акцентом, а карточка кладёт поверх чужой
+ * оттенок и гасит его. На зелёном это видно прямо в цифрах: рядом с карточкой
+ * фон зеленоватый, под ней уходит в сиреневый, и по кромке идёт обрыв.
+ *
+ * Светлота остаётся прежней, меняется только оттенок, и тот еле-еле: подложке
+ * полагается быть почти серой, иначе она полезет в глаза.
+ *
+ * На тёмной теме трогать нечего: там подложки почти чёрные, оттенку в них
+ * взяться неоткуда, да и ради чёрного на AMOLED всё и затевалось.
+ *
+ * Семантические цвета (пинг, ошибки) не трогаются: красный «сервер не отвечает»
+ * от акцента не зависит. А вот tertiary трогается, хоть он и не из семейства
+ * акцента: во всём приложении он ровно в одном месте - второе пятно фона. Оно
+ * было зашито зелёным, и на любом акценте фон оставался с зелёным боком. Пока
+ * акцент был цветным, это читалось вторым тоном; на сером зелёное пятно стало
+ * единственным цветом на экране.
+ */
+fun ColorScheme.withAccent(option: AccentOption, dark: Boolean): ColorScheme {
+    if (option.id == AccentPalette.DEFAULT_ID) return this
+    val seed = option.seed
+
+    return if (dark) {
+        copy(
+            primary = seed.tone(0.72f, 0.9f),
+            onPrimary = seed.tone(0.14f, 0.8f),
+            primaryContainer = seed.tone(0.28f, 0.75f),
+            onPrimaryContainer = seed.tone(0.9f, 0.9f),
+            inversePrimary = seed.tone(0.45f),
+            surfaceTint = seed.tone(0.72f, 0.9f),
+            secondary = seed.tone(0.68f, 0.6f),
+            onSecondary = seed.tone(0.14f, 0.6f),
+            secondaryContainer = seed.tone(0.3f, 0.5f),
+            onSecondaryContainer = seed.tone(0.9f, 0.6f),
+            tertiary = seed.tone(0.68f, 0.7f, SecondToneShift)
+        )
+    } else {
+        copy(
+            primary = seed.tone(0.45f),
+            onPrimary = Color.White,
+            primaryContainer = seed.tone(0.9f, 0.8f),
+            onPrimaryContainer = seed.tone(0.18f, 0.9f),
+            inversePrimary = seed.tone(0.78f, 0.8f),
+            surfaceTint = seed.tone(0.45f),
+            secondary = seed.tone(0.45f, 0.75f),
+            onSecondary = Color.White,
+            secondaryContainer = seed.tone(0.9f, 0.6f),
+            onSecondaryContainer = seed.tone(0.2f, 0.7f),
+            tertiary = seed.tone(0.30f, 1f, SecondToneShift),
+            // Подложки карточек: светлота как была, оттенок от акцента и совсем
+            // немного - иначе карточка перестанет быть подложкой и станет пятном
+            background = seed.tone(0.97f, SurfaceTintStrength),
+            surfaceVariant = seed.tone(0.92f, SurfaceTintStrength),
+            outlineVariant = seed.tone(0.85f, SurfaceTintStrength),
+            surfaceContainerLow = seed.tone(0.96f, SurfaceTintStrength),
+            surfaceContainer = seed.tone(0.94f, SurfaceTintStrength),
+            surfaceContainerHigh = seed.tone(0.92f, SurfaceTintStrength),
+            surfaceContainerHighest = seed.tone(0.90f, SurfaceTintStrength)
+        )
+    }
+}
+
+/** Цвет кружка в выборе: ровно то, чем станет акцент интерфейса. */
+fun AccentOption.previewColor(dark: Boolean): Color =
+    (if (dark) DarkColor else LightColor).withAccent(this, dark).primary
+
+/**
+ * Строка настроек с выбором акцента. При включённых цветах из обоев палитру
+ * задаёт система, поэтому выбор глохнет - иначе он молча ничего не менял бы.
+ */
+@Composable
+fun AccentColorSetting(enabled: Boolean = true) {
+    val accentId by ThemeManager.accentColor.collectAsState()
+    val selected = AccentPalette.find(accentId)
+    var showDialog by remember { mutableStateOf(false) }
+
+    SettingsMenuItem(
+        title = stringResource(R.string.title_pref_accent_color),
+        subtitle = if (enabled) {
+            stringResource(selected.titleRes)
+        } else {
+            stringResource(R.string.summary_pref_accent_color_dynamic)
+        },
+        enabled = enabled,
+        onClick = { showDialog = true }
+    )
+
+    if (showDialog) {
+        AccentColorDialog(
+            selectedId = selected.id,
+            onSelected = {
+                ThemeManager.setAccentColor(it)
+                showDialog = false
+            },
+            onDismiss = { showDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun AccentColorDialog(
+    selectedId: String,
+    onSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val dark = LocalDarkTheme.current
+
+    GlassAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.title_pref_accent_color)) },
+        text = {
+            // Ряды выравниваются по центру: вариантов одиннадцать, и последний
+            // остаётся в ряду один. Прижатый к левому краю он выглядел бы забытым,
+            // по центру - отложенным нарочно, каким он и является.
+            //
+            // Центрует именно колонка, а не сам ряд шириной во всё окно: ширину
+            // диалога задаёт его содержимое, и растянутый ряд эту ширину бы менял
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                AccentPalette.options.chunked(5).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        row.forEach { option ->
+                            AccentSwatch(
+                                option = option,
+                                color = option.previewColor(dark),
+                                selected = option.id == selectedId,
+                                onClick = { onSelected(option.id) }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun AccentSwatch(
+    option: AccentOption,
+    color: Color,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(42.dp)
+            .clip(CircleShape)
+            .background(color)
+            .border(
+                width = if (selected) 3.dp else 1.dp,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.outlineVariant
+                },
+                shape = CircleShape
+            )
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        if (selected) {
+            Icon(
+                painter = painterResource(R.drawable.ic_action_done),
+                contentDescription = stringResource(option.titleRes),
+                tint = Color.White,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Строка настроек со сменой значка приложения.
+ *
+ * Значок меняется включением одного из псевдонимов из манифеста, поэтому лаунчеру
+ * нужно время, чтобы его перерисовать - об этом честно предупреждаем.
+ */
+@Composable
+fun AppIconSetting() {
+    val context = LocalContext.current
+    var selected by remember { mutableStateOf(AppIconManager.current()) }
+    var showDialog by remember { mutableStateOf(false) }
+
+    SettingsMenuItem(
+        title = stringResource(R.string.title_pref_app_icon),
+        subtitle = stringResource(selected.titleRes),
+        onClick = { showDialog = true }
+    )
+
+    if (showDialog) {
+        GlassAlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text(stringResource(R.string.title_pref_app_icon)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        AppIconManager.options.forEach { option ->
+                            AppIconPreview(
+                                option = option,
+                                selected = option.id == selected.id,
+                                onClick = {
+                                    AppIconManager.apply(context, option)
+                                    selected = AppIconManager.current()
+                                    showDialog = false
+                                }
+                            )
+                        }
+                    }
+                    Text(
+                        text = stringResource(R.string.app_icon_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun AppIconPreview(
+    option: AppIconOption,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val preview = rememberIconBitmap(option.previewRes)
+
+    val shape = RoundedCornerShape(12.dp)
+    val border = Modifier
+        .size(46.dp)
+        .clip(shape)
+        .border(
+            width = if (selected) 3.dp else 1.dp,
+            color = if (selected) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.outlineVariant
+            },
+            shape = shape
+        )
+        .clickable { onClick() }
+
+    if (preview != null) {
+        Image(
+            bitmap = preview,
+            contentDescription = stringResource(option.titleRes),
+            modifier = border
+        )
+    } else {
+        Box(modifier = border.background(MaterialTheme.colorScheme.surfaceContainerHighest))
+    }
+}
+
+/**
+ * Значок приложения в виде картинки.
+ *
+ * Через painterResource его не загрузить: с Android 8 значок описан как
+ * adaptive-icon, а это ни вектор, ни растр - попытка открыть его роняла экран.
+ * Поэтому рисуем системный drawable в картинку сами, как это делает лаунчер.
+ */
+@Composable
+private fun rememberIconBitmap(@DrawableRes resId: Int): ImageBitmap? {
+    val context = LocalContext.current
+    return remember(resId) {
+        runCatching {
+            val drawable = ContextCompat.getDrawable(context, resId) ?: return@runCatching null
+            val size = 144
+            val bitmap = createBitmap(size, size)
+            drawable.setBounds(0, 0, size, size)
+            drawable.draw(Canvas(bitmap))
+            bitmap.asImageBitmap()
+        }.getOrNull()
+    }
+}

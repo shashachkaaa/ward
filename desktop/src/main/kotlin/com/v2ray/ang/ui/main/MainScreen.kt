@@ -1,0 +1,1276 @@
+package com.v2ray.ang.ui.main
+
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.animation.*
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import com.v2ray.ang.BuildConfig
+import com.v2ray.ang.R
+import com.v2ray.ang.dto.LogFileInfo
+import com.v2ray.ang.extension.toSpeedString
+import com.v2ray.ang.extension.toTrafficString
+import com.v2ray.ang.handler.SessionTraffic
+import com.v2ray.ang.handler.TrafficSpeed
+import com.v2ray.ang.handler.TrafficSpeedState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalContext
+import com.v2ray.ang.handler.AppUpdateInstaller
+import com.v2ray.ang.handler.LockdownStatus
+import com.v2ray.ang.handler.UpdateInstallState
+import com.v2ray.ang.ui.logcat.LogFileActivity
+import com.v2ray.ang.ui.compose.AppSnackbarManager
+import com.v2ray.ang.ui.compose.ToastType
+import com.v2ray.ang.ui.compose.LiquidGlassButton
+import com.v2ray.ang.ui.compose.LiquidPowerButton
+import com.v2ray.ang.ui.compose.QRCodeDialog
+import com.v2ray.ang.ui.compose.ReleaseNotesText
+import com.v2ray.ang.ui.compose.GlassAlertDialog
+import com.v2ray.ang.ui.compose.liquidBackground
+import com.v2ray.ang.ui.compose.LocalContentBackdrop
+import com.v2ray.ang.ui.compose.LocalGlassBackdrop
+import com.v2ray.ang.ui.compose.BottomBlurScrim
+import com.v2ray.ang.ui.compose.LocalGlassAdaptive
+import com.v2ray.ang.ui.compose.LocalGlassQuality
+import com.v2ray.ang.ui.compose.glassBackdropSource
+import com.v2ray.ang.ui.compose.glassPanel
+import com.v2ray.ang.ui.compose.rememberGlassBackdrop
+
+@Composable
+fun PowerIcon(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        // Толщина от размера, а не в пикселях: на плотных экранах фиксированные
+        // 5 пикселей превращались в волосок
+        val strokeW = size.minDimension * 0.1f
+        val side = size.minDimension - strokeW
+        drawArc(
+            color = color,
+            startAngle = -240f,
+            sweepAngle = 300f,
+            useCenter = false,
+            topLeft = Offset(strokeW / 2f, strokeW / 2f),
+            size = Size(side, side),
+            style = Stroke(width = strokeW, cap = StrokeCap.Round)
+        )
+        drawLine(
+            color = color,
+            start = center.copy(y = strokeW / 2f),
+            end = center.copy(y = center.y),
+            strokeWidth = strokeW,
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScreen(
+    mainViewModel: MainViewModel,
+    onAction: (MainAction) -> Unit,
+    onNavigate: (String) -> Unit
+) {
+    val uiState by mainViewModel.uiState.collectAsStateWithLifecycle()
+    val subscriptions by mainViewModel.subscriptions.collectAsStateWithLifecycle()
+    val isImporting by mainViewModel.isImporting.collectAsStateWithLifecycle()
+    val importError by mainViewModel.importError.collectAsStateWithLifecycle()
+
+    val showImportMenu by mainViewModel.showImportSheet.collectAsStateWithLifecycle()
+
+    // Ошибки показываем тем же стеклом, что и все прочие сообщения приложения.
+    //
+    // Своя красная карточка была единственной поверхностью на экране, сделанной не
+    // по общим правилам: плоский материал, восемь точек скругления и цвет темы -
+    // отсюда и чужеродный вид рядом со стеклом. И убрать её было нечем: она просто
+    // висела свои четыре секунды. Плашку сообщения можно смахнуть пальцем сразу.
+    LaunchedEffect(importError) {
+        val error = importError ?: return@LaunchedEffect
+        AppSnackbarManager.show(error, ToastType.ERROR, long = true)
+        mainViewModel.importError.value = null
+    }
+
+    // Крутится, пока служба не отчиталась о новом состоянии (или об ошибке запуска)
+    var isConnecting by remember { mutableStateOf(false) }
+    LaunchedEffect(uiState.isRunning, uiState.statusText) { isConnecting = false }
+    LaunchedEffect(isConnecting) {
+        if (isConnecting) {
+            delay(20000)
+            isConnecting = false
+        }
+    }
+
+    var uptime by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(uiState.isRunning, uiState.serviceStartTime) {
+        // Время начала берём один раз, до цикла, а не перечитываем каждую секунду.
+        //
+        // Перечитывать нельзя: при отключении оно становится null, а этот цикл
+        // отменяется не мгновенно, а на следующем кадре. Проснись он после паузы
+        // в этот промежуток - и `!!` уронил бы всё приложение ровно в момент
+        // отключения. Окно узкое, но попадание в него - падение, а не мелочь
+        val start = uiState.serviceStartTime
+        if (uiState.isRunning && start != null) {
+            while (true) {
+                uptime = System.currentTimeMillis() - start
+                delay(1000L)
+            }
+        } else {
+            uptime = 0L
+        }
+    }
+    val seconds = (uptime / 1000) % 60
+    val minutes = (uptime / (1000 * 60)) % 60
+    val hours = (uptime / (1000 * 60 * 60))
+    val timeString = "${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
+
+    val haptics = LocalHapticFeedback.current
+    val uriHandler = LocalUriHandler.current
+
+    // Отклик на смену состояния: подключились или отвалились - это чувствуется рукой
+    var lastRunning by remember { mutableStateOf(uiState.isRunning) }
+    LaunchedEffect(uiState.isRunning) {
+        if (uiState.isRunning != lastRunning) {
+            lastRunning = uiState.isRunning
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
+
+    // Скорость считает служба - тем же замером, что кормит уведомление
+    val speed by TrafficSpeedState.speed.collectAsStateWithLifecycle()
+    val session by TrafficSpeedState.session.collectAsStateWithLifecycle()
+
+    // Пузырёк капсулы. Капля у каждого экрана своя, и кроссфейд просто подменяет
+    // одну другой - поэтому переезд показываем на том экране, с которого уходим, и
+    // только потом уходим. Возврат отыгрывается здесь же, при возобновлении
+    var barItem by remember { mutableStateOf(GlassBarItem.HOME) }
+    var barResetToken by remember { mutableIntStateOf(0) }
+    val barScope = rememberCoroutineScope()
+
+    // Экран скрылся - возвращаем каплю домой и пересобираем панель, чтобы она
+    // оказалась там сразу. Одной смены пункта мало: анимация у скрытого окна не
+    // проигрывается, Compose её откладывает, и она отыгрывается уже на возврате -
+    // вторым переездом, на глазах. Пересборка ставит каплю на место без анимации,
+    // и происходит это пока нас не видно
+    LifecycleStartEffect(Unit) {
+        onStopOrDispose {
+            barItem = GlassBarItem.HOME
+            barResetToken++
+        }
+    }
+
+    // Сервера, добавленные ключом: свой раздел над подписками, пустым не показывается
+    val standaloneServers by remember { mainViewModel.serversForGroup(STANDALONE_GROUP_ID) }
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val showStandalone = standaloneServers.isNotEmpty()
+
+    // Избранное собирается из всех групп, поэтому идёт отдельным разделом на самом верху
+    val pinnedServers by mainViewModel.pinnedServers.collectAsStateWithLifecycle()
+    val pinnedGuids by mainViewModel.pinnedGuids.collectAsStateWithLifecycle()
+
+    val availableUpdate by mainViewModel.availableUpdate.collectAsStateWithLifecycle()
+    val crashReport by mainViewModel.crashReport.collectAsStateWithLifecycle()
+    val lockdownHint by mainViewModel.lockdownHint.collectAsStateWithLifecycle()
+    val whatsNew by mainViewModel.whatsNew.collectAsStateWithLifecycle()
+    val installState by AppUpdateInstaller.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // Установка запрещена системой - ведём в настройки, где её разрешают
+    // Строки берём в самой композиции, а не из контекста внутри эффекта: так они
+    // следуют за языком приложения, а не за тем, каким он был при запуске экрана
+    val needsPermissionText = stringResource(R.string.update_needs_permission)
+    val updateFailedText = stringResource(R.string.update_failed)
+
+    LaunchedEffect(installState) {
+        when (installState) {
+            is UpdateInstallState.NeedsPermission -> {
+                AppSnackbarManager.show(needsPermissionText)
+                runCatching { context.startActivity(AppUpdateInstaller.permissionIntent(context)) }
+                AppUpdateInstaller.reset()
+            }
+
+            is UpdateInstallState.Failed -> {
+                AppSnackbarManager.show(updateFailedText)
+                AppUpdateInstaller.reset()
+            }
+
+            else -> Unit
+        }
+    }
+
+    // Поиск: строка появляется по чипу и фильтрует все списки разом
+    var searchVisible by rememberSaveable { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(searchQuery) { onAction(MainAction.Search(searchQuery)) }
+
+    // Свёрнутые карточки: «Скрыть все» прячет списки серверов, шапки остаются
+    var collapsedGuids by rememberSaveable { mutableStateOf(listOf<String>()) }
+    val collapsibleGuids = buildList {
+        if (pinnedServers.isNotEmpty()) add(PINNED_GROUP_KEY)
+        if (showStandalone) add(STANDALONE_GROUP_ID)
+        subscriptions.forEach { add(it.guid) }
+    }
+    val allCollapsed = collapsibleGuids.isNotEmpty() && collapsedGuids.size >= collapsibleGuids.size
+
+    // Стекло размывает именно то, что под ним, поэтому экран пишется в слой.
+    // Его же получают меню и диалоги: они живут в своих окнах и потому вправе
+    // рисовать этот слой, не попадая внутрь его записи
+    val backdrop = rememberGlassBackdrop()
+
+    // Второй слой - только фон. Стекло внутри содержимого экрана преломляет его:
+    // общий слой такому стеклу недоступен, оно само в него пишется
+    val contentBackdrop = rememberGlassBackdrop()
+
+    // Третий слой - весь экран целиком, вместе с нижней капсулой и полосой затухания.
+    //
+    // Первый слой пишет только содержимое Scaffold, потому что капсула и полоса сами
+    // его читают, а рисовать слой внутри его же записи нельзя. Но всплывающим окнам -
+    // меню, диалогам, шторке - нужен именно весь экран: они лежат поверх капсулы и
+    // обязаны размывать и её. С первым слоем меню размывало список и оставляло капсулу
+    // резкой, будто она нарисована сверху.
+    //
+    // Живут окна в своих окнах системы, в эту запись не попадают и потому вправе её
+    // читать. Записать слой внутри записи другого слоя тоже можно - это разные слои
+    val popupBackdrop = rememberGlassBackdrop()
+
+    // Состояние списка нужно не для прокрутки, а чтобы знать, едет ли он: пока едет,
+    // стекло внутри него идёт упрощённым
+    val listState = rememberLazyListState()
+    val quality = LocalGlassQuality.current
+    val adaptive = LocalGlassAdaptive.current
+
+    // Накал фона: в покое приглушён, на связи разгорается
+    val backgroundActivity by animateFloatAsState(
+        targetValue = if (uiState.isRunning) 1f else if (isConnecting) 0.5f else 0f,
+        animationSpec = tween(600),
+        label = "backgroundActivity"
+    )
+
+    CompositionLocalProvider(
+        LocalGlassBackdrop provides popupBackdrop,
+        LocalContentBackdrop provides contentBackdrop
+    ) {
+    Box(modifier = Modifier.fillMaxSize().glassBackdropSource(popupBackdrop)) {
+        Scaffold(
+            // Фон рисуется отдельно и в свой слой: карточкам нужно преломлять именно
+            // его, а общий слой им брать нельзя - они сами в него пишутся
+            containerColor = Color.Transparent,
+            // У прозрачного контейнера Scaffold не из чего вывести цвет текста -
+            // берётся Unspecified, и Text без своего цвета выходит чёрным
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier
+                .glassBackdropSource(backdrop)
+                .liquidBackground(contentBackdrop) { backgroundActivity }
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Центральная кнопка
+                LiquidPowerButton(
+                    isConnected = uiState.isRunning,
+                    isConnecting = isConnecting,
+                    statusText = when {
+                        isConnecting && !uiState.isRunning -> stringResource(R.string.main_state_connecting)
+                        isConnecting && uiState.isRunning -> stringResource(R.string.main_state_disconnecting)
+                        uiState.isRunning -> stringResource(R.string.main_state_connected)
+                        else -> stringResource(R.string.main_state_disconnected)
+                    },
+                    timeString = timeString,
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        isConnecting = true
+                        onAction(MainAction.ToggleService)
+                    }
+                )
+
+                SpeedRow(
+                    visible = uiState.isRunning,
+                    speed = speed,
+                    session = session
+                )
+
+                // Действия под кнопкой оформлены чипами, а не голым текстом
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ActionChip(
+                        text = stringResource(R.string.main_action_test),
+                        modifier = Modifier.weight(1f),
+                        onClick = { onAction(MainAction.TestCurrentServer) }
+                    )
+                    ActionChip(
+                        text = stringResource(if (allCollapsed) R.string.main_action_expand_all else R.string.main_action_collapse_all),
+                        onClick = {
+                            collapsedGuids = if (allCollapsed) emptyList() else collapsibleGuids
+                        }
+                    )
+                    ActionChip(
+                        text = stringResource(R.string.main_action_search),
+                        selected = searchVisible,
+                        onClick = {
+                            searchVisible = !searchVisible
+                            // Закрыли поиск - фильтр снимается, иначе списки остались бы урезанными
+                            if (!searchVisible) searchQuery = ""
+                        }
+                    )
+                }
+
+                UpdateBanner(
+                    version = availableUpdate?.latestVersion,
+                    installState = installState,
+                    onUpdate = {
+                        mainViewModel.startUpdate(onFallback = { url -> uriHandler.openUri(url) })
+                    },
+                    onDismiss = { mainViewModel.dismissUpdate() }
+                )
+
+                LockdownBanner(
+                    status = lockdownHint,
+                    onOpen = {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Settings.ACTION_VPN_SETTINGS)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                        mainViewModel.dismissLockdownHint()
+                    },
+                    onDismiss = { mainViewModel.dismissLockdownHint() }
+                )
+
+                CrashBanner(
+                    report = crashReport,
+                    onOpen = {
+                        val report = crashReport ?: return@CrashBanner
+                        context.startActivity(
+                            Intent(context, LogFileActivity::class.java).apply {
+                                putExtra(LogFileActivity.EXTRA_PATH, report.path)
+                                putExtra(LogFileActivity.EXTRA_NAME, report.name)
+                                putExtra(LogFileActivity.EXTRA_REMOVABLE, true)
+                            }
+                        )
+                        mainViewModel.dismissCrashReport()
+                    },
+                    onDismiss = { mainViewModel.dismissCrashReport() }
+                )
+
+                AnimatedVisibility(
+                    visible = searchVisible,
+                    enter = fadeIn(tween(200)) + expandVertically(tween(200)),
+                    exit = fadeOut(tween(150)) + shrinkVertically(tween(150))
+                ) {
+                    SearchField(
+                        query = searchQuery,
+                        onQueryChange = { searchQuery = it },
+                        onClear = { searchQuery = "" }
+                    )
+                }
+
+                if (subscriptions.isEmpty() && !showStandalone) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                painterResource(id = R.drawable.ic_cloud_download_24dp), 
+                                contentDescription = null, 
+                                modifier = Modifier.size(64.dp), 
+                                tint = MaterialTheme.colorScheme.outlineVariant // ДИНАМИЧЕСКИЙ СЕРЫЙ
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                text = stringResource(R.string.main_empty_profiles),
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), // ДИНАМИЧЕСКИЙ СЕРЫЙ
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                } else {
+                    // На «авто» стекло убавляется, пока список едет.
+                    //
+                    // Дорога у стекла не заливка, а преломление у края: на каждую
+                    // поверхность это отдельная программа для видеоядра, и считается
+                    // она каждый кадр заново, потому что при прокрутке у карточки
+                    // меняются координаты. Карточка подписки ростом почти в экран, и
+                    // на слабом железе одного такого преломления хватает, чтобы не
+                    // уложиться в кадр. Разглядеть его на летящем списке всё равно
+                    // нельзя, а остановился он - и оно возвращается.
+                    //
+                    // Выбранные руками «полные» не убавляются никогда: человек
+                    // попросил вид, а не плавность, и подменять одно другим не наше
+                    // дело. Кому важнее плавность - для того и есть «авто»
+                    val listQuality = if (adaptive && listState.isScrollInProgress) {
+                        quality.movingOrLess()
+                    } else {
+                        quality
+                    }
+
+                    CompositionLocalProvider(LocalGlassQuality provides listQuality) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        contentPadding = PaddingValues(bottom = 110.dp)
+                    ) {
+                        if (pinnedServers.isNotEmpty()) {
+                            item(key = "pinned-servers") {
+                                PlainServersCard(
+                                    title = stringResource(R.string.main_pinned_servers),
+                                    subtitle = stringResource(
+                                        R.string.main_pinned_count,
+                                        pinnedServers.size
+                                    ),
+                                    servers = pinnedServers,
+                                    selectedGuid = uiState.selectedGuid,
+                                    pinnedGuids = pinnedGuids,
+                                    expanded = PINNED_GROUP_KEY !in collapsedGuids,
+                                    onToggleExpanded = {
+                                        collapsedGuids = if (PINNED_GROUP_KEY in collapsedGuids) {
+                                            collapsedGuids - PINNED_GROUP_KEY
+                                        } else {
+                                            collapsedGuids + PINNED_GROUP_KEY
+                                        }
+                                    },
+                                    onAction = onAction,
+                                    onSelectServer = { guid -> onAction(MainAction.SelectServer(guid)) },
+                                    onEditServer = { guid, profile ->
+                                        onAction(MainAction.EditServer(guid, profile))
+                                    }
+                                )
+                            }
+                        }
+
+                        if (showStandalone) {
+                            item(key = "standalone-servers") {
+                                PlainServersCard(
+                                    title = stringResource(R.string.main_standalone_servers),
+                                    subtitle = stringResource(
+                                        R.string.main_standalone_count,
+                                        standaloneServers.size
+                                    ),
+                                    servers = standaloneServers,
+                                    selectedGuid = uiState.selectedGuid,
+                                    pinnedGuids = pinnedGuids,
+                                    expanded = STANDALONE_GROUP_ID !in collapsedGuids,
+                                    onToggleExpanded = {
+                                        collapsedGuids = if (STANDALONE_GROUP_ID in collapsedGuids) {
+                                            collapsedGuids - STANDALONE_GROUP_ID
+                                        } else {
+                                            collapsedGuids + STANDALONE_GROUP_ID
+                                        }
+                                    },
+                                    onAction = onAction,
+                                    onSelectServer = { guid -> onAction(MainAction.SelectServer(guid)) },
+                                    onEditServer = { guid, profile ->
+                                        onAction(MainAction.EditServer(guid, profile))
+                                    },
+                                    groupId = STANDALONE_GROUP_ID
+                                )
+                            }
+                        }
+
+                        itemsIndexed(
+                            items = subscriptions,
+                            key = { _, item -> item.guid + (item.subscription.remarks ?: "") }
+                        ) { index, subCache ->
+                            val serversFlow = remember(subCache.guid) { mainViewModel.serversForGroup(subCache.guid) }
+                            val servers by serversFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+
+                            // Карточки въезжают снизу по очереди при первом показе
+                            var appeared by rememberSaveable(subCache.guid) { mutableStateOf(false) }
+                            LaunchedEffect(subCache.guid) {
+                                if (!appeared) {
+                                    delay(index * 60L)
+                                    appeared = true
+                                }
+                            }
+                            val itemAlpha by animateFloatAsState(
+                                targetValue = if (appeared) 1f else 0f,
+                                animationSpec = tween(360),
+                                label = "cardAlpha"
+                            )
+                            val itemOffset by animateDpAsState(
+                                targetValue = if (appeared) 0.dp else 24.dp,
+                                animationSpec = tween(360),
+                                label = "cardOffset"
+                            )
+
+                            // Слой нужен только на время въезда. Раньше он висел на
+                            // карточке всегда - выезд занимает треть секунды один раз
+                            // за показ экрана, а отдельная поверхность видеоядра
+                            // оставалась под каждой карточкой навсегда, поверх её
+                            // собственного слоя стекла. Доехала - слой снимается
+                            val entering = itemAlpha < 1f || itemOffset > 0.dp
+
+                            Box(
+                                modifier = if (entering) {
+                                    Modifier.graphicsLayer {
+                                        alpha = itemAlpha
+                                        translationY = itemOffset.toPx()
+                                    }
+                                } else {
+                                    Modifier
+                                }
+                            ) {
+                            ProfileCard(
+                                subscription = subCache,
+                                servers = servers,
+                                selectedGuid = uiState.selectedGuid,
+                                pinnedGuids = pinnedGuids,
+                                expanded = subCache.guid !in collapsedGuids,
+                                onToggleExpanded = {
+                                    collapsedGuids = if (subCache.guid in collapsedGuids) {
+                                        collapsedGuids - subCache.guid
+                                    } else {
+                                        collapsedGuids + subCache.guid
+                                    }
+                                },
+                                canMoveUp = index > 0,
+                                canMoveDown = index < subscriptions.lastIndex,
+                                onAction = onAction,
+                                onPingProfile = { guid ->
+                                    onAction(MainAction.SelectGroup(guid))
+                                    onAction(MainAction.TestProfilePing(guid))
+                                },
+                                onUpdateSubscription = { subId -> 
+                                    mainViewModel.updateSubscription(subId)
+                                },
+                                onSelectServer = { guid -> 
+                                    onAction(MainAction.SelectServer(guid)) 
+                                },
+                                onDeleteSubscription = { subId ->
+                                    mainViewModel.removeSubscription(subId)
+                                },
+                                onEditServer = { guid, profile ->
+                                    onAction(MainAction.EditServer(guid, profile))
+                                }
+                            )
+                            }
+                        }
+                    }
+                    }
+                }
+            }
+        }
+        
+        // Список уезжает под капсулу и обрывается о её край. Полоса кладёт поверх
+        // размытую копию того же содержимого и гасит её кверху - строки растворяются
+        BottomBlurScrim(
+            backdrop = backdrop,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+
+        key(barResetToken) {
+            LiquidGlassBar(
+                backdrop = backdrop,
+                selected = barItem,
+                onSelect = { item ->
+                    when (item) {
+                        GlassBarItem.HOME -> Unit
+                        GlassBarItem.SETTINGS -> {
+                            barItem = GlassBarItem.SETTINGS
+                            barScope.launch {
+                                // Даём капле доехать до шестерёнки: на новом экране
+                                // она уже стоит на месте, и показать переезд можно
+                                // только здесь
+                                delay(BarTravelMs)
+                                onNavigate("settings")
+                            }
+                        }
+                        GlassBarItem.ADD -> mainViewModel.showImportSheet.value = true
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    // Капсула у библиотеки во всю доступную ширину, поля задаются
+                    // снаружи - как и в самом референсе
+                    .fillMaxWidth()
+                    .padding(horizontal = 28.dp)
+                    .padding(bottom = 12.dp)
+            )
+        }
+
+        if (showImportMenu) {
+            ImportSheet(
+                onDismiss = { mainViewModel.showImportSheet.value = false },
+                onAction = { action ->
+                    mainViewModel.showImportSheet.value = false
+                    onAction(action)
+                }
+            )
+        }
+
+        TopProgressBanner(
+            visible = isImporting,
+            text = stringResource(R.string.main_updating_subscription),
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 32.dp)
+        )
+
+        // Same banner for the ping run, carrying the "x / y left" progress
+        TopProgressBanner(
+            visible = uiState.isTesting && !isImporting,
+            text = uiState.statusText,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 32.dp),
+            onCancel = { onAction(MainAction.CancelTesting) }
+        )
+
+        // QR-код сервера: битмап готовит модель по действию из меню строки
+        uiState.shareQRCodeBitmap?.let { bitmap ->
+            QRCodeDialog(
+                bitmap = bitmap,
+                onDismiss = { onAction(MainAction.DismissQRCodeDialog) }
+            )
+        }
+
+        // Что нового: показывается один раз после обновления. Текст тот же, что на
+        // странице релиза, и разбирается той же разметкой, что и в проверке обновлений
+        whatsNew?.let { notes ->
+            GlassAlertDialog(
+                onDismissRequest = { mainViewModel.dismissWhatsNew() },
+                title = {
+                    Text(stringResource(R.string.whats_new_title, BuildConfig.VERSION_NAME))
+                },
+                text = { ReleaseNotesText(notes) },
+                confirmButton = {
+                    TextButton(onClick = { mainViewModel.dismissWhatsNew() }) {
+                        Text(stringResource(android.R.string.ok))
+                    }
+                }
+            )
+        }
+
+    }
+    }
+}
+
+/** Крестик в том же проволочном стиле, что и остальные рисованные иконки. */
+@Composable
+private fun CrossIcon(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        drawLine(color, Offset(0f, 0f), Offset(w, h), strokeWidth = 4f, cap = StrokeCap.Round)
+        drawLine(color, Offset(w, 0f), Offset(0f, h), strokeWidth = 4f, cap = StrokeCap.Round)
+    }
+}
+
+/**
+ * Pill that slides in from the top while a long running task is in progress.
+ */
+@Composable
+private fun TopProgressBanner(
+    visible: Boolean,
+    text: String,
+    modifier: Modifier = Modifier,
+    onCancel: (() -> Unit)? = null
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn() + slideInVertically(initialOffsetY = { -it }),
+        exit = fadeOut() + slideOutVertically(targetOffsetY = { -it }),
+        modifier = modifier
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shadowElevation = 8.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = text,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (onCancel != null) {
+                    Spacer(Modifier.width(10.dp))
+                    IconButton(onClick = onCancel, modifier = Modifier.size(22.dp)) {
+                        CrossIcon(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Плашка о новой версии: появляется, когда проверка нашла свежий релиз.
+ * «Позже» прячет её до следующей версии, чтобы не мозолила глаза каждый запуск.
+ */
+@Composable
+private fun UpdateBanner(
+    version: String?,
+    installState: UpdateInstallState,
+    onUpdate: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val busy = installState is UpdateInstallState.Downloading ||
+            installState is UpdateInstallState.Installing
+    AnimatedVisibility(
+        visible = version != null,
+        enter = fadeIn(tween(300)) + expandVertically(tween(300)),
+        exit = fadeOut(tween(200)) + shrinkVertically(tween(200))
+    ) {
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.update_available_title, version.orEmpty()),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = when (val state = installState) {
+                            is UpdateInstallState.Downloading ->
+                                stringResource(R.string.update_downloading, state.percent)
+
+                            is UpdateInstallState.Installing ->
+                                stringResource(R.string.update_installing)
+
+                            else -> stringResource(R.string.update_available_text)
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // Пока идёт загрузка, кнопки прячем: нажимать второй раз нечего
+                if (busy) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .size(18.dp)
+                    )
+                } else {
+                    TextButton(onClick = onDismiss) {
+                        Text(
+                            text = stringResource(R.string.update_later),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    TextButton(onClick = onUpdate) {
+                        Text(
+                            text = stringResource(R.string.update_now),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Плашка о прошлом падении. Отчёт уже лежит на диске, но сам себя никто не
+ * найдёт - без этой плашки о сбое так и знали бы только по «оно закрылось».
+ */
+@Composable
+private fun CrashBanner(
+    report: LogFileInfo?,
+    onOpen: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AnimatedVisibility(
+        visible = report != null,
+        enter = fadeIn(tween(300)) + expandVertically(tween(300)),
+        exit = fadeOut(tween(200)) + shrinkVertically(tween(200))
+    ) {
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.error.copy(alpha = 0.10f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.30f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.crash_banner_title),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = stringResource(R.string.crash_banner_text),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        text = stringResource(R.string.crash_banner_dismiss),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                TextButton(onClick = onOpen) {
+                    Text(
+                        text = stringResource(R.string.crash_banner_open),
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Подсказка про постоянный VPN.
+ *
+ * Показывается один раз и только тем, у кого щель действительно есть: система знает,
+ * что туннель поднимался, и знает, что трафик мимо него не заблокирован. Закрыл -
+ * больше не увидит; кто про эту настройку знает и не хочет её, того не дёргаем.
+ *
+ * Настройка системная, и прямо к нашему приложению система не пускает - открывается
+ * общий раздел VPN, где Ward выбирают руками.
+ */
+@Composable
+private fun LockdownBanner(
+    status: LockdownStatus?,
+    onOpen: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AnimatedVisibility(
+        visible = status != null && !status.isSealed,
+        enter = fadeIn(tween(300)) + expandVertically(tween(300)),
+        exit = fadeOut(tween(200)) + shrinkVertically(tween(200))
+    ) {
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.30f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 10.dp)
+        ) {
+            // Текст занимает всю ширину, кнопки идут под ним.
+            //
+            // У плашки о падении текст и кнопки стоят в одной строке, и это работает,
+            // пока текст короткий, а кнопки узкие. Здесь ни то, ни другое: объяснение
+            // в два предложения, и «Открыть настройки» вдвое шире «Открыть». Колонка
+            // текста схлопывалась до одного слова в строке, плашка вырастала во весь
+            // экран и закрывала собой список
+            Column(
+                modifier = Modifier.padding(
+                    start = 14.dp,
+                    end = 8.dp,
+                    top = 10.dp,
+                    bottom = 4.dp
+                )
+            ) {
+                Text(
+                    text = stringResource(R.string.lockdown_hint_title),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = stringResource(R.string.lockdown_hint_text),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(
+                            text = stringResource(R.string.crash_banner_dismiss),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    TextButton(onClick = onOpen) {
+                        Text(
+                            text = stringResource(R.string.lockdown_hint_open),
+                            color = MaterialTheme.colorScheme.secondary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Строка поиска: фильтрует все списки разом - и подписки, и отдельные сервера,
+ * и избранное. Ищет по названию, адресу, описанию и протоколу.
+ */
+@Composable
+private fun SearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClear: () -> Unit
+) {
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focusRequester.requestFocus() } }
+
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 10.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp)
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_search_24dp),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = TextStyle(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 12.dp)
+                    .focusRequester(focusRequester),
+                decorationBox = { innerTextField ->
+                    if (query.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.main_search_hint),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    innerTextField()
+                }
+            )
+
+            if (query.isNotEmpty()) {
+                IconButton(onClick = onClear, modifier = Modifier.size(22.dp)) {
+                    CrossIcon(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Крупная круглая кнопка подключения: выпуклая шайба со стеклянным бликом,
+ * вокруг неё кольца и свечение, при подключении по кольцу бежит дуга.
+ */
+
+/**
+ * Скорость под кнопкой: приходит из того же замера, что и уведомление.
+ * Под цифрами - объём, набежавший за сеанс.
+ */
+@Composable
+private fun SpeedRow(
+    visible: Boolean,
+    speed: TrafficSpeed,
+    session: SessionTraffic
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(300)) + expandVertically(tween(300)),
+        exit = fadeOut(tween(200)) + shrinkVertically(tween(200))
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(bottom = 10.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SpeedValue(down = true, value = speed.totalDown)
+                SpeedValue(down = false, value = speed.totalUp)
+            }
+
+            Text(
+                text = stringResource(
+                    R.string.main_session_traffic,
+                    session.down.toTrafficString(),
+                    session.up.toTrafficString()
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SpeedValue(down: Boolean, value: Long) {
+    val color = if (value > 0) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val tint by animateColorAsState(color, tween(400), label = "speedTint")
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = if (down) "↓" else "↑",
+            color = tint,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Black
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(
+            text = value.toSpeedString(),
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+/**
+ * Небольшой чип-действие: мягкая подложка, отклик на нажатие.
+ */
+@Composable
+private fun ActionChip(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false
+) {
+    val scheme = MaterialTheme.colorScheme
+
+    // Заливка держится на акценте: на чёрной теме серый контейнер сливался с фоном
+    // до полной невидимости, и чип читался как просто текст, а не как кнопка.
+    // Включённый чип плотнее - иначе непонятно, что поиск открыт
+    LiquidGlassButton(
+        onClick = onClick,
+        modifier = modifier,
+        // Только полупрозрачная заливка: сплошной акцент задавил бы текст, он тут
+        // того же цвета
+        surfaceColor = scheme.primary.copy(alpha = if (selected) 0.28f else 0.12f),
+        applyDefaultHeight = false,
+        contentPaddingHorizontal = 14.dp
+    ) {
+        // Без fillMaxWidth: чип без веса забирал бы всю строку целиком,
+        // и соседу с weight(1f) не оставалось ни пикселя - он просто исчезал
+        Text(
+            text = text,
+            color = scheme.primary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(vertical = 10.dp)
+        )
+    }
+}
+
+/**
+ * Шторка импорта, которую открывает «+» в нижней капсуле. Стекло здесь настоящее:
+ * шторка живёт в отдельном окне, поэтому ей можно отдать слой с содержимым экрана.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ImportSheet(
+    onDismiss: () -> Unit,
+    onAction: (MainAction) -> Unit
+) {
+    val sheetShape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f),
+        shape = sheetShape,
+        dragHandle = null,
+        // Стекло должно доходить до самого низа экрана, отступ под навигацию делаем сами
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    ) {
+        // Шторка - такое же окно поверх экрана, как меню и диалоги, и стекло у неё
+        // должно быть тем же. Своя настройка тут и делала её чужой: размытие в тридцать
+        // четыре точки против шести у остальных и плёнка вдвое плотнее превращали
+        // шторку в светлую панель, ни на что в приложении не похожую
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassPanel(sheetShape)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(top = 12.dp, bottom = 28.dp)
+            ) {
+                // Свой хват вместо системного: он должен лежать на стекле, а не над ним
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(bottom = 14.dp)
+                        .size(width = 34.dp, height = 4.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                )
+                Text(
+                    text = stringResource(R.string.main_add_servers),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 12.dp)
+                )
+                ImportSheetItem(stringResource(R.string.main_import_clipboard), R.drawable.ic_copy) { onAction(MainAction.ImportClipboard) }
+                ImportSheetItem(stringResource(R.string.main_import_qr), R.drawable.ic_qu_scan_24dp) { onAction(MainAction.ImportQRcode) }
+                ImportSheetItem(stringResource(R.string.main_import_file), R.drawable.ic_file_24dp) { onAction(MainAction.ImportConfigLocal) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImportSheetItem(
+    text: String,
+    iconRes: Int,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painterResource(id = iconRes),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(Modifier.width(16.dp))
+        Text(
+            text = text,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}

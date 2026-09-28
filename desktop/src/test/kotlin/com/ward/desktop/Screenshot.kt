@@ -44,11 +44,27 @@ private fun seed() {
 fun main(args: Array<String>) {
     val out = File(args.getOrElse(0) { "build/screenshot.png" })
     val wait = args.getOrElse(1) { "6000" }.toLong()
+    // Экраны для снимков по порядку, через запятую: полные имена классов Activity.
+    // Каждый открывается поверх предыдущего, снимок - file-N.png
+    val screens = System.getProperty("ward.screens").orEmpty().split(',').filter { it.isNotBlank() }
     thread(isDaemon = true) {
         Thread.sleep(wait)
-        val screen = Rectangle(Toolkit.getDefaultToolkit().screenSize)
-        ImageIO.write(Robot().createScreenCapture(screen), "png", out)
-        println("saved ${out.absolutePath}")
+        fun shot(f: File) {
+            val screen = Rectangle(Toolkit.getDefaultToolkit().screenSize)
+            ImageIO.write(Robot().createScreenCapture(screen), "png", f)
+            println("saved ${f.absolutePath}")
+        }
+        shot(out)
+        screens.forEachIndexed { i, name ->
+            javax.swing.SwingUtilities.invokeAndWait {
+                if (name == "back") Navigator.back()
+                else if (name == "connect") com.v2ray.ang.core.LauncherManager.startServiceFromToggle(android.content.Context.app)
+                else if (name == "disconnect") com.v2ray.ang.core.LauncherManager.stopService(android.content.Context.app)
+                else Navigator.start(android.content.Intent(android.content.Context.app, Class.forName(name)))
+            }
+            Thread.sleep(3500)
+            shot(File(out.parentFile, out.nameWithoutExtension + "-" + (i + 1) + ".png"))
+        }
         exitProcess(0)
     }
     if (args.getOrNull(2) == "seed") seed()

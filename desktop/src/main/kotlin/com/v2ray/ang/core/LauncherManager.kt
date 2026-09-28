@@ -1,0 +1,107 @@
+package com.v2ray.ang.core
+
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.core.content.ContextCompat
+import com.v2ray.ang.AppConfig
+import com.v2ray.ang.R
+import com.v2ray.ang.extension.isComplexType
+import com.v2ray.ang.extension.toast
+import com.v2ray.ang.extension.toastError
+import com.v2ray.ang.handler.MmkvManager
+import com.v2ray.ang.handler.SettingsManager
+import com.v2ray.ang.helper.MessageHelper
+import com.v2ray.ang.root.RootManager
+import com.v2ray.ang.util.LogUtil
+import com.v2ray.ang.util.Utils
+
+object LauncherManager {
+
+    fun startServiceFromToggle(context: Context): Boolean {
+        if (MmkvManager.getSelectServer().isNullOrEmpty()) {
+            context.toast(R.string.app_tile_first_use)
+            return false
+        }
+        try {
+            startContextService(context)
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "LauncherManager: ${e.message}", e)
+            context.toast(e.message ?: e.javaClass.simpleName)
+            return false
+        }
+        return true
+    }
+
+    fun startService(context: Context, guid: String? = null) {
+        LogUtil.i(AppConfig.TAG, "LauncherManager: startService from ${context::class.java.simpleName}")
+
+        if (guid != null) {
+            MmkvManager.setSelectServer(guid)
+        }
+
+        try {
+            startContextService(context)
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "LauncherManager: ${e.message}", e)
+            context.toast(e.message ?: e.javaClass.simpleName)
+        }
+    }
+
+    fun stopService(context: Context) {
+        //context.toast(R.string.toast_services_stop)
+        MessageHelper.sendMsg2Service(context, AppConfig.MSG_STATE_STOP, "")
+    }
+
+    @Throws(Exception::class)
+    private fun startContextService(context: Context) {
+        // Note: isRunning check is removed here to avoid loading Native libraries in the UI process.
+        // The check is performed in CoreServiceManager when the service starts in the daemon process.
+
+        val guid = MmkvManager.getSelectServer()
+            ?: run {
+                LogUtil.e(AppConfig.TAG, "LauncherManager: No server selected")
+                error(context.getString(R.string.app_tile_first_use))
+            }
+
+        val config = MmkvManager.decodeServerConfig(guid)
+            ?: run {
+                LogUtil.e(AppConfig.TAG, "LauncherManager: Failed to decode server config")
+                // Выбор указывает на профиль, которого больше нет - так бывает после
+                // обновления подписки, оно пересоздаёт профили заново. Снимаем выбор:
+                // иначе здесь же валится и каждая следующая попытка подключиться
+                MmkvManager.clearSelectServer()
+                error(context.getString(R.string.toast_config_file_invalid))
+            }
+
+        if (!config.configType.isComplexType()
+            && !Utils.isValidUrl(config.server)
+            && !Utils.isPureIpAddress(config.server.orEmpty())
+        ) {
+            LogUtil.e(AppConfig.TAG, "LauncherManager: Invalid server configuration")
+            error(context.getString(R.string.toast_config_file_invalid))
+        }
+
+        SettingsManager.refreshRuntimeSocksPort()
+
+        if (config.insecure == true && config.pinnedCA256.isNullOrEmpty()) {
+            context.toastError(R.string.toast_allow_insecure_deprecated)
+            Utils.setClipboard(context, context.getString(R.string.toast_allow_insecure_deprecated))
+        }
+
+        if (MmkvManager.decodeSettingsBool(AppConfig.PREF_PROXY_SHARING)) {
+            context.toast(R.string.toast_warning_pref_proxysharing_short)
+        } else {
+            context.toast(R.string.toast_services_start)
+        }
+
+        val isRootMode = SettingsManager.isRootMode()
+        if (isRootMode && !RootManager.isRootAvailable()) {
+            LogUtil.e(AppConfig.TAG, "LauncherManager: root mode requires root but none available")
+            error(context.getString(R.string.toast_root_required))
+        }
+
+        // Настольная версия: служба ядра в том же процессе, запускаем её напрямую
+        CoreServiceManager.start(context)
+    }
+}

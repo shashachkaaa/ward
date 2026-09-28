@@ -1,0 +1,959 @@
+package com.v2ray.ang.ui.main
+
+import android.app.Application
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.v2ray.ang.AppConfig
+import com.v2ray.ang.BuildConfig
+import com.v2ray.ang.R
+import com.v2ray.ang.dto.GroupMapItem
+import com.v2ray.ang.dto.CheckUpdateResult
+import com.v2ray.ang.dto.LocateTarget
+import com.v2ray.ang.dto.LogFileInfo
+import com.v2ray.ang.dto.entities.ServerAffiliationInfo
+import com.v2ray.ang.dto.entities.ServersCache
+import com.v2ray.ang.dto.entities.SubscriptionCache
+import com.v2ray.ang.extension.matchesPattern
+import com.v2ray.ang.ui.compose.AppSnackbarManager
+import com.v2ray.ang.handler.LockdownStatus
+import com.v2ray.ang.handler.MmkvManager
+import com.v2ray.ang.handler.CrashReportManager
+import com.v2ray.ang.handler.AppUpdateInstaller
+import com.v2ray.ang.handler.PingManager
+import com.v2ray.ang.handler.UpdateInstallState
+import com.v2ray.ang.handler.UpdateCheckerManager
+import com.v2ray.ang.handler.TrafficSpeedState
+import com.v2ray.ang.handler.SettingsManager
+import com.v2ray.ang.ui.base.BaseViewModel
+import com.v2ray.ang.util.LogUtil
+import com.v2ray.ang.util.QRCodeDecoder
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.regex.PatternSyntaxException
+
+class MainViewModel(
+    application: Application,
+    private val dataSource: MainDataSource
+) : BaseViewModel(application) {
+
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+    private val preloadDispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1)
+
+    private val disconnectedText: String = dataSource.getString(R.string.connection_not_connected)
+    private val connectedText: String = dataSource.getString(R.string.connection_connected)
+
+    private val _uiState = MutableStateFlow(
+        MainUiState(
+            selectedGroupId = dataSource.getSelectedSubscriptionId(),
+            selectedGuid = dataSource.getSelectServer(),
+            statusText = disconnectedText,
+            confirmRemove = dataSource.getConfirmRemove()
+        )
+    )
+    val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+
+    private val _subscriptions = MutableStateFlow<List<SubscriptionCache>>(emptyList())
+    val subscriptions: StateFlow<List<SubscriptionCache>> = _subscriptions.asStateFlow()
+
+    private val _pinnedServers = MutableStateFlow<List<ServersCache>>(emptyList())
+
+    /** Избранное: закреплённые сервера из всех групп, отдельным разделом сверху. */
+    val pinnedServers: StateFlow<List<ServersCache>> = _pinnedServers.asStateFlow()
+
+    private val _pinnedGuids = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Те же закреплённые, но набором - строке сервера нужно знать про звёздочку. */
+    val pinnedGuids: StateFlow<Set<String>> = _pinnedGuids.asStateFlow()
+
+    private val _availableUpdate = MutableStateFlow<CheckUpdateResult?>(null)
+
+    /** Найденное обновление: из него на главном экране рисуется плашка. */
+    val availableUpdate: StateFlow<CheckUpdateResult?> = _availableUpdate.asStateFlow()
+
+    /**
+     * Постоянный VPN: последнее, что сообщил работающий сервис.
+     *
+     * Начальное значение берётся из запомненного, а не из пустоты: туннель может быть
+     * не поднят, и тогда спросить систему не у кого - но показать человеку прошлый
+     * ответ честнее, чем промолчать.
+     */
+    private val _lockdown = MutableStateFlow(LockdownStatus.remembered())
+
+    private val _lockdownHintDismissed = MutableStateFlow(
+        MmkvManager.decodeSettingsBool(AppConfig.PREF_LOCKDOWN_HINT_DISMISSED, false)
+    )
+
+    /**
+     * Подсказка на главном экране: только пока её не закрыли.
+     *
+     * Отдельно от самого состояния: строке в настройках оно нужно всегда, а подсказка
+     * показывается один раз и исчезает навсегда - это разные сроки жизни у одного факта.
+     */
+    val lockdownHint: StateFlow<LockdownStatus?> =
+        combine(_lockdown, _lockdownHintDismissed) { status, dismissed ->
+            status?.takeIf { !dismissed }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    private val _crashReport = MutableStateFlow<LogFileInfo?>(null)
+
+    /** Отчёт о сбое прошлого запуска: о нём сообщаем один раз, плашкой на главном. */
+    val crashReport: StateFlow<LogFileInfo?> = _crashReport.asStateFlow()
+
+    private val _whatsNew = MutableStateFlow<String?>(null)
+
+    /** Изменения в только что установленной версии: показываются окном один раз. */
+    val whatsNew: StateFlow<String?> = _whatsNew.asStateFlow()
+
+    val isImporting = MutableStateFlow(false)
+    val importError = MutableStateFlow<String?>(null)
+
+    /** Открыта ли шторка импорта: её просит открыть и «+» с экрана настроек. */
+    val showImportSheet = MutableStateFlow(false)
+
+    @Volatile
+    private var keywordFilter: String = ""
+
+    private val cacheMutex = Mutex()
+    private val groupDataCache = mutableMapOf<String, List<ServersCache>>()
+    private val groupPageFlows = ConcurrentHashMap<String, MutableStateFlow<List<ServersCache>>>()
+    private val groupLoadMutexes = ConcurrentHashMap<String, Mutex>()
+
+    /**
+     * Проверка задержки, запущенная в процессе приложения.
+     *
+     * Держим её здесь, потому что отменять её больше нечем. Проверок в приложении
+     * две: эта и та, что идёт в отдельном процессе через службу. Крестик на плашке
+     * слал отмену только службе - а служба при этой проверке даже не запускается,
+     * и нажатие не делало ровным счётом ничего.
+     */
+    private var pingJob: Job? = null
+
+    private var setupGroupJob: Job? = null
+    private var preloadJob: Job? = null
+    private var selectedGroupLoadJob: Job? = null
+
+    @Volatile
+    private var testingGroupId: String? = null
+
+    private val initialPageReady = CompletableDeferred<Unit>()
+
+    class Factory(
+        private val application: Application,
+        private val dataSource: MainDataSource
+    ) : ViewModelProvider.Factory {
+        // Настольная версия: фабрика ViewModel для JVM получает KClass, а не Class
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: kotlin.reflect.KClass<T>, extras: androidx.lifecycle.viewmodel.CreationExtras): T {
+            if (modelClass.java.isAssignableFrom(MainViewModel::class.java)) {
+                return MainViewModel(application, dataSource) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
+        }
+    }
+
+    init {
+        collectServiceEvents()
+        setupGroupTab()
+        startBackgroundPolling()
+    }
+
+    private fun startBackgroundPolling() {
+        viewModelScope.launch(ioDispatcher) {
+            var lastHash = 0
+            while (true) {
+                delay(2000L)
+                val currentSubs = getSubscriptions()
+                val currentHash = currentSubs.map { it.subscription.remarks }.hashCode()
+                if (lastHash != 0 && lastHash != currentHash) {
+                    setupGroupTab(forceRefresh = true)
+                }
+                lastHash = currentHash
+            }
+        }
+    }
+
+    private fun collectServiceEvents() {
+        viewModelScope.launch {
+            dataSource.mainServiceEvent.collect { event ->
+                handleServiceEvent(event)
+            }
+        }
+    }
+
+    private fun handleServiceEvent(event: MainServiceEvent) {
+        when (event) {
+            MainServiceEvent.StateRunning -> updateRunningState(true, clearTestingText = false)
+            MainServiceEvent.StateNotRunning -> updateRunningState(false, clearTestingText = false)
+            MainServiceEvent.StateStartSuccess -> {
+                toastSuccess(R.string.toast_services_success)
+                updateRunningState(true)
+            }
+            is MainServiceEvent.StateStartFailure -> {
+                val error = event.errorMessage
+                if (error.isNotBlank()) toastError(error) else toastError(R.string.toast_services_failure)
+                updateRunningState(false)
+            }
+            MainServiceEvent.StateStopSuccess -> updateRunningState(false)
+            is MainServiceEvent.MeasureDelaySuccess -> {
+                _uiState.update { it.copy(statusText = event.content) }
+                // Результат ручной проверки виден только в баннере теста,
+                // а он к этому моменту уже скрыт - показываем плашкой
+                if (!uiState.value.isTesting && event.content.isNotBlank()) {
+                    AppSnackbarManager.show(event.content)
+                }
+            }
+            MainServiceEvent.MeasureConfigSuccess -> {
+                viewModelScope.launch(ioDispatcher) {
+                    val gid = testingGroupId ?: uiState.value.selectedGroupId
+                    cacheMutex.withLock { groupDataCache.remove(gid) }
+                    updateGroupUi(gid, loadGroup(gid, forceRefresh = true))
+                }
+            }
+            is MainServiceEvent.MeasureConfigNotify -> {
+                _uiState.update {
+                    it.copy(statusText = dataSource.getString(R.string.connection_runing_task_left, event.progress))
+                }
+            }
+            is MainServiceEvent.MeasureConfigFinish -> {
+                if (event.finishedCount == "0") {
+                    onTestsFinished()
+                }
+            }
+
+            is MainServiceEvent.TrafficSpeedUpdate -> {
+                TrafficSpeedState.decode(event.payload)?.let { (speed, interval) ->
+                    TrafficSpeedState.publish(speed, interval)
+                }
+            }
+
+            is MainServiceEvent.LockdownStatusUpdate -> {
+                LockdownStatus.decode(event.payload)?.let { status ->
+                    LockdownStatus.remember(status)
+                    _lockdown.value = status
+                }
+            }
+
+            // Обновление подписки пересоздаёт профили с новыми идентификаторами.
+            // Пока список не перечитан, каждая его строка ведёт на сервер, которого
+            // больше нет, - перечитываем сразу, не дожидаясь следующего открытия экрана
+            is MainServiceEvent.SubscriptionUpdated -> {
+                setupGroupTab(forceRefresh = true)
+            }
+        }
+    }
+
+    private fun updateRunningState(isRunning: Boolean, clearTestingText: Boolean = true) {
+        // Соединения нет - показывать нечего, иначе на экране застынет последний замер
+        if (!isRunning) TrafficSpeedState.reset()
+        _uiState.update { state ->
+            state.copy(
+                isRunning = isRunning,
+                statusText = if (isRunning) connectedText else disconnectedText,
+                serviceStartTime = if (isRunning) (state.serviceStartTime ?: System.currentTimeMillis()) else null,
+                isTesting = if (clearTestingText) false else state.isTesting
+            )
+        }
+    }
+
+    private fun testProfilePing(subscriptionId: String) {
+        pingJob?.cancel()
+        pingJob = viewModelScope.launch(ioDispatcher) {
+            try {
+                val guids = dataSource.getServerGuidList(subscriptionId)
+                if (guids.isEmpty()) return@launch
+
+                _uiState.update { it.copy(isTesting = true, statusText = dataSource.getString(R.string.connection_test_testing)) }
+
+                dataSource.clearAllTestDelayResults(guids)
+
+                // Все серверы меряются разом: прокси-типы делят один инстанс ядра
+                val context = getApplication<Application>()
+                val pingType = SettingsManager.getPingType()
+                val remaining = AtomicInteger(guids.size)
+                val failed = AtomicInteger(0)
+                PingManager.consumeLastError()
+
+                LogUtil.i(AppConfig.TAG, "Ping: testing ${guids.size} profiles, type=$pingType")
+
+                coroutineScope {
+                    // Results land in the list while the run is still going
+                    val refresher = launch {
+                        while (true) {
+                            delay(800)
+                            cacheMutex.withLock { groupDataCache.remove(subscriptionId) }
+                            updateGroupUi(subscriptionId, loadGroup(subscriptionId, forceRefresh = true))
+                        }
+                    }
+
+                    PingManager.pingAll(context, guids, pingType) { guid, delay ->
+                        if (delay <= PingManager.FAILURE) failed.incrementAndGet()
+                        MmkvManager.encodeServerTestDelayMillis(guid, delay)
+                        val left = remaining.decrementAndGet()
+                        _uiState.update {
+                            it.copy(
+                                statusText = dataSource.getString(
+                                    R.string.connection_runing_task_left,
+                                    "$left / ${guids.size}"
+                                )
+                            )
+                        }
+                    }
+
+                    // Дожидаемся, а не просто просим остановиться.
+                    //
+                    // Обновляльщик раз в восемьсот миллисекунд перечитывает список и
+                    // кладёт его на экран. Отмена его лишь помечает: если он в этот
+                    // миг уже собрал список и идёт к показу, то покажет - и положит
+                    // недосчитанный список поверх итогового, который мы выложим
+                    // строкой ниже. Часть серверов оставалась без задержки до первого
+                    // постороннего обновления списка
+                    refresher.cancelAndJoin()
+                }
+
+                cacheMutex.withLock { groupDataCache.remove(subscriptionId) }
+                updateGroupUi(subscriptionId, loadGroup(subscriptionId, forceRefresh = true))
+
+                // Surface why servers did not answer instead of leaving a silent timeout
+                val failedCount = failed.get()
+                if (failedCount > 0) {
+                    val reason = PingManager.consumeLastError()
+                    importError.value = if (reason != null) {
+                        dataSource.getString(R.string.main_ping_failed_count_reason, failedCount, guids.size, reason)
+                    } else {
+                        dataSource.getString(R.string.main_ping_failed_count, failedCount, guids.size)
+                    }
+                }
+
+            } finally {
+                _uiState.update {
+                    it.copy(
+                        isTesting = false,
+                        statusText = if (uiState.value.isRunning) connectedText else disconnectedText
+                    )
+                }
+            }
+        }
+    }
+
+    fun moveServer(groupId: String, fromIndex: Int, toIndex: Int) {
+        viewModelScope.launch(ioDispatcher) {
+            val guids = dataSource.getServerGuidList(groupId).toMutableList()
+            if (fromIndex in guids.indices && toIndex in guids.indices) {
+                val item = guids.removeAt(fromIndex)
+                guids.add(toIndex, item)
+                dataSource.encodeServerList(guids, groupId)
+                cacheMutex.withLock { groupDataCache.remove(groupId) }
+                updateGroupUi(groupId, loadGroup(groupId, forceRefresh = true))
+            }
+        }
+    }
+
+    /** Переставляет сервера группы по замеру: сначала быстрые, непроверенные в конце. */
+    private fun sortGroupByPing(groupId: String) {
+        viewModelScope.launch(ioDispatcher) {
+            dataSource.sortByTestResultsForSub(groupId)
+            refreshGroup(groupId)
+        }
+    }
+
+    private fun removeDuplicatesInGroup(groupId: String) {
+        viewModelScope.launch(ioDispatcher) {
+            val removed = dataSource.removeDuplicateServers(groupId)
+            refreshGroup(groupId)
+            rebuildPinned()
+            importError.value = if (removed > 0) {
+                dataSource.getString(R.string.main_removed_count, removed)
+            } else {
+                dataSource.getString(R.string.main_removed_nothing)
+            }
+        }
+    }
+
+    private fun removeInvalidInGroup(groupId: String) {
+        viewModelScope.launch(ioDispatcher) {
+            val removed = dataSource.removeInvalidServersInGroup(groupId)
+            refreshGroup(groupId)
+            rebuildPinned()
+            importError.value = if (removed > 0) {
+                dataSource.getString(R.string.main_removed_count, removed)
+            } else {
+                dataSource.getString(R.string.main_removed_nothing)
+            }
+        }
+    }
+
+    private fun togglePinned(guid: String) {
+        viewModelScope.launch(ioDispatcher) {
+            dataSource.togglePinnedServer(guid)
+            rebuildPinned()
+        }
+    }
+
+    /** Перечитывает одну группу мимо кэша: содержимое только что менялось. */
+    private suspend fun refreshGroup(groupId: String) {
+        cacheMutex.withLock { groupDataCache.remove(groupId) }
+        updateGroupUi(groupId, loadGroup(groupId, forceRefresh = true))
+    }
+
+    /**
+     * Пересобирает избранное. Заодно чистит список от исчезнувших серверов:
+     * профиль мог уехать с обновлением подписки, а guid остался бы висеть.
+     */
+    private suspend fun rebuildPinned() {
+        val guids = dataSource.getPinnedServers()
+        val servers = buildServersCache(guids)
+        if (servers.size != guids.size) {
+            dataSource.setPinnedServers(servers.map { it.guid })
+        }
+        _pinnedGuids.value = servers.mapTo(HashSet()) { it.guid }
+        _pinnedServers.value = applyKeywordFilter(servers)
+    }
+
+    fun serversForGroup(groupId: String): StateFlow<List<ServersCache>> =
+        groupPageFlows.computeIfAbsent(groupId) { MutableStateFlow(emptyList()) }.asStateFlow()
+
+    private fun mutableServersForGroup(groupId: String): MutableStateFlow<List<ServersCache>> =
+        groupPageFlows.computeIfAbsent(groupId) { MutableStateFlow(emptyList()) }
+
+    fun getSubscriptions(): List<SubscriptionCache> {
+        return dataSource.getSubscriptions().filter { 
+            it.subscription.remarks?.lowercase() != "default" && it.guid.isNotBlank()
+        }
+    }
+
+    /**
+     * Код QR со ссылкой на подписку - чтобы передать её на другое устройство.
+     *
+     * Окно то же, что и у ссылки на сервер: битмап кладётся в то же поле состояния,
+     * и рисует его тот же диалог на экране.
+     */
+    private fun shareSubscriptionQRCode(subId: String) {
+        viewModelScope.launch(ioDispatcher) {
+            val url = dataSource.subscriptionUrl(subId) ?: return@launch
+            val bitmap = QRCodeDecoder.createQRCode(url)
+            _uiState.update { it.copy(shareQRCodeBitmap = bitmap) }
+        }
+    }
+
+    /**
+     * Перестановка подписки: меняется местами с соседней карточкой.
+     *
+     * Соседа ищем в том же списке, что видит человек. В хранимом порядке рядом
+     * может лежать служебная группа, которой на экране нет, - обмен с ней выглядел
+     * бы как «нажал, и ничего не произошло».
+     */
+    private fun moveSubscription(subId: String, up: Boolean) {
+        viewModelScope.launch(ioDispatcher) {
+            val shown = _subscriptions.value
+            val from = shown.indexOfFirst { it.guid == subId }
+            val to = if (up) from - 1 else from + 1
+            if (from < 0 || to !in shown.indices) return@launch
+
+            if (dataSource.swapSubscriptions(subId, shown[to].guid)) {
+                setupGroupTab(forceRefresh = true)
+            }
+        }
+    }
+
+    fun removeSubscription(subId: String) {
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                dataSource.removeSubscription(subId)
+                setupGroupTab(forceRefresh = true)
+            } catch (e: Exception) {
+                LogUtil.e(AppConfig.TAG, "Failed to remove subscription", e)
+            }
+        }
+    }
+
+    fun onAction(action: MainAction) {
+        when (action) {
+            is MainAction.TestProfilePing -> testProfilePing(action.subscriptionId)
+            MainAction.Initialize -> initialize()
+            MainAction.RefreshGroups -> setupGroupTab(forceRefresh = true)
+            MainAction.CancelTesting -> cancelAllPing()
+            MainAction.UpdateSubscriptions -> importConfigViaSub()
+            is MainAction.SortGroupByPing -> sortGroupByPing(action.groupId)
+            is MainAction.RemoveDuplicatesInGroup -> removeDuplicatesInGroup(action.groupId)
+            is MainAction.RemoveInvalidInGroup -> removeInvalidInGroup(action.groupId)
+            is MainAction.TogglePinned -> togglePinned(action.guid)
+            is MainAction.SelectGroup -> subscriptionIdChanged(action.groupId)
+            is MainAction.SelectServer -> updateSelectedGuid(action.guid)
+            is MainAction.RemoveServer -> removeServerAndRefresh(action.guid)
+            is MainAction.Search -> filterConfig(action.query)
+            is MainAction.ImportBatchConfig -> importBatchConfig(action.configText)
+            is MainAction.LocateHandled -> consumeLocateTarget(action.target)
+            is MainAction.ShareQRCode -> {
+                val bitmap = dataSource.share2QRCode(action.guid)
+                _uiState.update { it.copy(shareQRCodeBitmap = bitmap) }
+            }
+            MainAction.DismissQRCodeDialog -> {
+                _uiState.update { it.copy(shareQRCodeBitmap = null) }
+            }
+            is MainAction.ShareSubscriptionQRCode -> shareSubscriptionQRCode(action.subId)
+            is MainAction.MoveSubscription -> moveSubscription(action.subId, action.up)
+            MainAction.ToggleService,
+            MainAction.TestCurrentServer,
+            MainAction.ImportQRcode,
+            MainAction.ImportClipboard,
+            MainAction.ImportConfigLocal,
+            is MainAction.ImportManually,
+            MainAction.RestartService,
+            MainAction.LocateSelectedServer,
+            is MainAction.EditServer,
+            is MainAction.ShareClipboard,
+            is MainAction.ShareSubscriptionClipboard,
+            is MainAction.ShareFullContent -> {}
+        }
+    }
+
+    fun initialize() {
+        viewModelScope.launch(preloadDispatcher) {
+            try {
+                initialPageReady.await()
+                delay(32L)
+                dataSource.initAssets()
+                dataSource.syncSubscriptions()
+                _crashReport.value = CrashReportManager.unseenReport(app)
+                loadWhatsNew()
+                checkForUpdateQuietly()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                LogUtil.e(AppConfig.TAG, "Main background initialization failed", error)
+            }
+        }
+    }
+
+    /**
+     * Окно «что нового» после обновления.
+     *
+     * Сравниваем номер сборки с тем, что видел прошлый запуск. Ноль означает первую
+     * установку либо обновление со сборки без счётчика - эти два случая разводит
+     * проверка ниже. Больше текущего бывает при откате на старую сборку: там молчим
+     * и просто выравниваем запись.
+     *
+     * Номер записывается только после того, как заметки нашлись. Иначе сеть,
+     * промолчавшая на первом запуске после обновления, лишила бы человека окна
+     * навсегда - а так оно просто дождётся следующего запуска.
+     */
+    private suspend fun loadWhatsNew() {
+        val seen = MmkvManager.decodeSettingsLong(AppConfig.PREF_LAST_RUN_VERSION_CODE, 0L)
+        val current = BuildConfig.VERSION_CODE.toLong()
+        if (seen == current) return
+
+        // Записи нет у двух разных людей: у того, кто только что поставил приложение,
+        // и у того, кто обновился со сборки, где счётчика ещё не было. Первому окно ни
+        // к чему, второму - как раз к месту. Различаем по тому, есть ли уже подписки:
+        // на чистой установке их взяться неоткуда
+        val upgradedFromUntracked = seen == 0L && MmkvManager.decodeSubsList().isNotEmpty()
+
+        if ((seen == 0L && !upgradedFromUntracked) || seen > current) {
+            MmkvManager.encodeSettings(AppConfig.PREF_LAST_RUN_VERSION_CODE, current)
+            return
+        }
+
+        val notes = UpdateCheckerManager.releaseNotesFor(BuildConfig.VERSION_NAME)
+        if (notes == null) {
+            LogUtil.i(AppConfig.TAG, "Заметки к версии не получены, окно ждёт следующего запуска")
+            return
+        }
+
+        MmkvManager.encodeSettings(AppConfig.PREF_LAST_RUN_VERSION_CODE, current)
+        _whatsNew.value = notes
+    }
+
+    /** Подсказку про постоянный VPN закрыли: больше её не показываем. */
+    fun dismissLockdownHint() {
+        MmkvManager.encodeSettings(AppConfig.PREF_LOCKDOWN_HINT_DISMISSED, true)
+        _lockdownHintDismissed.value = true
+    }
+
+    /** Окно с изменениями закрыто: до следующего обновления оно больше не нужно. */
+    fun dismissWhatsNew() {
+        _whatsNew.value = null
+    }
+
+    /**
+     * Тихая проверка обновления при запуске. Плашку не показываем, если эту же
+     * версию уже закрыли рукой - напоминать о ней при каждом запуске незачем.
+     */
+    private suspend fun checkForUpdateQuietly() {
+        // Проверяем при каждом запуске, не глядя на время прошлой проверки. Раньше
+        // между походами в сеть держался шестичасовой перерыв, и человек, открывший
+        // приложение сразу после выхода версии, узнавал о ней только к вечеру.
+        // Стоит это одного небольшого запроса на старте
+        val update = UpdateCheckerManager.checkQuietly(force = true) ?: return
+        val version = update.latestVersion.orEmpty()
+        if (MmkvManager.decodeSettingsString(AppConfig.PREF_UPDATE_DISMISSED_VERSION) == version) {
+            return
+        }
+        _availableUpdate.value = update
+    }
+
+    /**
+     * «Обновить»: качаем файл и отдаём системному установщику. Если это не вышло -
+     * возвращаем false, и экран предлагает открыть ссылку в браузере: остаться
+     * совсем без обновления человек не должен.
+     */
+    fun startUpdate(onFallback: (String) -> Unit) {
+        val url = _availableUpdate.value?.downloadUrl ?: return
+        viewModelScope.launch(ioDispatcher) {
+            val started = AppUpdateInstaller.downloadAndInstall(app, url)
+            if (!started && AppUpdateInstaller.state.value !is UpdateInstallState.NeedsPermission) {
+                withContext(Dispatchers.Main) { onFallback(url) }
+            }
+        }
+    }
+
+    /** «Позже»: прячем плашку до следующей версии. */
+    fun dismissUpdate() {
+        _availableUpdate.value?.latestVersion?.let {
+            MmkvManager.encodeSettings(AppConfig.PREF_UPDATE_DISMISSED_VERSION, it)
+        }
+        _availableUpdate.value = null
+    }
+
+    /**
+     * Плашку о сбое убираем в любом случае - и когда отчёт открыли, и когда
+     * закрыли: повторно про то же падение напоминать нечего.
+     */
+    fun dismissCrashReport() {
+        _crashReport.value?.let { CrashReportManager.markSeen(it.name) }
+        _crashReport.value = null
+    }
+
+    fun refreshUiSettings() {
+        _uiState.update {
+            it.copy(
+                confirmRemove = dataSource.getConfirmRemove()
+            )
+        }
+    }
+
+    private suspend fun buildServersCache(guids: List<String>): List<ServersCache> =
+        guids.mapNotNull { guid ->
+            currentCoroutineContext().ensureActive()
+            val profile = dataSource.decodeServerConfig(guid) ?: return@mapNotNull null
+            val affiliation = dataSource.decodeAffiliationInfo(guid)
+            ServersCache(
+                guid = guid,
+                profile = profile.copy(),
+                testDelayMillis = affiliation?.testDelayMillis ?: 0L,
+                testDelayString = affiliation?.getTestDelayString().orEmpty()
+            )
+        }
+
+    private suspend fun loadGroup(groupId: String, forceRefresh: Boolean = false): List<ServersCache> {
+        val loadMutex = groupLoadMutexes.computeIfAbsent(groupId) { Mutex() }
+        return loadMutex.withLock {
+            if (!forceRefresh) {
+                cacheMutex.withLock { groupDataCache[groupId]?.let { return@withLock it } }
+            }
+            val servers = buildServersCache(dataSource.getServerGuidList(groupId))
+            currentCoroutineContext().ensureActive()
+            cacheMutex.withLock { groupDataCache[groupId] = servers }
+            servers
+        }
+    }
+
+    private fun applyKeywordFilter(servers: List<ServersCache>): List<ServersCache> {
+        val keyword = keywordFilter.trim()
+        if (keyword.isEmpty()) return servers
+        val regex = try {
+            Regex(keyword, RegexOption.IGNORE_CASE)
+        } catch (_: PatternSyntaxException) {
+            return servers
+        }
+        return servers.filter { cache ->
+            val profile = cache.profile
+            profile.remarks.matchesPattern(regex, keyword) ||
+                    profile.description.orEmpty().matchesPattern(regex, keyword) ||
+                    profile.serverDescription.orEmpty().matchesPattern(regex, keyword) ||
+                    profile.server.orEmpty().matchesPattern(regex, keyword) ||
+                    profile.configType.name.matchesPattern(regex, keyword)
+        }
+    }
+
+    private fun updateGroupUi(groupId: String, servers: List<ServersCache>) {
+        mutableServersForGroup(groupId).value = applyKeywordFilter(servers)
+    }
+
+    private fun resolveSelectedGroup(groups: List<GroupMapItem>): String {
+        val current = uiState.value.selectedGroupId
+        val resolved = when {
+            groups.isEmpty() -> ""
+            groups.any { it.id == current } -> current
+            else -> groups.first().id
+        }
+        if (resolved != current) {
+            dataSource.setSelectedSubscriptionId(resolved)
+        }
+        return resolved
+    }
+
+    private fun radialPreloadOrder(groups: List<GroupMapItem>, selectedIndex: Int): List<String> {
+        if (groups.isEmpty()) return emptyList()
+        val result = ArrayList<String>((groups.size - 1).coerceAtLeast(0))
+        for (distance in 1 until groups.size) {
+            val right = selectedIndex + distance
+            val left = selectedIndex - distance
+            if (right in groups.indices) result += groups[right].id
+            if (left in groups.indices) result += groups[left].id
+        }
+        return result
+    }
+
+    fun setupGroupTab(forceRefresh: Boolean = false): Job {
+        return viewModelScope.launch(ioDispatcher) {
+            try {
+                if (forceRefresh) {
+                    cacheMutex.withLock { groupDataCache.clear() }
+                }
+                
+                val subs = getSubscriptions().toList()
+                _subscriptions.value = subs
+
+                // Сервера, добавленные ключом, живут отдельной группой впереди подписок.
+                // Читаем её всегда, даже пустую: иначе поток, на который подписан экран,
+                // выбрасывался бы из списка и первый добавленный ключ появлялся бы
+                // только после перезапуска
+                val standalone = loadGroup(STANDALONE_GROUP_ID, forceRefresh)
+                updateGroupUi(STANDALONE_GROUP_ID, standalone)
+                rebuildPinned()
+
+                val standaloneGroup = if (standalone.isNotEmpty()) {
+                    listOf(GroupMapItem(id = STANDALONE_GROUP_ID, remarks = ""))
+                } else {
+                    emptyList()
+                }
+                val groups = standaloneGroup +
+                        subs.map { GroupMapItem(id = it.guid, remarks = it.subscription.remarks) }
+                val selectedGroup = resolveSelectedGroup(groups)
+                val validIds = groups.mapTo(HashSet()) { it.id }
+                validIds.add(STANDALONE_GROUP_ID)
+                groupPageFlows.keys.removeAll { it !in validIds }
+                groupLoadMutexes.keys.removeAll { it !in validIds }
+
+                _uiState.update {
+                    it.copy(
+                        groups = groups,
+                        selectedGroupId = selectedGroup,
+                        selectedGuid = dataSource.getSelectServer()
+                    )
+                }
+                groups.forEach { mutableServersForGroup(it.id) }
+
+                if (groups.isEmpty()) {
+                    cacheMutex.withLock { groupDataCache.clear() }
+                    return@launch
+                }
+
+                val selectedServers = loadGroup(selectedGroup, forceRefresh)
+                updateGroupUi(selectedGroup, selectedServers)
+
+                if (!initialPageReady.isCompleted) {
+                    initialPageReady.complete(Unit)
+                }
+
+                val selectedIndex = groups.indexOfFirst { it.id == selectedGroup }.coerceAtLeast(0)
+                val preloadOrder = radialPreloadOrder(groups, selectedIndex)
+                preloadJob = viewModelScope.launch(preloadDispatcher) {
+                    preloadOrder.forEach { groupId ->
+                        ensureActive()
+                        delay(32L)
+                        val servers = loadGroup(groupId, forceRefresh)
+                        updateGroupUi(groupId, servers)
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                LogUtil.e(AppConfig.TAG, "Failed to set up group tabs", error)
+            } finally {
+                if (!initialPageReady.isCompleted) {
+                    initialPageReady.complete(Unit)
+                }
+            }
+        }.also { setupGroupJob = it }
+    }
+
+    private fun importBatchConfig(configText: String) {
+        val isUrl = configText.startsWith("http://", true) || configText.startsWith("https://", true)
+
+        viewModelScope.launch {
+            isImporting.value = true
+            importError.value = null
+            withContext(ioDispatcher) {
+                try {
+                    // Одиночный ключ - отдельный сервер, а не часть подписки: положив его
+                    // в подписку, мы бы стёрли его первым же её обновлением
+                    val imported =
+                        dataSource.importBatchConfig(configText, STANDALONE_GROUP_ID, true)
+                    val (count, countSub) = imported
+
+                    // Новую подписку уже подтянул сам импорт; здесь остаётся случай,
+                    // когда адрес был знаком - тогда просто обновляем всё
+                    if (isUrl && countSub == 0) {
+                        if (dataSource.updateConfigViaSubAll().failureCount > 0) {
+                            importError.value = dataSource.getString(R.string.main_update_failed)
+                        }
+                    } else if (count == 0 && countSub == 0) {
+                        importError.value = dataSource.getString(R.string.main_clipboard_empty)
+                    } else if (imported.hasSubFailures) {
+                        // Подписка заведена, но сеть её не отдала. Карточка появится
+                        // пустой - и человек должен знать почему, а не гадать
+                        importError.value = dataSource.getString(R.string.main_update_failed)
+                    }
+
+                    setupGroupTab(forceRefresh = true).join()
+                    if (countSub > 0) {
+                        _subscriptions.value.lastOrNull()?.let { subscriptionIdChanged(it.guid) }
+                    }
+
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (e: Exception) {
+                    LogUtil.e(AppConfig.TAG, "Failed to import batch config", e)
+                    importError.value = dataSource.getString(R.string.main_import_failed, e.localizedMessage ?: "")
+                } finally {
+                    isImporting.value = false
+                }
+            }
+        }
+    }
+    
+    fun updateSubscription(subId: String) {
+        viewModelScope.launch {
+            isImporting.value = true
+            importError.value = null
+            withContext(ioDispatcher) {
+                try {
+                    val item = dataSource.getSubscriptionItem(subId) ?: return@withContext
+                    // Неудача возвращается значением, а не исключением, и раньше это
+                    // значение просто выбрасывалось. Плашка уезжала, экран обновлялся
+                    // старым содержимым - и выходило, будто подписка обновилась, хотя
+                    // сеть могла её и не отдать. Молчаливый отказ хуже громкого:
+                    // человек не перезапрашивает то, что по его мнению уже получил
+                    val result = dataSource.updateConfigViaSub(SubscriptionCache(subId, item))
+                    setupGroupTab(forceRefresh = true).join()
+                    if (result.failureCount > 0) {
+                        importError.value = dataSource.getString(R.string.main_update_failed)
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (e: Exception) {
+                    LogUtil.e(AppConfig.TAG, "Failed to update subscription", e)
+                    importError.value = dataSource.getString(R.string.main_update_failed)
+                } finally {
+                    isImporting.value = false
+                }
+            }
+        }
+    }
+
+    private fun importConfigViaSub() {
+        val subId = uiState.value.selectedGroupId
+        if (subId.isNotEmpty()) {
+            updateSubscription(subId)
+        }
+    }
+
+    /**
+     * Запоминает выбранный сервер.
+     *
+     * Профиль сперва проверяется: список на экране мог устареть - подписка обновляется
+     * в своей службе и заводит профилям новые идентификаторы. Запоминать мёртвый
+     * идентификатор нельзя, иначе подключение падает с «Неправильный профиль» и падает
+     * так же при каждой следующей попытке, пока сервер не выберут заново.
+     *
+     * @return Удалось ли выбрать.
+     */
+    fun updateSelectedGuid(guid: String): Boolean {
+        if (dataSource.decodeServerConfig(guid) == null) {
+            toastError(R.string.main_stale_profile)
+            setupGroupTab(forceRefresh = true)
+            return false
+        }
+        _uiState.update { it.copy(selectedGuid = guid) }
+        dataSource.setSelectServer(guid)
+        return true
+    }
+
+    fun triggerLocateSelectedServer() {}
+    fun testCurrentServerRealPing() {
+        dataSource.testCurrentServerRealPing()
+    }
+
+    /**
+     * Останавливает проверку задержки - обе сразу.
+     *
+     * Проверок две, и крестик должен гасить ту, которая на самом деле идёт.
+     * Одна живёт здесь, в процессе приложения, вторая - в отдельном процессе,
+     * у службы. Какая из них работает, отсюда не видно, поэтому отменяем обе:
+     * лишняя отмена ничего не стоит, а молчащий крестик стоил доверия.
+     */
+    private fun cancelAllPing() {
+        pingJob?.cancel()
+        dataSource.cancelAllPing()
+    }
+
+
+    private fun subscriptionIdChanged(groupId: String) {
+        _uiState.update { it.copy(selectedGroupId = groupId) }
+        dataSource.setSelectedSubscriptionId(groupId)
+        viewModelScope.launch(ioDispatcher) {
+            val servers = loadGroup(groupId)
+            updateGroupUi(groupId, servers)
+        }
+    }
+
+    /** Удаление одного сервера: список группы после этого перечитывается заново. */
+    private fun removeServerAndRefresh(guid: String) {
+        viewModelScope.launch(ioDispatcher) {
+            dataSource.removeServer(guid)
+            if (uiState.value.selectedGuid == guid) {
+                _uiState.update { it.copy(selectedGuid = dataSource.getSelectServer()) }
+            }
+            setupGroupTab(forceRefresh = true)
+        }
+    }
+    /**
+     * Поиск по названию, адресу, описанию и протоколу. Списки не перечитываются
+     * с диска - фильтр накладывается на то, что уже лежит в кэше групп.
+     */
+    private fun filterConfig(query: String) {
+        if (query == keywordFilter) return
+        keywordFilter = query
+        viewModelScope.launch(ioDispatcher) {
+            (uiState.value.groups.map { it.id } + STANDALONE_GROUP_ID)
+                .distinct()
+                .forEach { groupId -> updateGroupUi(groupId, loadGroup(groupId)) }
+            rebuildPinned()
+        }
+    }
+    private fun consumeLocateTarget(target: LocateTarget) {}
+    private fun onTestsFinished() {}
+}

@@ -8,14 +8,19 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-
-/*
- * Тема настольной версии. Палитры скопированы из Theme.kt приложения под Android
- * как есть; своего здесь только сборка темы - без цветов из обоев и настроек окна.
- */
+import androidx.compose.ui.platform.LocalContext
+import com.v2ray.ang.AppConfig
+import com.v2ray.ang.handler.MmkvManager
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 internal val LightColor = lightColorScheme(
     primary = Color(0xFF4F46E5), // Indigo - акцент интерфейса
@@ -116,50 +121,162 @@ val toastIconCircleBg = Color(0x33FFFFFF) // Semi-transparent White
 val toastTextColor = Color.White // White
 val colorPingSlow = Color(0xFFFFA500) // Orange
 
+object ThemeManager {
+    private val _themeMode = MutableStateFlow(
+        MmkvManager.decodeSettingsString(AppConfig.PREF_UI_MODE_NIGHT, "0") ?: "0"
+    )
+    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
+
+    private val _dynamicColor = MutableStateFlow(
+        MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR, false)
+    )
+
+    /** Брать ли палитру из обоев системы (Android 12+). */
+    val dynamicColor: StateFlow<Boolean> = _dynamicColor.asStateFlow()
+
+    private val _glassQuality = MutableStateFlow(
+        GlassQuality.of(MmkvManager.decodeSettingsString(AppConfig.PREF_GLASS_QUALITY, null))
+    )
+
+    /** Насколько тяжёлым делать стекло. */
+    val glassQuality: StateFlow<GlassQuality> = _glassQuality.asStateFlow()
+
+    private val _accentColor = MutableStateFlow(
+        MmkvManager.decodeSettingsString(AppConfig.PREF_ACCENT_COLOR, AccentPalette.DEFAULT_ID)
+            ?: AccentPalette.DEFAULT_ID
+    )
+
+    /** Выбранный акцент из [AccentPalette]. */
+    val accentColor: StateFlow<String> = _accentColor.asStateFlow()
+
+    private val _serviceColors = MutableStateFlow(
+        MmkvManager.decodeSettingsBool(AppConfig.PREF_SERVICE_COLORS, true)
+    )
+
+    /**
+     * Красить ли карточки в фирменные цвета сервисов. По умолчанию да: иначе
+     * владельцы поставят заголовок, ничего не увидят и перестанут его слать.
+     */
+    val serviceColors: StateFlow<Boolean> = _serviceColors.asStateFlow()
+
+    fun setServiceColors(enabled: Boolean) {
+        MmkvManager.encodeSettings(AppConfig.PREF_SERVICE_COLORS, enabled)
+        _serviceColors.value = enabled
+    }
+
+    fun setThemeMode(mode: String) {
+        MmkvManager.encodeSettings(AppConfig.PREF_UI_MODE_NIGHT, mode)
+        _themeMode.value = mode
+    }
+
+    fun setDynamicColor(enabled: Boolean) {
+        MmkvManager.encodeSettings(AppConfig.PREF_DYNAMIC_COLOR, enabled)
+        _dynamicColor.value = enabled
+    }
+
+    fun setGlassQuality(quality: GlassQuality) {
+        MmkvManager.encodeSettings(AppConfig.PREF_GLASS_QUALITY, quality.id)
+        _glassQuality.value = quality
+    }
+
+    fun setAccentColor(id: String) {
+        MmkvManager.encodeSettings(AppConfig.PREF_ACCENT_COLOR, id)
+        _accentColor.value = id
+    }
+
+    fun refresh() {
+        _themeMode.value =
+            MmkvManager.decodeSettingsString(AppConfig.PREF_UI_MODE_NIGHT, "0") ?: "0"
+        _dynamicColor.value = MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR, false)
+        _glassQuality.value =
+            GlassQuality.of(MmkvManager.decodeSettingsString(AppConfig.PREF_GLASS_QUALITY, null))
+        _accentColor.value =
+            MmkvManager.decodeSettingsString(AppConfig.PREF_ACCENT_COLOR, AccentPalette.DEFAULT_ID)
+                ?: AccentPalette.DEFAULT_ID
+    }
+}
+
+@Composable
+fun resolveDarkTheme(): Boolean {
+    val mode by ThemeManager.themeMode.collectAsState()
+    return when (mode) {
+        "1" -> false
+        "2" -> true
+        else -> isSystemInDarkTheme()
+    }
+}
+
 val LocalDarkTheme = compositionLocalOf { false }
 
 /** Разрешено ли красить карточки в фирменные цвета сервисов. */
 val LocalServiceColors = compositionLocalOf { true }
 
-/**
- * Уровень стекла. На компьютере видеоядро стекло тянет всегда, поэтому уровень
- * один - полный; перечисление оставлено, чтобы скопированное стекло не менять.
- */
-enum class GlassQuality {
-    FULL, LITE, OFF;
-
-    val blurs: Boolean get() = this != OFF
-    val refracts: Boolean get() = this == FULL
-    val isAdaptive: Boolean get() = false
-    fun movingOrLess(): GlassQuality = this
-}
-
-val LocalGlassQuality = compositionLocalOf { GlassQuality.FULL }
-val LocalGlassAdaptive = compositionLocalOf { false }
-
 @Composable
-fun DesktopTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+fun AppTheme(
+    darkTheme: Boolean = resolveDarkTheme(),
+    recordBackdrop: Boolean = true,
     content: @Composable () -> Unit
 ) {
+    // Material You: палитра из обоев, но чёрный фон тёмной темы сохраняем -
+    // ради него AMOLED-экраны и берут это приложение
+    val dynamicColor by ThemeManager.dynamicColor.collectAsState()
+    // Акцент из настроек: цвета из обоев главнее, там палитру задаёт система
+    val accentId by ThemeManager.accentColor.collectAsState()
+    val accent = AccentPalette.find(accentId)
+    val context = LocalContext.current
+    val colorScheme = when {
+        // Настольная версия: цветов из обоев нет, ветка оставлена ради сходства с Android
+        false && dynamicColor && darkTheme ->
+            DarkColor.copy(
+                background = DarkColor.background,
+                surface = DarkColor.surface,
+                surfaceContainerLowest = DarkColor.surfaceContainerLowest,
+                surfaceContainerLow = DarkColor.surfaceContainerLow,
+                surfaceContainer = DarkColor.surfaceContainer
+            )
+
+        darkTheme -> DarkColor.withAccent(accent, dark = true)
+        else -> LightColor.withAccent(accent, dark = false)
+    }
+    val glassQuality by ThemeManager.glassQuality.collectAsState()
+
+    // «Авто» обращается в настоящий уровень один раз на устройство: остальное
+    // приложение работает с готовым ответом и про «авто» ничего не знает
+    val effectiveQuality = remember(context, glassQuality) { glassQuality.resolve(context) }
+    val serviceColors by ThemeManager.serviceColors.collectAsState()
+    val snackbarController = rememberAppSnackbarController()
+
+    // Настольная версия: полос состояния и навигации нет, красить нечего
+
+    // Экран пишется в слой, чтобы диалоги, меню и снекбар могли размыть то, что под ними.
+    // Сам снекбар лежит снаружи записи - иначе он размывал бы сам себя, а это запрещено
     val backdrop = rememberGlassBackdrop()
+
     CompositionLocalProvider(
         LocalDarkTheme provides darkTheme,
-        LocalGlassBackdrop provides backdrop,
-        LocalGlassQuality provides GlassQuality.FULL,
+        LocalAppSnackbar provides snackbarController,
+        LocalGlassBackdrop provides backdrop.takeIf { recordBackdrop },
+        LocalGlassQuality provides effectiveQuality,
+        LocalGlassAdaptive provides glassQuality.isAdaptive,
+        LocalServiceColors provides serviceColors
     ) {
-        MaterialTheme(colorScheme = if (darkTheme) DarkColor else LightColor) {
-            Box(Modifier.fillMaxSize().glassBackdropSource(backdrop)) {
-                content()
+        MaterialTheme(
+            colorScheme = colorScheme
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                AppSnackbarBridge(controller = snackbarController)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (recordBackdrop) Modifier.glassBackdropSource(backdrop)
+                            else Modifier
+                        )
+                ) {
+                    content()
+                }
+                AppSnackbarHost(hostState = snackbarController.hostState)
             }
         }
     }
 }
-
-/**
- * Угол блика на стекле. На телефоне его ведёт датчик наклона; у монитора наклона
- * нет, и свет стоит там, где он у телефона, который держат прямо.
- */
-@Composable
-fun rememberGravityAngle(): androidx.compose.runtime.State<Float> =
-    androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(45f) }

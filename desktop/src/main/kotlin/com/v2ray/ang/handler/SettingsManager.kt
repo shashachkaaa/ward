@@ -1,6 +1,8 @@
 package com.v2ray.ang.handler
 
 import android.content.Context
+import android.content.res.AssetManager
+import android.os.Build
 import android.text.TextUtils
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.AppConfig.ANG_PACKAGE
@@ -238,6 +240,7 @@ object SettingsManager {
      * it creates a new default subscription to ensure that ungroup
      **/
     fun removeSubscriptionWithDefault(subid: String) {
+        SubscriptionUpdater.cancelOne(subId = subid)
         // Remove the subscription
         removeSubscription(subid)
 
@@ -305,19 +308,17 @@ object SettingsManager {
      * @param context The application context.
      * @param assets The AssetManager.
      */
-    // Настольная версия: geo-файлы лежат не в ассетах, а рядом с установленным
-    // приложением - их туда кладёт установщик
-    fun initAssets(context: Context, bundled: File) {
+    fun initAssets(context: Context, assets: AssetManager) {
         val extFolder = Utils.userAssetPath(context)
 
         try {
             val geo = arrayOf(AppConfig.GEOSITE_DAT, AppConfig.GEOIP_DAT, AppConfig.GEOIP_ONLY_CN_PRIVATE_DAT)
-            bundled.list()
+            assets.list("")
                 ?.filter { geo.contains(it) }
                 ?.filter { !File(extFolder, it).exists() }
                 ?.forEach {
                     val target = File(extFolder, it)
-                    File(bundled, it).inputStream().use { input ->
+                    assets.open(it).use { input ->
                         FileOutputStream(target).use { output ->
                             input.copyTo(output)
                         }

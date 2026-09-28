@@ -24,7 +24,10 @@ import java.nio.file.StandardCopyOption
 class MMKV private constructor(private val file: File) {
 
     private val lock = Any()
-    private val values: JsonObject = load()
+    private var values: JsonObject = load()
+
+    /** Перечитать с диска - после восстановления из резервной копии. */
+    internal fun reload() = synchronized(lock) { values = load() }
 
     private fun load(): JsonObject = try {
         if (file.exists()) JsonParser.parseString(file.readText()).asJsonObject else JsonObject()
@@ -116,5 +119,27 @@ class MMKV private constructor(private val file: File) {
 
         @JvmStatic
         fun defaultMMKV(): MMKV = mmkvWithID("DEFAULT")
+
+        private val storeDir get() = File(DesktopPaths.dataDir, "store")
+
+        /**
+         * Резервная копия всех хранилищ в папку. Копия настольная: файлы MMKV с
+         * Android в ней не читаются, и наоборот - форматы у них разные.
+         */
+        @JvmStatic
+        fun backupAllToDirectory(dir: String): Int {
+            val target = File(dir).apply { mkdirs() }
+            val files = storeDir.listFiles { f -> f.name.endsWith(".json") }.orEmpty()
+            files.forEach { it.copyTo(File(target, it.name), overwrite = true) }
+            return files.size
+        }
+
+        @JvmStatic
+        fun restoreAllFromDirectory(dir: String): Int {
+            val files = File(dir).walkTopDown().filter { it.isFile && it.name.endsWith(".json") }.toList()
+            files.forEach { it.copyTo(File(storeDir, it.name), overwrite = true) }
+            synchronized(instances) { instances.values.forEach { it.reload() } }
+            return files.size
+        }
     }
 }

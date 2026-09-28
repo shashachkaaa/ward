@@ -28,6 +28,9 @@ object Utils {
      */
     private val BRACKETED_HOST_REGEX = Regex("""^\[(.+)](?::\d+)?$""")
 
+    /** Имя домена, как его понимает Patterns.DOMAIN_NAME на Android. */
+    private val DOMAIN_REGEX = Regex("^(?=.{1,253}$)([A-Za-z0-9\\u00a1-\\uffff]([A-Za-z0-9\\u00a1-\\uffff-]{0,61}[A-Za-z0-9\\u00a1-\\uffff])?\\.)+[A-Za-z\\u00a1-\\uffff]{2,63}$")
+
     private val IPV6_REGEX = Regex("^((?:[0-9A-Fa-f]{1,4}))?((?::[0-9A-Fa-f]{1,4}))*::((?:[0-9A-Fa-f]{1,4}))?((?::[0-9A-Fa-f]{1,4}))*|((?:[0-9A-Fa-f]{1,4}))((?::[0-9A-Fa-f]{1,4})){7}$")
 
     /**
@@ -243,9 +246,12 @@ object Utils {
         if (value.isNullOrEmpty()) return false
 
         return try {
-            // Настольная версия: вместо Patterns и URLUtil - разбор через URI
-            val uri = URI(fixIllegalUrl(value))
-            (uri.scheme != null && !uri.host.isNullOrEmpty()) || isDomainName(value)
+            // Настольная версия: вместо Patterns и URLUtil - разбор через URI и
+            // регулярное выражение домена. isDomainName звать нельзя: он сам
+            // зовёт isValidUrl, и они уходили бы друг в друга бесконечно
+            val uri = runCatching { URI(fixIllegalUrl(value)) }.getOrNull()
+            (uri?.scheme != null && !uri.host.isNullOrEmpty()) ||
+                DOMAIN_REGEX.matches(value) || isPureIpAddress(value)
         } catch (e: Exception) {
             LogUtil.e(AppConfig.TAG, "Failed to validate URL", e)
             false
@@ -442,6 +448,9 @@ object Utils {
         }
         return false
     }
+
+    /** Флаги регистрации получателя - на компьютере не значат ничего. */
+    fun receiverFlags(): Int = 0
 
     /**
      * Check if the package is Xray.

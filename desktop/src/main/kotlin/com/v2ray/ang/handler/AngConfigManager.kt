@@ -1,8 +1,10 @@
 package com.v2ray.ang.handler
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.text.TextUtils
 import com.v2ray.ang.AppConfig
+import com.v2ray.ang.R
 import com.v2ray.ang.core.CoreConfigManager
 import com.v2ray.ang.dto.BatchImportResult
 import com.v2ray.ang.dto.SubscriptionUpdateResult
@@ -25,6 +27,7 @@ import com.v2ray.ang.util.DeviceInfo
 import com.v2ray.ang.util.HttpUtil
 import com.v2ray.ang.util.JsonUtil
 import com.v2ray.ang.util.LogUtil
+import com.v2ray.ang.util.QRCodeDecoder
 import com.v2ray.ang.util.Utils
 import java.io.IOException
 import java.net.URI
@@ -96,6 +99,26 @@ object AngConfigManager {
         } catch (e: Exception) {
             LogUtil.e(AppConfig.TAG, "Failed to share non-custom configs to clipboard", e)
             return -1
+        }
+    }
+
+    /**
+     * Shares the configuration as a QR code.
+     *
+     * @param guid The GUID of the configuration.
+     * @return The QR code bitmap.
+     */
+    fun share2QRCode(guid: String): Bitmap? {
+        try {
+            val conf = shareConfig(guid)
+            if (TextUtils.isEmpty(conf)) {
+                return null
+            }
+            return QRCodeDecoder.createQRCode(conf)
+
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to share config as QR code", e)
+            return null
         }
     }
 
@@ -460,7 +483,7 @@ object AngConfigManager {
             return 0
         } else if (server.startsWith("[Interface]") && server.contains("[Peer]")) {
             try {
-                val config = WireguardFmt.parseWireguardConfFile(server) ?: return 0 // настольная версия: кода строки ошибки здесь нет
+                val config = WireguardFmt.parseWireguardConfFile(server) ?: return R.string.toast_incorrect_protocol
                 config.description = generateDescription(config)
                 
                 val isNoServerSelected = MmkvManager.getSelectServer().isNullOrBlank()
@@ -605,7 +628,7 @@ object AngConfigManager {
             // Добавляем обязательные для Remnawave параметры.
             // x-ver-os панель показывает как «версия ОС»: без него там «Неизвестно»
             headersMap["x-hwid"] = hwid
-            headersMap["x-device-os"] = DeviceInfo.osName
+            headersMap["x-device-os"] = DeviceInfo.osName // настольная версия: система своя
             headersMap["x-ver-os"] = DeviceInfo.osVersion
             headersMap["x-device-model"] = DeviceInfo.model
             headersMap["x-user-agent"] = HttpUtil.clientUserAgent()
@@ -689,8 +712,13 @@ object AngConfigManager {
             if (count > 0) {
                 it.subscription.lastUpdated = System.currentTimeMillis()
                 MmkvManager.encodeSubscription(it.guid, it.subscription)
-                // Настольная версия: предупреждений о лимите и фонового
-                // планировщика пока нет, интервал читается при следующем обходе
+                // Данные о лимите свежие ровно сейчас - здесь и решаем, предупреждать ли
+                SubscriptionAlerts.check(it.guid, it.subscription)
+                // Новый интервал из заголовка нужно донести до планировщика,
+                // иначе задача так и будет ходить по старому расписанию
+                if (intervalChanged && it.subscription.autoUpdate) {
+                    SubscriptionUpdater.syncOne(subId = it.guid)
+                }
                 LogUtil.i(AppConfig.TAG, "Subscription updated: ${it.subscription.remarks}, $count configs")
                 return SubscriptionUpdateResult(
                     configCount = count,

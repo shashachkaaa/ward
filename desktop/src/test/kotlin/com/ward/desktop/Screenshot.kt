@@ -58,6 +58,14 @@ fun main(args: Array<String>) {
         screens.forEachIndexed { i, name ->
             javax.swing.SwingUtilities.invokeAndWait {
                 if (name == "back") Navigator.back()
+                else if (name.startsWith("import:")) {
+                    // Импорт тем же путём, что «+» в интерфейсе: через MainViewModel экрана
+                    val activity = Navigator.stack.first()
+                    val field = activity.javaClass.getDeclaredField("mainViewModel\$delegate").apply { isAccessible = true }
+                    val vm = (field.get(activity) as Lazy<*>).value as com.v2ray.ang.ui.main.MainViewModel
+                    vm.onAction(com.v2ray.ang.ui.main.MainAction.ImportBatchConfig(name.removePrefix("import:")))
+                }
+                else if (name == "maximize") java.awt.Frame.getFrames().filter { it.isVisible }.forEach { it.extendedState = java.awt.Frame.MAXIMIZED_BOTH; it.setBounds(0, 0, 1900, 1000) }
                 else if (name == "connect") com.v2ray.ang.core.LauncherManager.startServiceFromToggle(android.content.Context.app)
                 else if (name == "disconnect") com.v2ray.ang.core.LauncherManager.stopService(android.content.Context.app)
                 else Navigator.start(android.content.Intent(android.content.Context.app, Class.forName(name)))

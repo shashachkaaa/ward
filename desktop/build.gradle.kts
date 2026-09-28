@@ -129,7 +129,12 @@ compose.desktop {
             // Рядом с приложением кладётся бинарник xray и geo-файлы: CI скачивает
             // их в resources/<os> перед упаковкой
             appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
-            modules("java.naming", "jdk.crypto.ec")
+            // Урезанная Java внутри установщика: только перечисленные модули.
+            // jdk.unsupported нужен Gson - без sun.misc.Unsafe он не создаёт объекты
+            // без конструктора по умолчанию (ProfileItem, V2rayConfig), и в
+            // установленном приложении не читался ни один сервер. Список сверяется
+            // задачей suggestRuntimeModules и проверкой в CI
+            modules("java.naming", "jdk.crypto.ec", "java.instrument", "java.sql", "jdk.unsupported")
             windows {
                 menuGroup = "Ward"
                 shortcut = true

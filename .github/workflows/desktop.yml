@@ -100,6 +100,16 @@ jobs:
     - name: Package
       run: ./gradlew ${{ matrix.tasks }} $VERSION_ARG
 
+    # Тесты идут на полной JDK, а приложение - на урезанной Java из установщика.
+    # Модуль, которого там нет, тесты не заметят: так уже пропадали все серверы
+    - name: Check bundled runtime modules
+      run: |
+        release=$(find build/compose -name release -path "*runtime*" | head -1)
+        echo "$release"
+        for m in java.naming jdk.crypto.ec java.sql jdk.unsupported; do
+          grep -q "$m" "$release" || { echo "::error::В упакованной Java нет модуля $m"; exit 1; }
+        done
+
     # jpackage пишет причину отказа в свои файлы, а не в вывод Gradle
     - name: Show packager logs
       if: failure()

@@ -176,7 +176,7 @@ class CoreController internal constructor(private val handler: CoreCallbackHandl
 
     @Volatile private var process: Process? = null
     @Volatile private var config: JsonObject? = null
-    @Volatile private var apiPort: Int = 0
+    @Volatile private var metricsPort: Int = 0
     private var configFile: File? = null
 
     val isRunning: Boolean get() = process?.isAlive == true
@@ -190,7 +190,7 @@ class CoreController internal constructor(private val handler: CoreCallbackHandl
     fun startLoop(configContent: String, tunFd: Int) {
         stopLoop()
         val json = JsonParser.parseString(configContent).asJsonObject
-        withStatsApi(json)
+        withMetrics(json)
         quietAccessLog(json)
         config = json
 
@@ -261,69 +261,69 @@ class CoreController internal constructor(private val handler: CoreCallbackHandl
         return Libv2ray.httpDelay(url, Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port)), 10_000)
     }
 
+    /** Накопленные счётчики с прошлого опроса: страница метрик отдаёт итог, а не приращение. */
+    private val lastCounters = HashMap<String, Long>()
+
     /**
      * Счётчики трафика по исходящим, со сбросом - в том же виде, что у libv2ray:
      * «tag,direction,value;...».
+     *
+     * Читаются со страницы метрик ядра (/debug/vars) обычным HTTP-запросом.
+     * Раньше здесь раз в секунду запускался xray api statsquery - на Windows
+     * каждый запуск 36-мегабайтного exe стоит заметного процессора, а Защитник
+     * ещё и проверяет его всякий раз, и это отнимало скорость у самого ядра.
      */
+    @Synchronized
     fun queryAllOutboundTrafficStats(): String {
-        if (!isRunning || apiPort == 0) return ""
-        val p = ProcessBuilder(
-            Libv2ray.executableXray().absolutePath, "api", "statsquery",
-            "--server=127.0.0.1:$apiPort", "-pattern", "outbound>>>", "-reset"
-        ).redirectErrorStream(true).start()
-        val out = p.inputStream.bufferedReader().readText()
-        p.waitFor(3, TimeUnit.SECONDS)
-        val stats = runCatching { JsonParser.parseString(out).asJsonObject.getAsJsonArray("stat") }.getOrNull()
-            ?: return ""
-        return stats.joinToString(";") { e ->
-            val o = e.asJsonObject
-            // outbound>>>proxy>>>traffic>>>uplink
-            val parts = o["name"].asString.split(">>>")
-            val value = o["value"]?.asLong ?: 0L
-            "${parts.getOrNull(1)},${parts.getOrNull(3)},$value"
+        if (!isRunning || metricsPort == 0) return ""
+        val body = runCatching {
+            val conn = URL("http://127.0.0.1:$metricsPort/debug/vars").openConnection(Proxy.NO_PROXY) as java.net.HttpURLConnection
+            conn.connectTimeout = 500
+            conn.readTimeout = 500
+            conn.inputStream.use { it.readBytes().decodeToString() }
+        }.getOrNull() ?: return ""
+        val outbound = runCatching {
+            JsonParser.parseString(body).asJsonObject.getAsJsonObject("stats").getAsJsonObject("outbound")
+        }.getOrNull() ?: return ""
+        val parts = mutableListOf<String>()
+        for ((tag, value) in outbound.entrySet()) {
+            val o = value.asJsonObject
+            for (direction in listOf("uplink", "downlink")) {
+                val total = o[direction]?.asLong ?: continue
+                val key = "$tag>$direction"
+                val delta = (total - (lastCounters[key] ?: 0L)).coerceAtLeast(0L)
+                lastCounters[key] = total
+                parts += "$tag,$direction,$delta"
+            }
         }
+        return parts.joinToString(";")
     }
 
     /**
-     * Журнал доступа пишет строку на каждое соединение, в том числе на опрос
-     * статистики раз в секунду. Оставляем его, только если журнал просили
-     * подробный; иначе он забивает файл и экран журнала.
+     * Страница метрик ядра - только если в конфиге включена статистика, как у
+     * основного подключения. Слушает сама, без входа и правила маршрутизации.
+     */
+    private fun withMetrics(json: JsonObject) {
+        metricsPort = 0
+        lastCounters.clear()
+        if (json["stats"] == null) return
+        val port = ServerSocket(0).use { it.localPort }
+        json.add("metrics", JsonObject().apply {
+            addProperty("tag", METRICS_TAG)
+            addProperty("listen", "127.0.0.1:$port")
+        })
+        metricsPort = port
+    }
+
+    /**
+     * Журнал доступа пишет строку на каждое соединение. Оставляем его, только
+     * если журнал просили подробный; иначе он забивает файл и экран журнала.
      */
     private fun quietAccessLog(json: JsonObject) {
         val log = json.getAsJsonObject("log") ?: JsonObject().also { json.add("log", it) }
         val level = log["loglevel"]?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
         val access = log["access"]?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
         if (access.isEmpty() && level != "debug" && level != "info") log.addProperty("access", "none")
-    }
-
-    /** Вход API статистики: только если в конфиге включена статистика - как у основного подключения. */
-    private fun withStatsApi(json: JsonObject) {
-        apiPort = 0
-        if (json["stats"] == null) return
-        val port = ServerSocket(0).use { it.localPort }
-        json.add("api", JsonObject().apply {
-            addProperty("tag", API_TAG)
-            add("services", JsonArray().apply { add("StatsService") })
-        })
-        val inbounds = json.getAsJsonArray("inbounds") ?: JsonArray().also { json.add("inbounds", it) }
-        inbounds.add(JsonObject().apply {
-            addProperty("tag", API_TAG)
-            addProperty("listen", "127.0.0.1")
-            addProperty("port", port)
-            addProperty("protocol", "dokodemo-door")
-            add("settings", JsonObject().apply { addProperty("address", "127.0.0.1") })
-        })
-        val routing = json.getAsJsonObject("routing") ?: JsonObject().also { json.add("routing", it) }
-        val rules = routing.getAsJsonArray("rules") ?: JsonArray().also { routing.add("rules", it) }
-        val apiRule = JsonObject().apply {
-            addProperty("type", "field")
-            add("inboundTag", JsonArray().apply { add(API_TAG) })
-            addProperty("outboundTag", API_TAG)
-        }
-        // Первым: иначе запросы к API уйдут по общим правилам, например в прокси
-        val copy = JsonArray().apply { add(apiRule); rules.forEach { add(it) } }
-        routing.add("rules", copy)
-        apiPort = port
     }
 
     private fun inboundPorts(json: JsonObject): List<Int> =
@@ -336,7 +336,7 @@ class CoreController internal constructor(private val handler: CoreCallbackHandl
     }
 
     private companion object {
-        const val API_TAG = "ward-api"
+        const val METRICS_TAG = "ward-metrics"
     }
 }
 

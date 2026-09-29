@@ -174,7 +174,6 @@ object CoreServiceManager {
                     when {
                         s.tag == AppConfig.TAG_DIRECT -> if (up) du += s.value else dd += s.value
                         s.tag.startsWith(AppConfig.TAG_PROXY) -> if (up) pu += s.value else pd += s.value
-                        s.tag == "ward-api" -> {}
                         else -> if (up) ou += s.value else od += s.value
                     }
                 }

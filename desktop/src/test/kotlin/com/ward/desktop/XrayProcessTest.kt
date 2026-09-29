@@ -48,8 +48,19 @@ class XrayProcessTest {
             assertTrue(controller.isRunning)
             Socket().use { it.connect(InetSocketAddress("127.0.0.1", 10808), 1000) }
             Socket().use { it.connect(InetSocketAddress("127.0.0.1", 10809), 1000) }
-            // API статистики поднят: ответ разбирается, пусть и пустой
-            controller.queryAllOutboundTrafficStats()
+            // Трафик через прокси: счётчики ядра должны его увидеть. Соединение
+            // упадёт (сервера нет), но несколько байт уйти успеют
+            runCatching {
+                java.net.Socket(java.net.Proxy(java.net.Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", 10808))).use {
+                    it.soTimeout = 2000
+                    it.connect(InetSocketAddress("example.com", 80), 2000)
+                    it.getOutputStream().write("GET / HTTP/1.0\r\n\r\n".toByteArray())
+                    it.getInputStream().read()
+                }
+            }
+            Thread.sleep(300)
+            val stats = controller.queryAllOutboundTrafficStats()
+            assertTrue(stats.contains("proxy,uplink,"), "счётчики со страницы метрик: '$stats'")
         } finally {
             controller.stopLoop()
         }

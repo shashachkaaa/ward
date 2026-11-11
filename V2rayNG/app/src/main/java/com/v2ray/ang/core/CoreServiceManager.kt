@@ -407,14 +407,13 @@ object CoreServiceManager {
          * @return 0 for success, any other value for failure.
          */
         override fun shutdown(): Long {
-            val serviceControl = serviceControl?.get() ?: return -1
-            return try {
-                serviceControl.stopService()
-                0
-            } catch (e: Exception) {
-                LogUtil.e(AppConfig.TAG, "StartCore-Manager: Failed to stop service", e)
-                -1
-            }
+            // Только запись в журнал, как и в v2rayNG. Прежняя libv2ray этот вызов не
+            // делала вовсе, нынешняя (с ядром 26.11.9) делает его на каждый stopLoop.
+            // Останавливать здесь службу нельзя: stopLoop зовёт и reloadCore при
+            // смене сети, и служба гасла бы на каждом переходе с Wi-Fi на мобильную
+            // сеть. Служба и так останавливается своим путём, через stopService
+            LogUtil.i(AppConfig.TAG, "StartCore-Manager: CoreCallback shutdown")
+            return 0
         }
 
         /**

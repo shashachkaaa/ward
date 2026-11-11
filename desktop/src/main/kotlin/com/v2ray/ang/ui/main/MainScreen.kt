@@ -242,14 +242,17 @@ fun MainScreen(
     var searchQuery by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(searchQuery) { onAction(MainAction.Search(searchQuery)) }
 
-    // Свёрнутые карточки: «Скрыть все» прячет списки серверов, шапки остаются
-    var collapsedGuids by rememberSaveable { mutableStateOf(listOf<String>()) }
+    // Свёрнутые карточки: «Скрыть все» прячет списки серверов, шапки остаются.
+    // Набор хранит ViewModel, а не экран: он должен пережить перезапуск приложения
+    val collapsedGuids by mainViewModel.collapsedGroups.collectAsStateWithLifecycle()
     val collapsibleGuids = buildList {
         if (pinnedServers.isNotEmpty()) add(PINNED_GROUP_KEY)
         if (showStandalone) add(STANDALONE_GROUP_ID)
         subscriptions.forEach { add(it.guid) }
     }
-    val allCollapsed = collapsibleGuids.isNotEmpty() && collapsedGuids.size >= collapsibleGuids.size
+    // Сверяем поимённо, а не по числу: в наборе может лежать свёрнутое избранное,
+    // которого сейчас нет на экране, и счёт сошёлся бы при развёрнутой подписке
+    val allCollapsed = collapsibleGuids.isNotEmpty() && collapsedGuids.containsAll(collapsibleGuids)
 
     // Стекло размывает именно то, что под ним, поэтому экран пишется в слой.
     // Его же получают меню и диалоги: они живут в своих окнах и потому вправе
@@ -350,7 +353,7 @@ fun MainScreen(
                     ActionChip(
                         text = stringResource(if (allCollapsed) R.string.main_action_expand_all else R.string.main_action_collapse_all),
                         onClick = {
-                            collapsedGuids = if (allCollapsed) emptyList() else collapsibleGuids
+                            mainViewModel.setCollapsedGroups(if (allCollapsed) emptySet() else collapsibleGuids.toSet())
                         }
                     )
                     ActionChip(
@@ -473,13 +476,7 @@ fun MainScreen(
                                     selectedGuid = uiState.selectedGuid,
                                     pinnedGuids = pinnedGuids,
                                     expanded = PINNED_GROUP_KEY !in collapsedGuids,
-                                    onToggleExpanded = {
-                                        collapsedGuids = if (PINNED_GROUP_KEY in collapsedGuids) {
-                                            collapsedGuids - PINNED_GROUP_KEY
-                                        } else {
-                                            collapsedGuids + PINNED_GROUP_KEY
-                                        }
-                                    },
+                                    onToggleExpanded = { mainViewModel.toggleGroupCollapsed(PINNED_GROUP_KEY) },
                                     onAction = onAction,
                                     onSelectServer = { guid -> onAction(MainAction.SelectServer(guid)) },
                                     onEditServer = { guid, profile ->
@@ -501,13 +498,7 @@ fun MainScreen(
                                     selectedGuid = uiState.selectedGuid,
                                     pinnedGuids = pinnedGuids,
                                     expanded = STANDALONE_GROUP_ID !in collapsedGuids,
-                                    onToggleExpanded = {
-                                        collapsedGuids = if (STANDALONE_GROUP_ID in collapsedGuids) {
-                                            collapsedGuids - STANDALONE_GROUP_ID
-                                        } else {
-                                            collapsedGuids + STANDALONE_GROUP_ID
-                                        }
-                                    },
+                                    onToggleExpanded = { mainViewModel.toggleGroupCollapsed(STANDALONE_GROUP_ID) },
                                     onAction = onAction,
                                     onSelectServer = { guid -> onAction(MainAction.SelectServer(guid)) },
                                     onEditServer = { guid, profile ->
@@ -567,13 +558,7 @@ fun MainScreen(
                                 selectedGuid = uiState.selectedGuid,
                                 pinnedGuids = pinnedGuids,
                                 expanded = subCache.guid !in collapsedGuids,
-                                onToggleExpanded = {
-                                    collapsedGuids = if (subCache.guid in collapsedGuids) {
-                                        collapsedGuids - subCache.guid
-                                    } else {
-                                        collapsedGuids + subCache.guid
-                                    }
-                                },
+                                onToggleExpanded = { mainViewModel.toggleGroupCollapsed(subCache.guid) },
                                 canMoveUp = index > 0,
                                 canMoveDown = index < subscriptions.lastIndex,
                                 onAction = onAction,

@@ -155,6 +155,10 @@ class MainRepository(
 
     override fun togglePinnedServer(guid: String): Boolean = MmkvManager.togglePinnedServer(guid)
 
+    override fun getCollapsedGroups(): List<String> = MmkvManager.decodeCollapsedGroups()
+
+    override fun setCollapsedGroups(keys: List<String>) = MmkvManager.encodeCollapsedGroups(keys)
+
     override fun removeServer(guid: String) = MmkvManager.removeServer(guid)
 
     override fun removeAllServer(): Int = MmkvManager.removeAllServer()

@@ -41,6 +41,7 @@ object MmkvManager {
     private const val KEY_SUB_SERVER_PREFIX = "SUB_SERVERS_"
     private const val KEY_SUB_IDS = "SUB_IDS"
     private const val KEY_PINNED_SERVERS = "PINNED_SERVERS"
+    private const val KEY_COLLAPSED_GROUPS = "COLLAPSED_GROUPS"
     private const val KEY_WEBDAV_CONFIG = "WEBDAV_CONFIG"
 
     private val mainStorage by lazy { MMKV.mmkvWithID(ID_MAIN, MMKV.MULTI_PROCESS_MODE) }
@@ -184,6 +185,29 @@ object MmkvManager {
         }
         encodePinnedServers(pinned)
         return nowPinned
+    }
+
+    /**
+     * Свёрнутые карточки главного экрана: guid подписок и служебные ключи разделов.
+     * Лежит рядом с избранным, а не в настройках: это вид экрана, а не настройка,
+     * но пережить перезапуск он обязан - свернувший подписку не хочет сворачивать
+     * её заново при каждом запуске.
+     */
+    fun decodeCollapsedGroups(): MutableList<String> {
+        val json = mainStorage.decodeString(KEY_COLLAPSED_GROUPS)
+        return if (json.isNullOrBlank()) {
+            mutableListOf()
+        } else {
+            JsonUtil.fromJsonSafe(json, Array<String>::class.java)?.toMutableList() ?: mutableListOf()
+        }
+    }
+
+    fun encodeCollapsedGroups(keys: List<String>) {
+        if (keys.isEmpty()) {
+            mainStorage.remove(KEY_COLLAPSED_GROUPS)
+        } else {
+            mainStorage.encode(KEY_COLLAPSED_GROUPS, JsonUtil.toJson(keys))
+        }
     }
 
     /**

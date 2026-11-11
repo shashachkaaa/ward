@@ -37,6 +37,10 @@ interface MainDataSource : Closeable {
     fun setPinnedServers(guids: List<String>)
     fun togglePinnedServer(guid: String): Boolean
 
+    /** Свёрнутые карточки главного экрана - чтобы они оставались свёрнутыми после перезапуска. */
+    fun getCollapsedGroups(): List<String>
+    fun setCollapsedGroups(keys: List<String>)
+
     fun removeServer(guid: String)
     fun removeAllServer(): Int
     fun removeDuplicateServers(groupId: String): Int

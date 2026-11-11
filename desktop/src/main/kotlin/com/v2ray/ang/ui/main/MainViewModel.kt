@@ -87,6 +87,20 @@ class MainViewModel(
     /** Те же закреплённые, но набором - строке сервера нужно знать про звёздочку. */
     val pinnedGuids: StateFlow<Set<String>> = _pinnedGuids.asStateFlow()
 
+    private val _collapsedGroups = MutableStateFlow<Set<String>>(dataSource.getCollapsedGroups().toSet())
+
+    /**
+     * Свёрнутые карточки: guid подписок, [STANDALONE_GROUP_ID] и [PINNED_GROUP_KEY].
+     *
+     * Раньше набор жил в rememberSaveable экрана. Тот переживает поворот и выгрузку
+     * процесса системой, но не обычный перезапуск - и свёрнутая подписка при каждом
+     * запуске разворачивалась обратно. Теперь он берётся из хранилища и пишется туда
+     * при каждой смене.
+     */
+    val collapsedGroups: StateFlow<Set<String>> = _collapsedGroups.asStateFlow()
+
+    private val collapsedLock = Any()
+
     private val _availableUpdate = MutableStateFlow<CheckUpdateResult?>(null)
 
     /** Найденное обновление: из него на главном экране рисуется плашка. */
@@ -585,6 +599,30 @@ class MainViewModel(
         _whatsNew.value = notes
     }
 
+    /** Свернуть или развернуть одну карточку. */
+    fun toggleGroupCollapsed(key: String) {
+        updateCollapsedGroups { if (key in it) it - key else it + key }
+    }
+
+    /** «Скрыть все» и «Показать все»: набор целиком. */
+    fun setCollapsedGroups(keys: Set<String>) {
+        updateCollapsedGroups { keys }
+    }
+
+    /**
+     * Смена и запись под одним замком: зовут и с экрана, и из фоновой пересборки
+     * групп, и без него запись старого набора могла бы лечь поверх нового.
+     */
+    private fun updateCollapsedGroups(transform: (Set<String>) -> Set<String>) {
+        synchronized(collapsedLock) {
+            val current = _collapsedGroups.value
+            val next = transform(current)
+            if (next == current) return
+            _collapsedGroups.value = next
+            dataSource.setCollapsedGroups(next.toList())
+        }
+    }
+
     /** Подсказку про постоянный VPN закрыли: больше её не показываем. */
     fun dismissLockdownHint() {
         MmkvManager.encodeSettings(AppConfig.PREF_LOCKDOWN_HINT_DISMISSED, true)
@@ -735,6 +773,11 @@ class MainViewModel(
                 
                 val subs = getSubscriptions().toList()
                 _subscriptions.value = subs
+
+                // Удалённая подписка не должна оставаться в свёрнутых навсегда: guid
+                // новых уникальны, так что вреда от неё нет, но хранилище копило бы мусор
+                val knownGroups = subs.mapTo(hashSetOf(STANDALONE_GROUP_ID, PINNED_GROUP_KEY)) { it.guid }
+                updateCollapsedGroups { collapsed -> collapsed.filterTo(HashSet()) { it in knownGroups } }
 
                 // Сервера, добавленные ключом, живут отдельной группой впереди подписок.
                 // Читаем её всегда, даже пустую: иначе поток, на который подписан экран,

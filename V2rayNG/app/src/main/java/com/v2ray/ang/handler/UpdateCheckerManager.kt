@@ -121,11 +121,19 @@ object UpdateCheckerManager {
      * при выпуске, и вторая копия в коде однажды разойдётся с первой. Цена - поход
      * в сеть; не ответила, значит окно подождёт до следующего запуска.
      *
-     * @param version Версия как в теге релиза, без «v».
+     * Теги релизов с 0.9.16 начинаются с «v», а до того шли без неё. Искали только
+     * без: GitHub отвечал 404, окно у этих версий не показывалось, зато каждый запуск
+     * ходил за заметками заново. Теперь сначала с «v», потом без.
+     *
+     * @param version Версия как в BuildConfig.VERSION_NAME, без «v».
      * @return Текст заметок или null, если релиза нет, он пуст либо сеть молчит.
      */
     suspend fun releaseNotesFor(version: String): String? = withContext(Dispatchers.IO) {
-        val url = AppConfig.APP_API_URL.concatUrl("tags", version)
+        releaseNotesForTag("v$version") ?: releaseNotesForTag(version)
+    }
+
+    private fun releaseNotesForTag(tag: String): String? {
+        val url = AppConfig.APP_API_URL.concatUrl("tags", tag)
 
         // Сначала напрямую, потом через туннель - тем же путём, что и проверка обновлений
         val response = HttpUtil.getUrlContent(UrlContentRequest(url = url, timeout = 5000))
@@ -138,14 +146,14 @@ object UpdateCheckerManager {
                     proxyPassword = SettingsManager.getSocksPassword()
                 )
             )
-            ?: return@withContext null
+            ?: return null
 
         val release = JsonUtil.fromJsonSafe(response, GitHubRelease::class.java)
-            ?: return@withContext null
+            ?: return null
         // Поле объявлено непустым, но Gson собирает объект в обход конструктора, и у
         // релиза без описания оно окажется null - отсюда явный тип с вопросом
         val notes: String? = release.body
-        notes?.takeIf { it.isNotBlank() }
+        return notes?.takeIf { it.isNotBlank() }
     }
 
     /** Запоминает найденную версию, чтобы показать её без похода в сеть. */
